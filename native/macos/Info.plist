@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleExecutable</key><string>KeyrillAlpha</string>
+  <key>CFBundleIdentifier</key><string>org.keyrill.inputmethod.alpha</string>
+  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+  <key>CFBundleName</key><string>Keyrill Alpha</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleVersion</key><string>9</string>
+  <key>LSMinimumSystemVersion</key><string>13.0</string>
+  <key>LSUIElement</key><true/>
+  <key>NSPrincipalClass</key><string>NSApplication</string>
+  <key>InputMethodConnectionName</key><string>org.keyrill.inputmethod.alpha_Connection</string>
+  <key>InputMethodServerControllerClass</key><string>KeyrillAlphaController</string>
+  <key>tsInputMethodIconFileKey</key><string>KeyrillTemplate.tif</string>
+  <key>tsInputMethodAlternateIconFileKey</key><string>KeyrillSelected.tif</string>
+  <key>tsInputMethodCharacterRepertoireKey</key>
+  <array><string>Latn</string><string>Cyrl</string></array>
+  <key>ComponentInputModeDict</key>
+  <dict>
+    <key>tsInputModeListKey</key>
+    <dict>
+      <key>org.keyrill.inputmethod.alpha.English</key>
+      <dict>
+        <key>TISInputSourceID</key><string>org.keyrill.inputmethod.alpha.English</string>
+        <key>TISIntendedLanguage</key><string>en</string>
+        <key>tsInputModeMenuIconFileKey</key><string>KeyrillEnglishTemplate.tif</string>
+        <key>tsInputModeAlternateMenuIconFileKey</key><string>KeyrillEnglishSelected.tif</string>
+        <key>tsInputModePaletteIconFileKey</key><string>KeyrillEnglishPalette.tif</string>
+        <key>tsInputModeScriptKey</key><string>smUnicodeScript</string>
+        <key>tsInputModeDefaultStateKey</key><true/>
+        <key>tsInputModeIsVisibleKey</key><true/>
+      </dict>
+      <key>org.keyrill.inputmethod.alpha.Russian</key>
+      <dict>
+        <key>TISInputSourceID</key><string>org.keyrill.inputmethod.alpha.Russian</string>
+        <key>TISIntendedLanguage</key><string>ru</string>
+        <key>tsInputModeMenuIconFileKey</key><string>KeyrillRussianTemplate.tif</string>
+        <key>tsInputModeAlternateMenuIconFileKey</key><string>KeyrillRussianSelected.tif</string>
+        <key>tsInputModePaletteIconFileKey</key><string>KeyrillRussianPalette.tif</string>
+        <key>tsInputModeScriptKey</key><string>smUnicodeScript</string>
+        <key>tsInputModeDefaultStateKey</key><true/>
+        <key>tsInputModeIsVisibleKey</key><true/>
+      </dict>
+    </dict>
+    <key>tsVisibleInputModeOrderedArrayKey</key>
+    <array>
+      <string>org.keyrill.inputmethod.alpha.English</string>
+      <string>org.keyrill.inputmethod.alpha.Russian</string>
+    </array>
+  </dict>
+</dict>
+</plist>

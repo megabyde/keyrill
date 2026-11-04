@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keyrill browser fixture</title>
+<style>
+  :root { color-scheme: light dark; font: 15px/1.5 -apple-system, system-ui, sans-serif; }
+  body { margin: 24px; max-width: 760px; }
+  textarea { width: 100%; box-sizing: border-box; font: 16px/1.4 ui-monospace, Menlo, monospace; }
+  pre { padding: 8px; border: 1px solid GrayText; white-space: pre-wrap; }
+  .pass { color: #1a7f37; } .fail { color: #cf222e; }
+</style>
+</head>
+<body>
+<h1>Keyrill browser fixture</h1>
+<p>A local, synthetic page. This page does not save or send field text, and loads no external
+resources. It checks only what this browser reports for its own text field. It cannot tell
+whether input came through Keyrill, from another input source or from automation.</p>
+<p>Choose a scenario, press <b>Reset field</b>, then follow the steps without clicking in the
+field. Reset places the caret. The result updates as you type.</p>
+<p><label>Scenario <select id="scenario"></select></label>
+  <button id="reset" type="button">Reset field</button></p>
+<ol id="steps"></ol>
+<textarea id="field" rows="5" spellcheck="false" autocorrect="off" autocapitalize="off"
+          autocomplete="off" aria-label="Fixture field"></textarea>
+<p id="summary" aria-live="polite"></p>
+<pre id="report"></pre>
+<p id="selftest"></p>
+<script>
+'use strict';
+
+const FIXTURE = 'keyrill-browser-fixture-2';
+// The astral character makes UTF-16 offsets differ from code-point offsets
+const PREFIX = 'Fixture α\u{1F600} start: ';
+const SUFFIX = '\nFixture end.';
+
+// `checkpoints` are typed-portion states that must be observed in this order with a collapsed
+// caret at their end; other states between them are ignored. The last one is the final state.
+const SCENARIOS = [
+  {
+    id: 'auto',
+    title: 'Automatic correction',
+    steps: ['Select Keyrill English.', 'Type ghbdtn rfr ltkf hello', 'Press Space, then Return.'],
+    checkpoints: ['привет ', 'привет как ', 'привет как дела ', 'привет как дела hello \n'],
+  },
+  {
+    id: 'manual',
+    title: 'Manual conversion',
+    steps: ['Select Keyrill English.', 'Type ghbdtn', 'Press Control-Option-K.',
+            'Press Space, then Return.'],
+    checkpoints: ['ghbdtn', 'привет', 'привет ', 'привет \n'],
+  },
+  {
+    id: 'reverse',
+    title: 'Reverse a correction',
+    steps: ['Select Keyrill English.', 'Type ghbdtn', 'Press Space.', 'Press Control-Option-Z.',
+            'Press Return.'],
+    checkpoints: ['ghbdtn', 'привет ', 'ghbdtn ', 'ghbdtn \n'],
+  },
+  {
+    id: 'auto-ru',
+    title: 'Automatic correction, Russian source',
+    steps: ['Select Keyrill Russian.',
+            'Press the physical Latin-labelled keys h e l l o, Space, w o r l d, Space, g h b d t n.',
+            'Press Space, then Return.'],
+    checkpoints: ['руддщ', 'hello ', 'hello world ', 'hello world привет \n'],
+  },
+];
+
+const INPUT_TYPES = ['insertText', 'insertCompositionText', 'insertFromComposition',
+                     'deleteCompositionText', 'insertLineBreak', 'deleteContentBackward'];
+
+// Pure: maps one observation to the next checkpoint index. Exported state never contains text.
+function advance(scenario, reached, value, start, end) {
+  if (reached >= scenario.checkpoints.length) return reached;
+  const typed = scenario.checkpoints[reached];
+  const caret = PREFIX.length + typed.length;
+  return value === PREFIX + typed + SUFFIX && start === caret && end === caret ? reached + 1
+                                                                                : reached;
+}
+
+function evaluate(scenario, run, value, start, end) {
+  const final = scenario.checkpoints[scenario.checkpoints.length - 1];
+  const caret = PREFIX.length + final.length;
+  const checks = {
+    field: value === PREFIX + final + SUFFIX,
+    caret: start === caret && end === caret,
+    checkpoints: run.reached === scenario.checkpoints.length,
+    composition_observed: run.counts.compositionstart > 0,
+    composition_balanced: run.counts.compositionstart === run.counts.compositionend,
+    composition_closed: run.composing === 0,
+    trusted_events_only: run.untrusted === 0,
+  };
+  return {
+    fixture: FIXTURE,
+    scenario: scenario.id,
+    pass: Object.values(checks).every(Boolean),
+    checks,
+    checkpoints_reached: run.reached + '/' + scenario.checkpoints.length,
+    caret_utf16: {expected: caret, start, end},
+    field_length_utf16: {expected: (PREFIX + final + SUFFIX).length, observed: value.length},
+    counts: Object.assign({}, run.counts),
+  };
+}
+
+function newRun() {
+  const counts = {compositionstart: 0, compositionupdate: 0, compositionend: 0, other_input: 0,
+                  checkpoint_advances_input: 0, checkpoint_advances_composition: 0,
+                  checkpoint_advances_selectionchange: 0};
+  for (const type of INPUT_TYPES) counts[type] = 0;
+  return {reached: 0, composing: 0, untrusted: 0, counts};
+}
+
+const field = document.getElementById('field');
+const select = document.getElementById('scenario');
+let scenario = SCENARIOS[0];
+let run = newRun();
+
+function render() {
+  const result = evaluate(scenario, run, field.value, field.selectionStart, field.selectionEnd);
+  const summary = document.getElementById('summary');
+  summary.textContent = result.pass ? 'PASS' : run.composing ? 'Composition open' : 'Not passed';
+  summary.className = result.pass ? 'pass' : 'fail';
+  document.getElementById('report').textContent = JSON.stringify(result, null, 2);
+}
+
+function observe(event) {
+  if (!event.isTrusted) run.untrusted++;
+  if (event.type in run.counts) run.counts[event.type]++;
+  if (event.type === 'compositionstart') run.composing++;
+  if (event.type === 'compositionend') run.composing = Math.max(0, run.composing - 1);
+  if (event.type === 'input') {
+    if (INPUT_TYPES.includes(event.inputType)) run.counts[event.inputType]++;
+    else run.counts.other_input++;
+  }
+  const reached = advance(scenario, run.reached, field.value, field.selectionStart,
+                          field.selectionEnd);
+  if (reached > run.reached)
+    run.counts[event.type === 'input' ? 'checkpoint_advances_input' :
+                                      'checkpoint_advances_composition']++;
+  run.reached = reached;
+  render();
+}
+
+for (const type of ['compositionstart', 'compositionupdate', 'compositionend', 'input'])
+  field.addEventListener(type, observe);
+// Selection can settle after input; require the same exact field and caret at that point
+document.addEventListener('selectionchange', () => {
+  const reached = advance(scenario, run.reached, field.value, field.selectionStart,
+                          field.selectionEnd);
+  if (reached > run.reached) run.counts.checkpoint_advances_selectionchange++;
+  run.reached = reached;
+  render();
+});
+
+// The only programmatic edit or caret placement; refused while a composition is open
+function reset() {
+  if (run.composing) {
+    document.getElementById('summary').textContent = 'Finish the composition before resetting';
+    return;
+  }
+  scenario = SCENARIOS.find(s => s.id === select.value) || SCENARIOS[0];
+  const steps = document.getElementById('steps');
+  steps.replaceChildren(...scenario.steps.map(text => {
+    const item = document.createElement('li');
+    item.textContent = text;
+    return item;
+  }));
+  run = newRun();
+  field.value = PREFIX + SUFFIX;
+  field.focus();
+  field.setSelectionRange(PREFIX.length, PREFIX.length);
+  render();
+}
+
+for (const s of SCENARIOS) select.add(new Option(s.title, s.id));
+document.getElementById('reset').addEventListener('click', reset);
+select.addEventListener('change', reset);
+
+// Checks the oracle on canned values only; this is not evidence of any input path
+function selfTest() {
+  const s = SCENARIOS.find(item => item.id === 'manual');
+  let r = newRun();
+  const at = typed => [PREFIX + typed + SUFFIX, PREFIX.length + typed.length];
+  for (const typed of ['g', 'ghbdtn', 'ghbdtn', 'привет', 'привет ', 'привет \n']) {
+    const [value, caret] = at(typed);
+    r.reached = advance(s, r.reached, value, caret, caret);
+  }
+  const [value, caret] = at('привет \n');
+  r.counts.compositionstart = 1;
+  r.counts.compositionend = 1;
+  const good = evaluate(s, r, value, caret, caret);
+  const cases = [
+    good.pass && good.checkpoints_reached === '4/4',
+    // Final text reached without the manual checkpoint order
+    !evaluate(s, Object.assign(newRun(), {reached: 1}), value, caret, caret).pass,
+    // Code-point offset instead of UTF-16 offset
+    !evaluate(s, r, value, caret - 1, caret - 1).pass,
+    !evaluate(s, r, value, caret - 2, caret).pass,
+    !evaluate(s, Object.assign({}, r, {composing: 1}), value, caret, caret).pass,
+    !evaluate(s, Object.assign({}, r, {counts: newRun().counts}), value, caret, caret).pass,
+    !evaluate(s, Object.assign({}, r, {counts: Object.assign({}, r.counts, {compositionend: 2})}),
+              value, caret, caret).pass,
+    !evaluate(s, Object.assign({}, r, {untrusted: 1}), value, caret, caret).pass,
+    !evaluate(s, r, value.replace('привет', 'привет!'), caret + 1, caret + 1).pass,
+    !JSON.stringify(good).includes('привет') && !JSON.stringify(good).includes('ghbdtn'),
+    PREFIX.length === [...PREFIX].length + 1,
+  ];
+  for (const scenario of SCENARIOS) {
+    const sample = newRun();
+    sample.counts.compositionstart = 1;
+    sample.counts.compositionend = 1;
+    for (const typed of scenario.checkpoints) {
+      const [value, caret] = at(typed);
+      sample.reached = advance(scenario, sample.reached, value, caret, caret);
+    }
+    const [value, caret] = at(scenario.checkpoints[scenario.checkpoints.length - 1]);
+    cases.push(evaluate(scenario, sample, value, caret, caret).pass);
+  }
+  const ok = cases.every(Boolean);
+  const line = document.getElementById('selftest');
+  line.textContent = 'Oracle self-test (JavaScript only, not input evidence): ' +
+                     (ok ? 'pass' : 'FAIL ' + cases.map(c => (c ? '1' : '0')).join(''));
+  line.className = ok ? 'pass' : 'fail';
+}
+
+selfTest();
+reset();
+</script>
+</body>
+</html>
