@@ -1,0 +1,35 @@
+{
+  "format": {
+    "magic": "KRMODEL",
+    "version": 1
+  },
+  "languages": {
+    "en": {
+      "alphabet": "abcdefghijklmnopqrstuvwxyz",
+      "chain_values": 21952,
+      "words": 89656
+    },
+    "ru": {
+      "alphabet": "абвгдеёжзийклмнопрстуфхцчшщъыьэюя",
+      "chain_values": 42875,
+      "words": 241624
+    }
+  },
+  "license": "CC-BY-SA-4.0",
+  "notices": [
+    "model-notice.txt",
+    "wordfreq-code-license.txt"
+  ],
+  "output": {
+    "bytes": 5651126,
+    "sha256": "f0658201ff1d40e52ffb1fec7c0aaccf17da6d31792b4cf13485539427d85c51"
+  },
+  "packer_sha256": "01710edc4e20f7a38a37a3d157a4a4ad5c2d6b018fade653c4abc8c82988e6fd",
+  "source": {
+    "compressed_sha256": "51692f3630db645b13057b9c55b9edb3ea69fba2887a2d3304786117fc238a1b",
+    "path": "model/data/model.inc.gz",
+    "plaintext_sha256": "82b22dd4055c4bdb703df8a81b1a15474b5b9be22a64525d416f53609381ac27"
+  },
+  "value_scale": 1000000,
+  "values_reconstructed_exactly": 396107
+}

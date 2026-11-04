@@ -1,0 +1,14 @@
+[package]
+name = "inference-probe"
+description = "Stdin probe that model/tools/evaluate.py drives during offline evaluation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+keyrill-core = { path = "../../crates/keyrill-core", version = "=0.1.0" }
+
+[lints]
+workspace = true

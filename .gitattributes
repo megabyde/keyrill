@@ -1,0 +1,12 @@
+* text=auto eol=lf
+assets/** -text
+model/** -text
+native/macos/resources/icons/*.tif -text
+fuzz/seeds/** -text
+crates/keyrill-core/tests/fixtures/engine-vectors.jsonl -text
+assets/model-notice.txt whitespace=-blank-at-eof
+# Hash-pinned upstream bytes
+model/corpora/en-LICENSE.txt -whitespace
+model/corpora/ru-README.md -whitespace
+model/corpora/*.conllu whitespace=-blank-at-eof
+model/data/model-notice.txt whitespace=-blank-at-eof

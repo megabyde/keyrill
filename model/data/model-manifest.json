@@ -1,0 +1,41 @@
+{
+  "generator_sha256": "078544858d700615cfb5a3409cb67f66a0baa6c8b3bccf3abc551f921808f2a4",
+  "languages": {
+    "en": {
+      "alphabet": "abcdefghijklmnopqrstuvwxyz",
+      "retained_probability_mass": 0.9406099263966389,
+      "source_sha256": "dffae8066b78dce0a6667cf5f58e567054f902674667090a7ac8a8a44628b05c",
+      "words": 89656
+    },
+    "ru": {
+      "alphabet": "абвгдеёжзийклмнопрстуфхцчшщъыьэюя",
+      "retained_probability_mass": 0.9269608288422294,
+      "source_sha256": "0440613cc765c14a20fb9483225f2fec4d85e66672809076bcec9b29119f9b43",
+      "words": 241624
+    }
+  },
+  "license": "CC-BY-SA-4.0",
+  "maximum_word_length": 32,
+  "minimum_frequency": 1e-07,
+  "model": "Order-2 character chain with start/end markers and additive smoothing",
+  "model_sha256": "82b22dd4055c4bdb703df8a81b1a15474b5b9be22a64525d416f53609381ac27",
+  "notice": "model-notice.txt",
+  "packages": {
+    "ftfy": "6.3.1",
+    "langcodes": "3.5.1",
+    "locate": "1.1.1",
+    "msgpack": "1.2.3",
+    "regex": "2026.9.29",
+    "wcwidth": "0.9.3",
+    "wordfreq": "3.1.1"
+  },
+  "preprocessing": "Exact lowercase alphabet membership; no Unicode normalization or retokenization",
+  "python_version": "3.14.7",
+  "requirements_sha256": "64d8b485911555281894deb3bf91c312dae51fb5aca5ac84e1cf3b4027cc89c6",
+  "schema": 1,
+  "short_word_pairs": 11713,
+  "smoothing": 0.1,
+  "source": "wordfreq 3.1.1 large lists",
+  "virtual_tokens": 2000000,
+  "warning": "Corpus probabilities are not calibrated layout-error probabilities"
+}

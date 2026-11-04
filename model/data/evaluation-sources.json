@@ -1,0 +1,58 @@
+[
+  {
+    "bytes": 18569,
+    "file": "en-README.md",
+    "language": "en",
+    "sha256": "099677d6938869b4e855e6ec6548fc24ffeb5fce90e1cd985847f7049664f29e",
+    "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_English-EWT/4c89b5833a70aa5ed3a00bad2f23f57992cc7df8/README.md"
+  },
+  {
+    "bytes": 20014,
+    "file": "en-LICENSE.txt",
+    "language": "en",
+    "sha256": "b3d1b0f4c6ae151f7eb78738f46ebd5ee140f8a7f76501ba26af123140d35ae7",
+    "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_English-EWT/4c89b5833a70aa5ed3a00bad2f23f57992cc7df8/LICENSE.txt"
+  },
+  {
+    "bytes": 1805545,
+    "file": "en-en_ewt-ud-dev.conllu",
+    "language": "en",
+    "sha256": "531a54ff90d6ab12201c5a50c3e78e6ddac4de69abc4bce5d275d3cd29efe2b6",
+    "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_English-EWT/4c89b5833a70aa5ed3a00bad2f23f57992cc7df8/en_ewt-ud-dev.conllu"
+  },
+  {
+    "bytes": 1804515,
+    "file": "en-en_ewt-ud-test.conllu",
+    "language": "en",
+    "sha256": "e266e515a0a7547657ed3d90d9ba46487d6bd251f27ad4269d4e8a427c8555cd",
+    "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_English-EWT/4c89b5833a70aa5ed3a00bad2f23f57992cc7df8/en_ewt-ud-test.conllu"
+  },
+  {
+    "bytes": 5248,
+    "file": "ru-README.md",
+    "language": "ru",
+    "sha256": "e427d352ba808f0167d19187a4e53bea45edc875a881be7e525977e08a2f07bc",
+    "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Russian-Taiga/23bc6ded75cb717aaf233b8568003fa0897e56a6/README.md"
+  },
+  {
+    "bytes": 202,
+    "file": "ru-LICENSE.txt",
+    "language": "ru",
+    "sha256": "899b1804a12ebc090b96339614eede1b64b686721b650a71430b55b5235f7f79",
+    "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Russian-Taiga/23bc6ded75cb717aaf233b8568003fa0897e56a6/LICENSE.txt"
+  },
+  {
+    "bytes": 1428174,
+    "file": "ru-ru_taiga-ud-dev.conllu",
+    "language": "ru",
+    "sha256": "d1497731d5cb7162530eb7b278423a103412efa678096f7d456cb57088e12332",
+    "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Russian-Taiga/23bc6ded75cb717aaf233b8568003fa0897e56a6/ru_taiga-ud-dev.conllu"
+  },
+  {
+    "bytes": 1348888,
+    "file": "ru-ru_taiga-ud-test.conllu",
+    "language": "ru",
+    "sha256": "dec224e1e892153a8a4c83a905d7613c4a318e3e726d96551001eecea4aba3df",
+    "url": "https://raw.githubusercontent.com/UniversalDependencies/UD_Russian-Taiga/23bc6ded75cb717aaf233b8568003fa0897e56a6/ru_taiga-ud-test.conllu"
+  }
+]
