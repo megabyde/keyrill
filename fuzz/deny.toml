@@ -1,0 +1,26 @@
+[graph]
+all-features = false
+
+[advisories]
+version = 2
+
+[licenses]
+version = 2
+allow = ["MIT", "Apache-2.0"]
+include-dev = true
+
+[licenses.private]
+ignore = true
+
+[[licenses.exceptions]]
+name = "libfuzzer-sys"
+version = "=0.4.13"
+allow = ["NCSA"]
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

@@ -1,0 +1,22 @@
+root = true
+
+# rustfmt, clang-format (.clang-format) and PEP 8 defaults; ./tools/verify enforces the first two
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{rs,py}]
+indent_size = 4
+
+# Hash-pinned bytes; an editor must not rewrite them
+[{assets/**,model/corpora/**,model/data/**,fuzz/seeds/**,crates/keyrill-core/tests/fixtures/engine-vectors.jsonl}]
+charset = unset
+end_of_line = unset
+indent_style = unset
+indent_size = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset

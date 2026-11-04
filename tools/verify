@@ -1,0 +1,81 @@
+#!/bin/sh
+set -eu
+cd "$(dirname "$0")/.."
+case "${1:-check}" in
+  check)
+    python3 tools/pack-model.py --check
+    cargo fmt --all -- --check
+    cargo fmt --manifest-path fuzz/Cargo.toml -- --check
+    cargo clippy --locked --workspace --all-targets -- -D warnings
+    cargo test --locked --workspace
+    RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
+    cargo build --locked --workspace --release
+    clang -std=c11 -Wall -Wextra -Werror -fsyntax-only -x c include/keyrill.h
+    # The C smoke test links the staticlib with the system libraries rustc reports for it
+    libs=$(cargo rustc --locked --release -p keyrill-ffi --crate-type staticlib -- --print native-static-libs 2>&1 |
+      sed -n 's/.*native-static-libs: //p' | tr ' ' '\n' | grep -v '^/' | tr '\n' ' ')
+    case "$(uname -s)" in
+      # Rust's MSVC staticlib expects the DLL C runtime; /defaultlib entries are dropped above
+      # and the clang driver takes a bare name.lib for an input file, not a library to search for.
+      # The driver also adds the static libcmt at link time, which would mix the two runtimes
+      MINGW* | MSYS* | CYGWIN*)
+        lib=target/release/keyrill_ffi.lib crt="-fms-runtime-lib=dll -Wl,-nodefaultlib:libcmt" exe=.exe
+        libs=$(printf '%s\n' $libs | sed 's/\.lib$//; s/^/-l/' | tr '\n' ' ')
+        ;;
+      *) lib=target/release/libkeyrill_ffi.a crt= exe= ;;
+    esac
+    clang -std=c11 -Wall -Wextra -Wpedantic -Werror $crt -Iinclude crates/keyrill-ffi/tests/abi_smoke.c \
+      "$lib" $libs -o "target/release/abi-smoke$exe"
+    "target/release/abi-smoke$exe"
+    if [ "$(uname -s)" = Darwin ]; then
+      clang-format --dry-run --Werror include/keyrill.h crates/keyrill-ffi/tests/abi_smoke.c
+      native/macos/build.sh check
+    fi
+    ;;
+  sanitize) native/macos/build.sh sanitize ;;
+  browser-fixture) node native/macos/tests/browser-fixture.test.cjs ;;
+  audit)
+    test "$(cargo deny --version)" = "cargo-deny 0.20.2"
+    cargo deny --locked check
+    cargo deny --manifest-path fuzz/Cargo.toml --config fuzz/deny.toml --locked check
+    ;;
+  coverage)
+    test "$(cargo llvm-cov --version)" = "cargo-llvm-cov 0.6.21"
+    cargo llvm-cov --locked --workspace --exclude inference-probe --html
+    # Without an output directory llvm-cov writes the HTML report as one self-contained page;
+    # cargo-llvm-cov has no option for that, so its own show command is reused
+    show=$(cargo llvm-cov report -v --text --output-path target/llvm-cov/coverage.txt 2>&1 |
+      sed -n 's/^ *Running `\(.*llvm-cov show\) -format=text -use-color=0\(.*\)`$/\1 -format=html\2/p')
+    test -n "$show"
+    eval "$show" >target/llvm-cov/keyrill-coverage.html
+    cargo llvm-cov report --fail-under-lines 95 --fail-under-regions 95 >target/llvm-cov/summary.txt
+    ;;
+  evaluate)
+    cargo build --locked --release -p inference-probe
+    python3 tools/evaluate-model.py --split dev
+    python3 tools/evaluate-model.py --split test
+    ;;
+  fuzz)
+    test "$(cargo fuzz --version)" = "cargo-fuzz 0.13.2"
+    cargo metadata --locked --manifest-path fuzz/Cargo.toml --format-version 1 >/dev/null
+    run_dir=$(mktemp -d "${TMPDIR:-/tmp}/keyrill-fuzz.XXXXXX")
+    mkdir -p "$run_dir/text" "$run_dir/model" "$run_dir/artifacts"
+    cp fuzz/seeds/text/* "$run_dir/text/"
+    cp fuzz/seeds/model/* "$run_dir/model/"
+    echo "fuzz evidence: $run_dir"
+    cargo +nightly-2026-10-26 fuzz run text_state "$run_dir/text" -- \
+      -runs=10000 -seed=126283 -max_len=4096 -rss_limit_mb=1024 -artifact_prefix="$run_dir/artifacts/" \
+      >"$run_dir/text.log" 2>&1 || { fuzz_exit=$?; tail -n 60 "$run_dir/text.log"; exit "$fuzz_exit"; }
+    tail -n 1 "$run_dir/text.log"
+    cargo +nightly-2026-10-26 fuzz run model_asset "$run_dir/model" -- \
+      -runs=200 -seed=126283 -max_len=325 -rss_limit_mb=1024 -artifact_prefix="$run_dir/artifacts/" \
+      >"$run_dir/model.log" 2>&1 || { fuzz_exit=$?; tail -n 60 "$run_dir/model.log"; exit "$fuzz_exit"; }
+    tail -n 1 "$run_dir/model.log"
+    ;;
+  miri)
+    cargo +nightly-2026-10-26 miri test --locked -p keyrill-ffi --lib -- \
+      --skip vocabulary_source:: --skip vocabulary_host::tests::source_ \
+      --skip model_policy_bridge_preserves_configuration_context_and_receipts
+    ;;
+  *) echo "usage: ./tools/verify [check|sanitize|browser-fixture|audit|coverage|evaluate|fuzz|miri]" >&2; exit 2 ;;
+esac

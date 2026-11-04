@@ -1,0 +1,30 @@
+[package]
+name = "keyrill-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+license = "MIT"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "=0.4.13"
+keyrill-core = { path = "../crates/keyrill-core", version = "=0.1.0" }
+
+[[bin]]
+name = "model_asset"
+path = "fuzz_targets/model_asset.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "text_state"
+path = "fuzz_targets/text_state.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]
