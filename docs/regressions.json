@@ -1,0 +1,243 @@
+{
+  "schema": 1,
+  "scope": "behavioral schedules, not implementation or test-run results",
+  "cases": [
+    {
+      "id": "R01",
+      "name": "temporary_selection_exposure",
+      "classification": "negative_control",
+      "schedule": [
+        "Start with prefix + ghbdtn + suffix.",
+        "Select only ghbdtn through the rejected AX mechanism.",
+        "Deliver ordinary x before replacement revalidation."
+      ],
+      "assertions": [
+        "Show that x overwrites the exposed selection under the rejected mechanism.",
+        "Keyrill never creates this temporary selection, so its correction path can't expose the word to this schedule."
+      ]
+    },
+    {
+      "id": "R02",
+      "name": "whole_value_lost_update",
+      "classification": "negative_control",
+      "schedule": [
+        "Copy an immutable whole-field snapshot.",
+        "Append concurrent input.",
+        "Write the old snapshot with the converted word."
+      ],
+      "assertions": [
+        "Show that the concurrent input is lost under the rejected mechanism.",
+        "Keyrill never replaces a whole value from a snapshot."
+      ]
+    },
+    {
+      "id": "R03",
+      "name": "counted_deletion_interleave",
+      "classification": "negative_control",
+      "schedule": [
+        "Commit ghbdtn Space.",
+        "Deliver x before seven synthetic Backspaces.",
+        "Insert the converted word."
+      ],
+      "assertions": [
+        "The rejected stream deletes the wrong suffix and can leave a word prefix.",
+        "The composition path never uses synthetic deletion or retyping, and event tagging is not the oracle.",
+        "The compatibility backend does counted deletion; its limits are in docs/adr/006-compatibility-backend.md."
+      ]
+    },
+    {
+      "id": "R04",
+      "name": "stale_dispatched_range",
+      "classification": "negative_control",
+      "schedule": [
+        "Validate an explicit committed range.",
+        "After dispatch, prepend text or change context before that range is applied.",
+        "Invalidate the old generation."
+      ],
+      "assertions": [
+        "The old request can still mutate the wrong range; invalidation doesn't imply rollback.",
+        "Keyrill has no generic committed-range transport; an unknown post-write outcome invalidates receipts and blocks further speculative effects."
+      ]
+    },
+    {
+      "id": "R05",
+      "name": "owned_query_invalidation",
+      "classification": "controlled_native",
+      "schedule": [
+        "Own a mark with synthetic prefix/suffix.",
+        "Inside each native ownership/read callback change generation, caret or client.",
+        "Resume the outer operation."
+      ],
+      "assertions": [
+        "Zero stale follow-on native writes after observable invalidation.",
+        "Unchanged prefix/suffix and no receipt resurrection.",
+        "If rejected before any write attempt, ordinary input remains unhandled."
+      ]
+    },
+    {
+      "id": "R06",
+      "name": "foreign_mark_reused_proxy",
+      "classification": "physical",
+      "schedule": [
+        "Own a word and Space in field A.",
+        "Click field B physically.",
+        "The client proxy identity is unchanged, but markedRange reports a range from field A.",
+        "Attempt one manual command or the next ordinary letter."
+      ],
+      "assertions": [
+        "Don't clear or adopt the foreign range or carry A's word into B.",
+        "No correction write under uncertain ownership.",
+        "Record both whole fields and carets; distinguish a safe refusal from a manual success."
+      ]
+    },
+    {
+      "id": "R07",
+      "name": "native_caret_dom_disagreement",
+      "classification": "physical",
+      "schedule": [
+        "Own a mark in field A with the caret at its end, then move the mouse from A to B.",
+        "Commit readback reports a different caret from the one an independent DOM oracle shows in A."
+      ],
+      "assertions": [
+        "Keep both observations, the generation and callback order, and the executable identity.",
+        "Don't invent a root cause or guess a caret restoration.",
+        "A mismatch alone doesn't show that the document was damaged or that it is safe."
+      ]
+    },
+    {
+      "id": "R08",
+      "name": "empty_composition_deletion",
+      "classification": "physical",
+      "schedule": [
+        "Use synthetic prefix/suffix and own x.",
+        "Backspace the final composing character.",
+        "Continue with hello Space."
+      ],
+      "assertions": [
+        "Only x disappears; prefix, suffix and the expected caret are preserved.",
+        "Empty insertText leaves a stray character in TextEdit and stays as a failing control; the owned empty setMarkedText is the operation under test.",
+        "No fallback Backspace or zero-length substring proof."
+      ]
+    },
+    {
+      "id": "R09",
+      "name": "manual_boundary_and_receipt",
+      "classification": "portable_and_physical",
+      "schedule": [
+        "Compose ghbdtn.",
+        "Manual convert once before Space.",
+        "Space.",
+        "Reverse once while owned.",
+        "Finish and continue hello Space."
+      ],
+      "assertions": [
+        "Visible states are привет, привет Space, ghbdtn Space, then ghbdtn Space hello Space.",
+        "Explicit intent prevents automatic reconversion at the same boundary.",
+        "Expired reversal makes zero native writes; native Undo is separate."
+      ]
+    },
+    {
+      "id": "R10",
+      "name": "boundary_rapid_continuation",
+      "classification": "physical",
+      "schedule": [
+        "Physically type ghbdtn Space hello Space ghbdtn Space hello Space rapidly.",
+        "Repeat in fresh fields without restarting the input method."
+      ],
+      "assertions": [
+        "Exact text is привет Space hello Space привет Space hello Space.",
+        "No lost, duplicated or reordered events; the suffix and the exact caret are preserved.",
+        "Record whether the input was physical or generated."
+      ]
+    },
+    {
+      "id": "R11",
+      "name": "stable_focus_process_reuse",
+      "classification": "physical",
+      "schedule": [
+        "Keep the same native process.",
+        "Alternate generated input in TextEdit documents with physical mouse transitions in a browser.",
+        "Switch the source away and back, then type the same two-word correction sequence in a fresh field."
+      ],
+      "assertions": [
+        "If a correction is missed, preserve the field before retrying.",
+        "Separate delivery, eligibility, composition lifetime, Rust abstention and native-effect mismatch.",
+        "Don't assume a common cause with foreign marks or source-selection misses."
+      ]
+    },
+    {
+      "id": "R12",
+      "name": "source_acceptance_vs_delivery",
+      "classification": "physical",
+      "schedule": [
+        "Request a declared mode.",
+        "Read the actual source ID and the running executable identity.",
+        "Physically type into a synthetic field and record Rust/native counters plus the document."
+      ],
+      "assertions": [
+        "A TIS return of 0 without the selected ID and key delivery is setup only.",
+        "Generated noncorrection without Rust calls is not inference abstention.",
+        "Preference writes and service resets are not recovery fallbacks."
+      ]
+    },
+    {
+      "id": "R13",
+      "name": "dictionary_snapshot_reload",
+      "classification": "portable_and_physical",
+      "schedule": [
+        "Load valid synthetic EN/RU overlays.",
+        "Keep a previous immutable snapshot.",
+        "Publish a valid update, a candidate with NUL or a non-UTF-8 `/encoding=`, a missing path, an atomic-save rename and a restored valid file."
+      ],
+      "assertions": [
+        "A valid snapshot replaces atomically; old readers keep the old valid view.",
+        "An invalid or missing update keeps the last good snapshot; a configured file missing from the start disables automatic changes only.",
+        "No dictionary write, fake frequency, input logging or per-word editor subprocess."
+      ]
+    },
+    {
+      "id": "R14",
+      "name": "reentrant_key_disposition",
+      "classification": "controlled_native",
+      "schedule": [
+        "Reenter ordinary input and a reserved correction command while a native effect is busy.",
+        "Inject an exception before and after a mutation attempt."
+      ],
+      "assertions": [
+        "No ordinary key swallowed merely because the engine is busy.",
+        "No blind replay after an attempted/unknown write.",
+        "An explicitly unavailable reserved command is distinguishable from ordinary input.",
+        "No Rust exclusive borrow crosses the native callback."
+      ]
+    },
+    {
+      "id": "R15",
+      "name": "tsf_grant_and_context",
+      "classification": "windows",
+      "schedule": [
+        "Reject a synchronous edit session; accept the request but reject the session; reject composition with success and a null composition.",
+        "Defer an edit, change context/composition and grant it later.",
+        "Terminate an old composition after a new one exists."
+      ],
+      "assertions": [
+        "Check the outer HRESULT, the session HRESULT, the write cookie and a non-null composition.",
+        "No stale context write and no termination of the current composition.",
+        "Key consumption reflects actual handling; observe whole documents under physical input."
+      ]
+    },
+    {
+      "id": "R16",
+      "name": "secure_unsupported_and_shutdown",
+      "classification": "physical",
+      "schedule": [
+        "Enter a secure, read-only, unknown or excluded control.",
+        "Change focus or source, or stop the service, with an owned synthetic word."
+      ],
+      "assertions": [
+        "No prohibited text inspection or speculative committed edit.",
+        "Finish only a valid owned old mark; drain callbacks before freeing the engine.",
+        "No mutation of the new field, no private input persisted and no unexpected test cleanup."
+      ]
+    }
+  ]
+}
