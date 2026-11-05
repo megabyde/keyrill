@@ -36,9 +36,9 @@ use keyrill_core::inference::{Dictionaries, Policy};
 use keyrill_core::mapping::Keyboard;
 use keyrill_core::model::{Model, ModelError};
 use keyrill_core::session::{Action, Context, Disposition, Event, Mode, Outcome, Session};
-use keyrill_core::vocabulary::{MAX_SOURCE_BYTES, Snapshot};
+use keyrill_core::vocabulary::{MAX_SOURCE_BYTES, Snapshot, Vocabulary};
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 const OK: u32 = 0;
 const NULL: u32 = 1;
@@ -50,7 +50,7 @@ const POISONED: u32 = 6;
 const VERSION: u32 = 7;
 const MODEL_ASSET: u32 = 8;
 const DICTIONARY_DATA: u32 = 9;
-const ABI: u32 = 0x0000_0002;
+const ABI: u32 = 0x0000_0003;
 
 #[derive(Default, PartialEq, Eq)]
 enum Backend {
@@ -88,6 +88,7 @@ pub struct Engine {
     poisoned: bool,
     automatic: Automatic,
     dictionaries: [Snapshot; 2],
+    learned: Vec<Arc<Vocabulary>>,
     backend: Backend,
     compatibility_boundary: bool,
     compatibility_word_boundary: bool,
@@ -235,6 +236,7 @@ fn propose(
                 Dictionaries {
                     en: en.as_deref(),
                     ru: ru.as_deref(),
+                    learned: &engine.learned,
                 },
                 Policy::default(),
             )
@@ -293,6 +295,7 @@ pub unsafe extern "C" fn kr_engine_new(abi: u32, out: *mut *mut Engine) -> u32 {
             poisoned: false,
             automatic: Automatic::Off,
             dictionaries: [Snapshot::default(), Snapshot::default()],
+            learned: Vec::new(),
             backend: Backend::Unselected,
             compatibility_boundary: false,
             compatibility_word_boundary: false,
@@ -611,7 +614,7 @@ mod tests {
         // No call overlaps another Rust borrow; each allocated handle is freed exactly once.
         unsafe {
             let mut engine = std::ptr::null_mut();
-            assert_eq!(kr_abi_version(), 0x0000_0002);
+            assert_eq!(kr_abi_version(), 0x0000_0003);
             assert_eq!(kr_engine_new(ABI, &mut engine), OK);
             assert_eq!(kr_set_automatic_policy(std::ptr::null_mut(), 0), NULL);
             assert_eq!(kr_clear_dictionary(std::ptr::null_mut(), 1), NULL);

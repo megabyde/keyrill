@@ -26,7 +26,8 @@ pub enum ParseError {
     TooLarge,
     /// NUL is not a word-list character; it marks a binary, UTF-16 or partly written file.
     Nul,
-    /// A leading `/encoding=` names an encoding other than UTF-8.
+    /// A leading `/encoding=` names an encoding other than UTF-8, or a byte-order mark names one
+    /// other than UTF-8 or UTF-16 LE.
     Encoding,
 }
 
@@ -183,25 +184,105 @@ impl Vocabulary {
                     }
                 }
             }
-            let word: Vec<_> = word.encode_utf16().collect();
-            let lower = lowercase(&word);
-            let case = if exact {
-                CaseRule::Exact
-            } else if word == lower {
-                CaseRule::Lower
-            } else {
-                CaseRule::ExactOrUpper
-            };
-            let entry = Entry {
-                uppercase: uppercase(&word),
-                word,
-                case,
-                membership,
-            };
-            result.entries.entry(lower).or_default().push(entry);
-            result.count += 1;
+            result.push(word, membership, exact);
         }
         Ok(result)
+    }
+
+    /// Parse a plain word list, one word per line, as OS spell checkers keep learned words: UTF-8
+    /// with an optional BOM, or UTF-16 LE with its BOM. Every word gets `membership` and the case
+    /// rule of an unflagged Vim entry; `#` and `/` are ordinary characters. A line that doesn't
+    /// decode or holds a control character is skipped and counted.
+    ///
+    /// ```
+    /// use keyrill_core::vocabulary::{Membership, Vocabulary};
+    ///
+    /// # fn main() -> Result<(), keyrill_core::vocabulary::ParseError> {
+    /// let units = |s: &str| s.encode_utf16().collect::<Vec<u16>>();
+    /// let learned = Vocabulary::parse_words(b"km/h\r\nrustc\n", Membership::Recognized)?;
+    /// assert_eq!(learned.lookup(&units("km/h")), Membership::Recognized);
+    /// assert_eq!(learned.lookup(&units("Rustc")), Membership::Recognized);
+    ///
+    /// let mut utf16 = vec![0xff, 0xfe];
+    /// utf16.extend("teh\r\n".encode_utf16().flat_map(u16::to_le_bytes));
+    /// let excluded = Vocabulary::parse_words(&utf16, Membership::Forbidden)?;
+    /// assert_eq!(excluded.lookup(&units("teh")), Membership::Forbidden);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// A [`ParseError`] for oversized input, NUL anywhere, a UTF-16 LE source of odd length or a
+    /// big-endian UTF-16 BOM; nothing is partially kept.
+    pub fn parse_words(source: &[u8], membership: Membership) -> Result<Self, ParseError> {
+        if source.len() > MAX_SOURCE_BYTES {
+            return Err(ParseError::TooLarge);
+        }
+        if source.starts_with(&[0xfe, 0xff]) {
+            return Err(ParseError::Encoding);
+        }
+        let mut result = Self::default();
+        if let Some(utf16) = source.strip_prefix(&[0xff, 0xfe]) {
+            let (units, rest) = utf16.as_chunks::<2>();
+            if !rest.is_empty() {
+                return Err(ParseError::Encoding);
+            }
+            let units: Vec<u16> = units.iter().map(|&pair| u16::from_le_bytes(pair)).collect();
+            if units.contains(&0) {
+                return Err(ParseError::Nul);
+            }
+            for line in units.split(|&unit| unit == u16::from(b'\n')) {
+                match String::from_utf16(line) {
+                    Ok(line) => result.push_word(&line, membership),
+                    Err(_) => result.skipped += 1,
+                }
+            }
+            return Ok(result);
+        }
+        if source.contains(&0) {
+            return Err(ParseError::Nul);
+        }
+        let source = source.strip_prefix("\u{feff}".as_bytes()).unwrap_or(source);
+        for line in source.split(|&byte| byte == b'\n') {
+            match std::str::from_utf8(line) {
+                Ok(line) => result.push_word(line, membership),
+                Err(_) => result.skipped += 1,
+            }
+        }
+        Ok(result)
+    }
+
+    fn push_word(&mut self, line: &str, membership: Membership) {
+        let word = line.trim();
+        if word.is_empty() {
+            return;
+        }
+        if word.chars().any(char::is_control) {
+            self.skipped += 1;
+            return;
+        }
+        self.push(word, membership, false);
+    }
+
+    fn push(&mut self, word: &str, membership: Membership, exact: bool) {
+        let word: Vec<_> = word.encode_utf16().collect();
+        let lower = lowercase(&word);
+        let case = if exact {
+            CaseRule::Exact
+        } else if word == lower {
+            CaseRule::Lower
+        } else {
+            CaseRule::ExactOrUpper
+        };
+        let entry = Entry {
+            uppercase: uppercase(&word),
+            word,
+            case,
+            membership,
+        };
+        self.entries.entry(lower).or_default().push(entry);
+        self.count += 1;
     }
 
     /// Number of parsed entry lines, retaining duplicate declarations for provenance.
@@ -289,6 +370,64 @@ mod tests {
     use super::*;
     fn word(s: &str) -> Vec<u16> {
         s.encode_utf16().collect()
+    }
+
+    fn utf16le(text: &str) -> Vec<u8> {
+        let mut bytes = vec![0xff, 0xfe];
+        bytes.extend(text.encode_utf16().flat_map(u16::to_le_bytes));
+        bytes
+    }
+
+    #[test]
+    fn plain_word_lists_take_every_line_literally_in_utf8_and_utf16() {
+        let text = "#hashtag\r\n/usr\r\n\r\nw/o\r\niPhone\r\nпривет\r\nbad\u{7}word\r\n𝔘nicode\r\n";
+        let utf8 = [b"\xef\xbb\xbf".as_slice(), text.as_bytes()].concat();
+        for source in [utf8, utf16le(text)] {
+            let v = Vocabulary::parse_words(&source, Membership::Recognized).unwrap();
+            assert_eq!((v.len(), v.skipped()), (6, 1));
+            for s in [
+                "#hashtag",
+                "/usr",
+                "w/o",
+                "iPhone",
+                "IPHONE",
+                "Привет",
+                "𝔘nicode",
+            ] {
+                assert_eq!(v.lookup(&word(s)), Membership::Recognized, "{s}");
+            }
+            assert_eq!(v.lookup(&word("iphone")), Membership::Absent);
+            assert_eq!(v.lookup(&word("w")), Membership::Absent);
+        }
+        let excluded = Vocabulary::parse_words(&utf16le("teh"), Membership::Forbidden).unwrap();
+        assert_eq!(excluded.lookup(&word("Teh")), Membership::Forbidden);
+    }
+
+    #[test]
+    fn plain_word_lists_reject_whole_sources_and_skip_undecodable_lines() {
+        let mut lone = utf16le("ok\n");
+        lone.extend([0x00, 0xd8, b'\n', 0x00]);
+        let v = Vocabulary::parse_words(&lone, Membership::Recognized).unwrap();
+        assert_eq!((v.len(), v.skipped()), (1, 1));
+        let v = Vocabulary::parse_words(b"ok\n\xff\xfe\xfd\n", Membership::Recognized);
+        assert_eq!(v.map(|v| (v.len(), v.skipped())), Ok((1, 1)));
+        let mut odd = utf16le("ok");
+        odd.push(b'x');
+        let big_endian = [0xfe, 0xff, 0x00, b'o'];
+        let mut too_large = utf16le("");
+        too_large.resize(MAX_SOURCE_BYTES + 1, b'a');
+        for (source, error) in [
+            (odd.as_slice(), ParseError::Encoding),
+            (&big_endian, ParseError::Encoding),
+            (&utf16le("a\0b"), ParseError::Nul),
+            (b"a\0b", ParseError::Nul),
+            (&too_large, ParseError::TooLarge),
+        ] {
+            assert_eq!(
+                Vocabulary::parse_words(source, Membership::Recognized).err(),
+                Some(error)
+            );
+        }
     }
 
     #[test]

@@ -47,6 +47,9 @@ typedef struct {
   KRPolicyStatus policy;
   KRSourceStatus english;
   KRSourceStatus russian;
+  /// The Learn Spelling list. It protects and forbids words when ready, but correction never
+  /// waits for it.
+  KRSourceStatus learned;
 } KRRuntimeStatus;
 
 /// Process-wide automatic-correction configuration and personal-source acquisition. Policy and
@@ -65,7 +68,8 @@ typedef struct {
 /// RussianDictionaryPath must be absolute NSStrings of at most KR_MAX_PATH_BYTES file-system
 /// bytes; an absent key selects ~/.vim/spell/{en,ru}.utf-8.add, where a file that doesn't exist
 /// counts as empty, and any other value leaves that language missing, as does a configured
-/// file that doesn't exist. `homeResolver` runs on `workQueue` only when a default path is needed.
+/// file that doesn't exist. The Learn Spelling list in the AppleSpell group container under the
+/// home is read too, a missing file counting as empty. `homeResolver` runs once on `workQueue`.
 /// `mainExecutor` must run each block later on the main thread. A nonzero `observationInterval`
 /// (nanoseconds) adds a periodic observation timer at start. Validates the model asset here.
 - (instancetype)initWithPreferences:(nullable NSDictionary *)preferences

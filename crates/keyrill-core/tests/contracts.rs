@@ -137,6 +137,7 @@ fn reference_context_and_inference_vectors() {
                 Dictionaries {
                     en: Some(&en),
                     ru: Some(&ru),
+                    learned: &[],
                 },
                 policy,
                 Request {

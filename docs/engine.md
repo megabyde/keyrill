@@ -106,6 +106,14 @@ declared region name. A malformed `/regions=` line is skipped like any other bad
 old immutable `Arc` and a failed candidate never partially replaces it. `keyrill-ffi` reads the
 files for the adapter; see [macOS](macos.md#dictionaries).
 
+Words the user taught the OS spell checker (Learn Spelling on macOS, Add to dictionary on Windows)
+are a second kind of source. `Vocabulary::parse_words` reads such a list as one word per line,
+UTF-8 with an optional BOM or UTF-16 LE with its BOM; every line is a word, so `#` and `/` are
+ordinary characters. Each word takes the case rule of an unflagged Vim entry and is recognized, or
+forbidden when the list holds excluded words. The lists go into `Dictionaries::learned` and
+protect and forbid together with the Vim sources, but readiness depends only on the two Vim
+sources: a learned list that is missing or unreadable never holds correction back.
+
 ## Model
 
 `assets/model.bin` holds 89,656 English and 241,624 Russian words with log10 frequencies, plus an

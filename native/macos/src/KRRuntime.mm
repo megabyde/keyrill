@@ -2,6 +2,7 @@
 
 #import "KRSession.h"
 
+#include <array>
 #include <atomic>
 #include <string>
 
@@ -9,16 +10,29 @@ namespace {
 
 enum class PathSetting { Default, Explicit, Unusable };
 
+// The two Vim languages, then the list macOS keeps for Learn Spelling
+constexpr int kSources = 3, kLearned = 2;
+
 struct Sources {
-  KRSourceStatus status[2];
-  bool observed[2];
+  KRSourceStatus status[kSources];
+  bool observed[kSources];
 };
 
-constexpr uint32_t kLanguages[2] = {KR_EN, KR_RU};
+constexpr uint32_t kTags[kSources] = {KR_EN, KR_RU, KR_LEARNED};
 NSString *const kPathKeys[2] = {@"EnglishDictionaryPath", @"RussianDictionaryPath"};
 
 KRSourceStatus &source(KRRuntimeStatus &status, int index) {
-  return index ? status.russian : status.english;
+  return index == kLearned ? status.learned : index ? status.russian : status.english;
+}
+
+// Undocumented; where current macOS keeps Learn Spelling words, one list for all languages
+NSString *learnedPath(id home) {
+  if (![home isKindOfClass:NSString.class])
+    return nil;
+  return [NSString pathWithComponents:@[
+    home, @"Library", @"Group Containers", @"group.com.apple.AppleSpell", @"Library", @"Spelling",
+    @"LocalDictionary"
+  ]];
 }
 
 bool flag(id value) { return [value isKindOfClass:NSNumber.class] && [value boolValue]; }
@@ -111,7 +125,7 @@ std::string pathBytes(id path) {
   void (^_mainExecutor)(dispatch_block_t);
   uint64_t _interval;
   dispatch_source_t _timer;
-  bool _configured[2];
+  bool _configured[kSources];
   bool _started;
   __weak id<KRVocabularyAdopting> _target;
   // Written on main; read by observation rounds to keep retrying a refused adoption
@@ -121,7 +135,7 @@ std::string pathBytes(id path) {
   // Work-queue confined once observation begins
   bool _observing;
   Sources _sources;
-  bool _active[2];
+  bool _active[kSources];
 }
 
 + (uint32_t)policyFromPreferences:(NSDictionary *)preferences {
@@ -192,6 +206,8 @@ std::string pathBytes(id path) {
       source(_status, i) =
           _paths[i] == PathSetting::Unusable ? KRSourceStatusMissing : KRSourceStatusPending;
     }
+    if (_vocabulary)
+      _status.learned = KRSourceStatusPending;
   }
   return self;
 }
@@ -245,16 +261,22 @@ std::string pathBytes(id path) {
   return kr_set_automatic_policy(engine, _enginePolicy);
 }
 
-// For the default setting `path` is the home directory, and Rust names the spell file under it.
-// Only the default location may be absent: a configured file that is missing stays missing
+// For a language's default setting `path` is the home directory, and Rust names the spell file
+// under it. Only a default location may be absent: a configured file that is missing stays missing
 - (bool)configure:(int)index path:(const std::string &)path {
   auto bytes = reinterpret_cast<const uint8_t *>(path.data());
   auto len = static_cast<uint32_t>(path.size());
-  bool configured =
-      !path.empty() &&
-      (_paths[index] == PathSetting::Default
-           ? kr_vocabulary_configure_default(_vocabulary, kLanguages[index], bytes, len)
-           : kr_vocabulary_configure(_vocabulary, kLanguages[index], bytes, len, 0)) == KR_OK;
+  uint32_t status = KR_PATH;
+  if (!path.empty()) {
+    if (index == kLearned)
+      status =
+          kr_vocabulary_configure(_vocabulary, KR_LEARNED, bytes, len, KR_SOURCE_MISSING_IS_EMPTY);
+    else if (_paths[index] == PathSetting::Default)
+      status = kr_vocabulary_configure_default(_vocabulary, kTags[index], bytes, len);
+    else
+      status = kr_vocabulary_configure(_vocabulary, kTags[index], bytes, len, 0);
+  }
+  bool configured = status == KR_OK;
   if (!configured)
     source(_status, index) = KRSourceStatusMissing;
   _configured[index] = configured;
@@ -265,16 +287,11 @@ std::string pathBytes(id path) {
   if (!NSThread.isMainThread || !_vocabulary || _started || _stopped)
     return;
   _started = true;
-  bool needsHome = false;
   for (int i = 0; i < 2; ++i) {
     if (_paths[i] == PathSetting::Explicit)
       [self configure:i path:_explicitPaths[i]];
-    needsHome = needsHome || _paths[i] == PathSetting::Default;
   }
-  if (!needsHome) {
-    [self beginObserving];
-    return;
-  }
+  // The learned list lives under the home, so it is always resolved
   dispatch_async(_queue, ^{
     if (self->_stopped)
       return;
@@ -292,18 +309,19 @@ std::string pathBytes(id path) {
     if (_paths[i] == PathSetting::Default)
       [self configure:i path:pathBytes(home)];
   }
+  [self configure:kLearned path:pathBytes(learnedPath(home))];
   [self beginObserving];
 }
 
 // Hands the configured state to the work queue, then observes immediately and periodically
 - (void)beginObserving {
-  Sources sources = {{_status.english, _status.russian}, {false, false}};
-  bool english = _configured[0], russian = _configured[1];
+  Sources sources = {{_status.english, _status.russian, _status.learned}, {}};
+  std::array<bool, kSources> configured = {_configured[0], _configured[1], _configured[kLearned]};
   dispatch_async(_queue, ^{
     self->_observing = true;
     self->_sources = sources;
-    self->_active[0] = english;
-    self->_active[1] = russian;
+    for (int i = 0; i < kSources; ++i)
+      self->_active[i] = configured[i];
     [self observe];
   });
   if (!_interval)
@@ -331,11 +349,11 @@ std::string pathBytes(id path) {
     return;
   Sources next = _sources;
   bool published = false;
-  for (int i = 0; i < 2; ++i) {
+  for (int i = 0; i < kSources; ++i) {
     if (!_active[i])
       continue;
     uint32_t observation = KR_SOURCE_PENDING;
-    if (kr_vocabulary_observe(_vocabulary, kLanguages[i], &observation) != KR_OK) {
+    if (kr_vocabulary_observe(_vocabulary, kTags[i], &observation) != KR_OK) {
       next.status[i] = next.observed[i] ? KRSourceStatusRetained : KRSourceStatusMissing;
       continue;
     }
@@ -344,15 +362,17 @@ std::string pathBytes(id path) {
     published = published || observation == KR_SOURCE_PUBLISHED;
     next.status[i] = next.observed[i] ? KRSourceStatusReady : KRSourceStatusPending;
   }
-  bool changed = next.status[0] != _sources.status[0] || next.status[1] != _sources.status[1];
+  bool changed = false;
+  for (int i = 0; i < kSources; ++i)
+    changed = changed || next.status[i] != _sources.status[i];
   _sources = next;
   if (!published && !changed && !_needsAdoption)
     return;
   _mainExecutor(^{
     if (self->_stopped)
       return;
-    self->_status.english = next.status[0];
-    self->_status.russian = next.status[1];
+    for (int i = 0; i < kSources; ++i)
+      source(self->_status, i) = next.status[i];
     if (published)
       self->_needsAdoption = true;
     [self adoptIfNeeded];

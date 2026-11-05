@@ -79,7 +79,10 @@ an item that exists on one OS only ([development](development.md#style)).
   files under it, `~/vimfiles/spell/{en,ru}.utf-8.add` on Windows and `~/.vim/spell` elsewhere.
   std has no stable file identity on Windows, so a read there is checked against size and the
   modified and creation times; the byte comparison between two observations still catches a
-  same-size replacement.
+  same-size replacement. Learned slots `KR_LEARNED` through `KR_LEARNED + 3` take the OS spell
+  checker's own lists as plain word lists. On Windows these are
+  `%AppData%\Microsoft\Spelling\<tag>\default.dic` for added words and `default.exc`, configured
+  with `KR_SOURCE_EXCLUDED`, for excluded ones; the adapter picks the language tags.
 - **Failures.** Status codes are content-free. A Rust panic is caught at the boundary and
   permanently poisons the handle (`KR_POISONED`).
 - **Compatibility path.** `kr_plan_compatibility_event` and `kr_commit_compatibility` are the

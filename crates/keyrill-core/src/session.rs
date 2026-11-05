@@ -591,6 +591,7 @@ mod tests {
         let dictionaries = Dictionaries {
             en: Some(&empty),
             ru: Some(&empty),
+            learned: &[],
         };
         for (mode, raw, corrected) in [
             (Mode::En, "cgbcjr", "список "),
@@ -644,6 +645,7 @@ mod tests {
         let missing = Dictionaries {
             en: None,
             ru: Some(&ru),
+            learned: &[],
         };
         assert_eq!(
             type_model(&mut session, &model, missing, Mode::En, "cgbcjr ").text,
@@ -660,6 +662,7 @@ mod tests {
         let dictionaries = Dictionaries {
             en: Some(&protected),
             ru: Some(&ru),
+            learned: &[],
         };
         assert_eq!(
             type_model(&mut session, &model, dictionaries, Mode::En, "cgbcjr ").text,
@@ -671,6 +674,7 @@ mod tests {
         let dictionaries = Dictionaries {
             en: Some(&ready),
             ru: Some(&ru),
+            learned: &[],
         };
         type_model(&mut session, &model, dictionaries, Mode::En, "cgbcjr");
         let superseded = session
@@ -692,6 +696,7 @@ mod tests {
                 Dictionaries {
                     en: Some(&protected),
                     ru: Some(&ru),
+                    learned: &[],
                 },
                 Policy::default(),
             )
@@ -711,6 +716,7 @@ mod tests {
         let dictionaries = Dictionaries {
             en: Some(&empty),
             ru: Some(&empty),
+            learned: &[],
         };
         let mut session = Session::default();
         type_model(&mut session, &model, dictionaries, Mode::En, "cgbcjr");
@@ -749,6 +755,7 @@ mod tests {
         let dictionaries = Dictionaries {
             en: Some(&empty),
             ru: Some(&empty),
+            learned: &[],
         };
         let mut neutral = Session::default();
         assert_eq!(
@@ -818,6 +825,7 @@ mod tests {
         let dictionaries = Dictionaries {
             en: Some(&empty),
             ru: Some(&empty),
+            learned: &[],
         };
         let mut session = Session::default();
         type_model(&mut session, &model, dictionaries, Mode::En, "hello ");
@@ -927,6 +935,7 @@ mod tests {
         let dictionaries = Dictionaries {
             en: Some(&empty),
             ru: Some(&empty),
+            learned: &[],
         };
         for (typed, marked) in [
             ("[jhjij ", "хорошо "),

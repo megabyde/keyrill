@@ -26,7 +26,7 @@
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let model = Model::embedded()?;
 //! let empty = Vocabulary::parse(b"")?;
-//! let dictionaries = Dictionaries { en: Some(&empty), ru: Some(&empty) };
+//! let dictionaries = Dictionaries { en: Some(&empty), ru: Some(&empty), learned: &[] };
 //! let mut session = Session::default();
 //!
 //! let mut marked = Vec::new();
