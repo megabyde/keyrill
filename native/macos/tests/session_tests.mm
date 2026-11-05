@@ -1391,7 +1391,6 @@ void testRuntimeReloadPreservesWholeDocumentAndReceipt() {
     @"RussianDictionaryPath" : ru
   }
       homeResolver:^NSString * {
-        CHECK(false);
         return nil;
       }
       workQueue:queue
@@ -2358,8 +2357,10 @@ struct ControllerHarness {
     }
   }
 
-  // Two observation rounds publish settled sources; adoption follows on drain
+  // Start resolves the home first; then two observation rounds publish settled sources and
+  // adoption follows on drain
   void settle() {
+    drain();
     [runtime tick];
     [runtime tick];
     drain();

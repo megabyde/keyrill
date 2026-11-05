@@ -18,5 +18,10 @@ source, and so is a missing file at the default path, since Vim creates it only 
 `~/.vim/spell/{en,ru}.utf-8.add`, or `~/vimfiles/spell` on Windows. A missing file at a path the
 user chose keeps that language missing. Keyrill never modifies the files.
 
+The OS spell checker's learned lists are read the same way, read-only and in place, so a word
+taught with Learn Spelling on macOS or Add to dictionary on Windows is protected without a second
+list. They are plain word lists, not Vim syntax, and never required: correction waits only for
+the two Vim sources. Excluded words on Windows are forbidden, as with Vim's `zw`.
+
 Revisit if the user's vocabulary workflow changes or a required semantic can't be expressed in
 this format.

@@ -1,11 +1,11 @@
 //! Host dictionary sources and immutable adoption, without scheduling or native editing authority.
 
-use crate::vocabulary_source::{Observation, Source, SourceError};
+use crate::vocabulary_source::{Observation, Parser, Source, SourceError};
 use crate::{
     BAD_TAG, BOUNDS, DICTIONARY_DATA, Engine, NULL, OK, POISONED, STATE, VERSION, compatible_abi,
     with_engine,
 };
-use keyrill_core::vocabulary::{Snapshot, Vocabulary};
+use keyrill_core::vocabulary::{Membership, Snapshot, Vocabulary};
 use std::io::ErrorKind;
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
@@ -21,6 +21,11 @@ const SOURCE_NOT_REGULAR: u32 = 12;
 const PATH: u32 = 13;
 const STALE_CONFIGURATION: u32 = 14;
 const MISSING_IS_EMPTY: u32 = 1;
+const EXCLUDED: u32 = 2;
+// Two Vim languages, then the learned-word slots tagged LEARNED + n
+const LEARNED: u32 = 16;
+const LEARNED_SOURCES: usize = 4;
+const SOURCES: usize = 2 + LEARNED_SOURCES;
 const DEFAULT_NAMES: [&str; 2] = ["en.utf-8.add", "ru.utf-8.add"];
 // Vim's first 'runtimepath' entry, where `zg` creates spell files while 'spellfile' is empty
 #[cfg(not(windows))]
@@ -33,13 +38,14 @@ struct Language {
     generation: u64,
     path: Option<PathBuf>,
     missing_is_empty: bool,
+    excluded: bool,
     current: Option<Arc<Vocabulary>>,
 }
 
 #[derive(Default)]
 struct Acquisition {
-    generation: [u64; 2],
-    sources: [Source; 2],
+    generation: [u64; SOURCES],
+    sources: [Source; SOURCES],
 }
 
 /// Opaque shared host handle. Free only after every operation has completed.
@@ -47,14 +53,25 @@ struct Acquisition {
 pub struct VocabularyHandle {
     poisoned: AtomicBool,
     acquisition: Mutex<Acquisition>,
-    published: Mutex<[Language; 2]>,
+    published: Mutex<[Language; SOURCES]>,
 }
 
-fn language_index(language: u32) -> Result<usize, u32> {
-    match language {
+fn source_index(source: u32) -> Result<usize, u32> {
+    match source {
         1 => Ok(0),
         2 => Ok(1),
-        _ => Err(BAD_TAG),
+        _ => match source.checked_sub(LEARNED) {
+            Some(slot) if (slot as usize) < LEARNED_SOURCES => Ok(2 + slot as usize),
+            _ => Err(BAD_TAG),
+        },
+    }
+}
+
+fn parser(index: usize, excluded: bool) -> Parser {
+    match (index, excluded) {
+        (0 | 1, _) => Vocabulary::parse,
+        (_, false) => |source| Vocabulary::parse_words(source, Membership::Recognized),
+        (_, true) => |source| Vocabulary::parse_words(source, Membership::Forbidden),
     }
 }
 
@@ -81,12 +98,21 @@ fn source_status(error: SourceError) -> u32 {
 }
 
 impl VocabularyHandle {
-    fn configure(&self, index: usize, path: Option<PathBuf>, missing_is_empty: bool) -> u32 {
+    fn configure(
+        &self,
+        index: usize,
+        path: Option<PathBuf>,
+        missing_is_empty: bool,
+        excluded: bool,
+    ) -> u32 {
         let Ok(mut languages) = self.published.lock() else {
             return POISONED;
         };
         let language = &mut languages[index];
-        if language.path == path && language.missing_is_empty == missing_is_empty {
+        if language.path == path
+            && language.missing_is_empty == missing_is_empty
+            && language.excluded == excluded
+        {
             return OK;
         }
         let Some(generation) = language.generation.checked_add(1) else {
@@ -98,6 +124,7 @@ impl VocabularyHandle {
                 generation,
                 path,
                 missing_is_empty,
+                excluded,
                 current: None,
             },
         );
@@ -107,15 +134,16 @@ impl VocabularyHandle {
     }
 
     fn observe(&self, index: usize, checkpoint: impl FnOnce()) -> Result<Observation, u32> {
-        let (generation, path, missing_is_empty) = {
+        let (generation, path, missing_is_empty, excluded) = {
             let languages = self.published.lock().map_err(|_| POISONED)?;
             let language = &languages[index];
             let path = language.path.clone().ok_or(STATE)?;
-            (language.generation, path, language.missing_is_empty)
+            let (missing_is_empty, excluded) = (language.missing_is_empty, language.excluded);
+            (language.generation, path, missing_is_empty, excluded)
         };
         let mut acquisition = self.acquisition.lock().map_err(|_| POISONED)?;
         if acquisition.generation[index] != generation {
-            acquisition.sources[index] = Source::default();
+            acquisition.sources[index] = Source::new(parser(index, excluded));
             acquisition.generation[index] = generation;
         }
         checkpoint();
@@ -213,8 +241,10 @@ pub unsafe extern "C" fn kr_vocabulary_free(pointer: *mut VocabularyHandle) {
 
 /// Configure one logical source without I/O. Changed paths or flags immediately become missing.
 ///
-/// With `MISSING_IS_EMPTY` in `flags`, observing a path that does not exist (ENOENT) publishes an
-/// empty source until a file at that path has been published; unknown flag bits are `BAD_TAG`.
+/// `source` is a language, read as a Vim word list, or learned slot `LEARNED + n`, read as a
+/// plain word list. With `MISSING_IS_EMPTY` in `flags`, observing a path that does not exist
+/// (ENOENT) publishes an empty source until a file at that path has been published. `EXCLUDED`,
+/// for learned slots only, makes every word forbidden. Other flag bits are `BAD_TAG`.
 ///
 /// # Safety
 /// `pointer` must be null or a live aligned source allocation throughout this call. For nonzero
@@ -223,7 +253,7 @@ pub unsafe extern "C" fn kr_vocabulary_free(pointer: *mut VocabularyHandle) {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kr_vocabulary_configure(
     pointer: *mut VocabularyHandle,
-    language: u32,
+    source: u32,
     path: *const u8,
     len: u32,
     flags: u32,
@@ -231,11 +261,16 @@ pub unsafe extern "C" fn kr_vocabulary_configure(
     // SAFETY: forward the live shared handle and bounded readable path contracts
     unsafe {
         with_vocabulary(pointer, |vocabulary| {
-            let index = match language_index(language) {
+            let index = match source_index(source) {
                 Ok(index) => index,
                 Err(status) => return status,
             };
-            if flags & !MISSING_IS_EMPTY != 0 {
+            let allowed = if index < 2 {
+                MISSING_IS_EMPTY
+            } else {
+                MISSING_IS_EMPTY | EXCLUDED
+            };
+            if flags & !allowed != 0 {
                 return BAD_TAG;
             }
             if len as usize > MAX_PATH {
@@ -255,7 +290,8 @@ pub unsafe extern "C" fn kr_vocabulary_configure(
                 Some(path.to_path_buf())
             };
             let missing_is_empty = path.is_some() && flags & MISSING_IS_EMPTY != 0;
-            vocabulary.configure(index, path, missing_is_empty)
+            let excluded = path.is_some() && flags & EXCLUDED != 0;
+            vocabulary.configure(index, path, missing_is_empty, excluded)
         })
     }
 }
@@ -278,8 +314,9 @@ pub unsafe extern "C" fn kr_vocabulary_configure_default(
     // SAFETY: forward the live shared handle and bounded readable path contracts
     unsafe {
         with_vocabulary(pointer, |vocabulary| {
-            let index = match language_index(language) {
-                Ok(index) => index,
+            let index = match source_index(language) {
+                Ok(index @ 0..2) => index,
+                Ok(_) => return BAD_TAG,
                 Err(status) => return status,
             };
             if len as usize > MAX_PATH {
@@ -304,7 +341,7 @@ pub unsafe extern "C" fn kr_vocabulary_configure_default(
             if path.as_os_str().len() > MAX_PATH {
                 return BOUNDS;
             }
-            vocabulary.configure(index, Some(path), true)
+            vocabulary.configure(index, Some(path), true, false)
         })
     }
 }
@@ -317,13 +354,13 @@ pub unsafe extern "C" fn kr_vocabulary_configure_default(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kr_vocabulary_observe(
     pointer: *mut VocabularyHandle,
-    language: u32,
+    source: u32,
     observation_out: *mut u32,
 ) -> u32 {
     // SAFETY: the caller keeps the handle and distinct output alive until this call completes
     unsafe {
         with_vocabulary(pointer, |vocabulary| {
-            let index = match language_index(language) {
+            let index = match source_index(source) {
                 Ok(index) => index,
                 Err(status) => return status,
             };
@@ -345,7 +382,8 @@ pub unsafe extern "C" fn kr_vocabulary_observe(
     }
 }
 
-/// Adopt both immutable language views together, without changing session state or authority.
+/// Adopt the language views and learned lists together, without changing session state or
+/// authority.
 ///
 /// # Safety
 /// `engine` must be null or a live uniquely borrowed engine on its serialized thread. `pointer`
@@ -366,17 +404,23 @@ pub unsafe extern "C" fn kr_adopt_vocabulary(
                 return STATE;
             }
             let mut current = [None, None];
+            let mut learned = Vec::new();
             let status = with_vocabulary(pointer, |vocabulary| {
-                let Ok(languages) = vocabulary.published.lock() else {
+                let Ok(sources) = vocabulary.published.lock() else {
                     return POISONED;
                 };
-                current = [languages[0].current.clone(), languages[1].current.clone()];
+                current = [sources[0].current.clone(), sources[1].current.clone()];
+                learned = sources[2..]
+                    .iter()
+                    .filter_map(|s| s.current.clone())
+                    .collect();
                 OK
             });
             if status != OK {
                 return status;
             }
             engine.dictionaries = current.map(Snapshot::from);
+            engine.learned = learned;
             OK
         })
     }
@@ -1062,6 +1106,109 @@ mod tests {
             assert_eq!(
                 mark(&type_text(engine, 1, "ghbdtn ")),
                 "ghbdtn ".encode_utf16().collect::<Vec<_>>()
+            );
+            kr_vocabulary_free(vocabulary);
+            kr_engine_free(engine);
+        }
+    }
+
+    #[test]
+    fn learned_slots_accept_only_their_tags_and_flags() {
+        let path = [ROOT, b"learned"].concat();
+        // SAFETY: every accepted pointer refers to a distinct live local allocation; the handle is
+        // serialized here and freed once after its last use
+        unsafe {
+            let mut vocabulary = std::ptr::null_mut();
+            assert_eq!(kr_vocabulary_new(ABI, &mut vocabulary), OK);
+            let configure = |source, flags| {
+                kr_vocabulary_configure(vocabulary, source, path.as_ptr(), path.len() as u32, flags)
+            };
+            for (source, flags, expected) in [
+                (LEARNED - 1, 0, BAD_TAG),
+                (LEARNED + LEARNED_SOURCES as u32, 0, BAD_TAG),
+                (1, EXCLUDED, BAD_TAG),
+                (LEARNED, 4, BAD_TAG),
+                (LEARNED, MISSING_IS_EMPTY | EXCLUDED, OK),
+                (LEARNED + 3, 0, OK),
+            ] {
+                assert_eq!(configure(source, flags), expected, "{source} {flags}");
+            }
+            assert_eq!(configure_default(vocabulary, LEARNED, ROOT), BAD_TAG);
+            let generation =
+                |index: usize| (*vocabulary).published.lock().unwrap()[index].generation;
+            let first = generation(2);
+            assert!((*vocabulary).published.lock().unwrap()[2].excluded);
+            assert_eq!(configure(LEARNED, MISSING_IS_EMPTY | EXCLUDED), OK);
+            assert_eq!(generation(2), first);
+            // Dropping only EXCLUDED is a new configuration of the same file
+            assert_eq!(configure(LEARNED, MISSING_IS_EMPTY), OK);
+            assert_eq!(generation(2), first + 1);
+            assert!(!(*vocabulary).published.lock().unwrap()[2].excluded);
+            assert!((*vocabulary).published.lock().unwrap()[0].path.is_none());
+            kr_vocabulary_free(vocabulary);
+        }
+    }
+
+    #[test]
+    fn source_learned_lists_protect_and_forbid_but_never_gate_correction() {
+        let directory = Directory::new();
+        let en = directory.file("en.add", b"");
+        let ru = directory.file("ru.add", b"");
+        // Vim syntax means nothing in a learned list: `ghbdtn/!` is a word, not a forbidden entry
+        let learned = directory.file("LocalDictionary", b"ghbdtn/!\nghbdtn\n");
+        let mut utf16 = vec![0xff, 0xfe];
+        utf16.extend("привет\r\n".encode_utf16().flat_map(u16::to_le_bytes));
+        let excluded = directory.file("default.exc", &utf16);
+        let absent = directory.0.join("absent.dic");
+        let corrected = || "привет ".encode_utf16().collect::<Vec<_>>();
+        let kept = || "ghbdtn ".encode_utf16().collect::<Vec<_>>();
+        // SAFETY: handles and outputs are distinct live objects; the engine is used only on this
+        // thread and every handle is freed once after its last use
+        unsafe {
+            let (engine, vocabulary) = handles();
+            assert_eq!(kr_set_automatic_policy(engine, 2), OK);
+            let typed = |engine| {
+                assert_eq!(kr_adopt_vocabulary(engine, vocabulary), OK);
+                assert_eq!(kr_reset(engine), OK);
+                mark(&type_text(engine, 1, "ghbdtn "))
+            };
+            configure(vocabulary, 1, &en);
+            configure(vocabulary, 2, &ru);
+            for language in [1, 2] {
+                observe(vocabulary, language, 0);
+                observe(vocabulary, language, 1);
+            }
+            // A learned slot that never loads doesn't hold correction back
+            assert_eq!(configure_flags(vocabulary, LEARNED + 2, &absent, 0), OK);
+            let mut output = 77;
+            assert_eq!(
+                kr_vocabulary_observe(vocabulary, LEARNED + 2, &mut output),
+                SOURCE_IO
+            );
+            assert_eq!(typed(engine), corrected());
+
+            assert_eq!(configure_flags(vocabulary, LEARNED, &learned, 0), OK);
+            observe(vocabulary, LEARNED, 0);
+            observe(vocabulary, LEARNED, 1);
+            assert_eq!(typed(engine), kept());
+            assert_eq!((*engine).learned.len(), 1);
+
+            // Unconfiguring the slot removes its words at the next adoption
+            assert_eq!(configure_flags(vocabulary, LEARNED, Path::new(""), 0), OK);
+            assert_eq!(typed(engine), corrected());
+
+            // An excluded UTF-16 list forbids the candidate
+            assert_eq!(
+                configure_flags(vocabulary, LEARNED + 1, &excluded, EXCLUDED),
+                OK
+            );
+            observe(vocabulary, LEARNED + 1, 0);
+            observe(vocabulary, LEARNED + 1, 1);
+            assert_eq!(typed(engine), kept());
+            let units: Vec<_> = "Привет".encode_utf16().collect();
+            assert_eq!(
+                (&(*engine).learned)[0].lookup(&units),
+                Membership::Forbidden
             );
             kr_vocabulary_free(vocabulary);
             kr_engine_free(engine);

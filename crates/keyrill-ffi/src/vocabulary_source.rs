@@ -87,17 +87,36 @@ struct Candidate {
     vocabulary: Arc<Vocabulary>,
 }
 
+/// Parses a complete candidate; the source's word-list format.
+pub type Parser = fn(&[u8]) -> Result<Vocabulary, ParseError>;
+
 /// Last-good personal protection plus one staged candidate. Never reads a default/home path.
 ///
 /// Two equal observations are a settling heuristic: a writer paused across both can still
 /// expose an incomplete but valid file. This does not prove that an editor save completed.
-#[derive(Default)]
 pub struct Source {
     current: Option<Arc<Vocabulary>>,
     staged: Option<Candidate>,
+    parse: Parser,
+}
+
+/// A Vim word list.
+impl Default for Source {
+    fn default() -> Self {
+        Self::new(Vocabulary::parse)
+    }
 }
 
 impl Source {
+    /// An empty source whose candidates `parse` reads.
+    pub fn new(parse: Parser) -> Self {
+        Self {
+            current: None,
+            staged: None,
+            parse,
+        }
+    }
+
     /// Retain an immutable last-good snapshot; `None` means never successfully published.
     pub fn current(&self) -> Option<Arc<Vocabulary>> {
         self.current.clone()
@@ -192,7 +211,7 @@ impl Source {
             self.current = Some(staged.vocabulary.clone());
             return Ok(Observation::Published);
         }
-        let vocabulary = Vocabulary::parse(&bytes).map_err(SourceError::Invalid)?;
+        let vocabulary = (self.parse)(&bytes).map_err(SourceError::Invalid)?;
         self.staged = Some(Candidate {
             stamp,
             bytes,

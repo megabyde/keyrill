@@ -467,6 +467,8 @@ static NSString *keyboardForMode(uint32_t mode) {
     addStatusItem(menu, [@"English dictionary: " stringByAppendingString:english]);
   if (russian)
     addStatusItem(menu, [@"Russian dictionary: " stringByAppendingString:russian]);
+  if (NSString *learned = sourceState(status.learned))
+    addStatusItem(menu, [@"Learned words: " stringByAppendingString:learned]);
   [menu addItem:NSMenuItem.separatorItem];
   [menu addItemWithTitle:@"Settings…" action:@selector(showPreferences:) keyEquivalent:@""];
   return menu;

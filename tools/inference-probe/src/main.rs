@@ -161,6 +161,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let dictionaries = Dictionaries {
         en: Some(&empty),
         ru: Some(&empty),
+        learned: &[],
     };
     let stdin = io::stdin();
     let mut input = stdin.lock();

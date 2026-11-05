@@ -62,7 +62,7 @@ is not a correction failure, and input that never reached Rust is not an abstent
 | V13 | Escape, host cancel, app quit, server quit, source away and back | Documents stable; lifetimes drained |
 | V14 | Read-only, password, custom, code, terminal, remote controls | No prohibited read or write; input not swallowed |
 | V15 | Emoji, non-BMP, combining marks, multi-line text | Preserved exactly |
-| V16 | Dictionary edit, atomic save, symlink, missing, invalid, oversized, restore | Last good data kept; manual conversion unaffected |
+| V16 | Dictionary edit, Learn Spelling and Unlearn, atomic save, symlink, missing, invalid, oversized, restore | Last good data kept; manual conversion unaffected |
 | V17 | Fresh install, enable, select, restart, log out and in | Actual typing works, not just registration |
 | V18 | Windows: denied lock, async grant, null composition, terminated context | Correct key disposition; no stale edit |
 

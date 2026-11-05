@@ -3,7 +3,8 @@
 Keyrill fixes English/Russian keyboard-layout mistakes as you type: `ghbdtn` becomes `привет`,
 `руддщ` becomes `hello`. It is a local input method with a Rust engine, a versioned C ABI and a
 native macOS InputMethodKit adapter. Inference runs offline against a frozen frequency model
-and your own Vim spelling files if you keep them; nothing is logged, persisted or sent over the network.
+and your own spelling lists: Vim `.add` files if you keep them and the words you taught macOS
+with Learn Spelling. Nothing is logged, persisted or sent over the network.
 
 This is an alpha. Only macOS has an adapter. The engine and ABI are platform-neutral, and
 Windows and Linux adapters are open work; see [porting](docs/porting.md).
@@ -68,7 +69,8 @@ toolchain from `rust-toolchain.toml` on first use).
    English and Russian dictionary files. The defaults are `~/.vim/spell/en.utf-8.add` and
    `~/.vim/spell/ru.utf-8.add`, and a missing file at a default path counts as empty, so you
    can leave them if you don't use Vim. A missing file at a path you chose keeps automatic
-   correction off, so a typo there doesn't silently drop your protected words.
+   correction off, so a typo there doesn't silently drop your protected words. Words you add
+   with Learn Spelling in any app are protected as well.
 
 1. For compatibility mode, grant Keyrill Alpha access under Privacy & Security > Accessibility
    and Input Monitoring. Keyrill checks both without prompting when a compatibility application

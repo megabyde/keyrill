@@ -113,7 +113,7 @@ static void scenario(uint32_t keyboard, uint32_t mode, const char *typed, const 
   kr_engine_free(engine);
 }
 
-// The default dictionary under a home that doesn't exist counts as empty on every OS
+// The default dictionary and a learned list under a home that doesn't exist count as empty
 static void default_dictionary(void) {
 #ifdef _WIN32
   static const char home[] = "C:\\keyrill-absent-home";
@@ -134,6 +134,13 @@ static void default_dictionary(void) {
            kr_vocabulary_observe(vocabulary, KR_EN, &observation) != KR_OK ||
            observation != KR_SOURCE_PUBLISHED || kr_adopt_vocabulary(engine, vocabulary) != KR_OK)
     fail("a missing default dictionary was not published empty");
+  else if (kr_vocabulary_configure(vocabulary, KR_LEARNED + KR_LEARNED_SOURCES - 1,
+                                   (const uint8_t *)home, sizeof home - 1,
+                                   KR_SOURCE_MISSING_IS_EMPTY | KR_SOURCE_EXCLUDED) != KR_OK ||
+           kr_vocabulary_observe(vocabulary, KR_LEARNED + KR_LEARNED_SOURCES - 1, &observation) !=
+               KR_OK ||
+           observation != KR_SOURCE_PUBLISHED || kr_adopt_vocabulary(engine, vocabulary) != KR_OK)
+    fail("a missing learned list was not published empty");
   kr_engine_free(engine);
   kr_vocabulary_free(vocabulary);
 }

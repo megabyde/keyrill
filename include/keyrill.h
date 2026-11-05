@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define KR_ABI_VERSION UINT32_C(0x00000002)
+#define KR_ABI_VERSION UINT32_C(0x00000003)
 #define KR_TEXT_CAPACITY 128
 #define KR_EVENT_CAPACITY 8
 #define KR_MAX_DICTIONARY_BYTES UINT32_C(1048576)
@@ -81,7 +81,7 @@ typedef struct {
  * UTF-16 lengths count units, not bytes. Rust never calls IMK/client objects.
  */
 uint32_t kr_abi_version(void);
-/* Versions encode major << 16 | minor; this is 0.2. Pass KR_ABI_VERSION as abi.
+/* Versions encode major << 16 | minor; this is 0.3. Pass KR_ABI_VERSION as abi.
  * Before 1.0 there is no compatibility promise: any other value returns KR_VERSION. */
 uint32_t kr_engine_new(uint32_t abi, kr_engine **out);
 void kr_engine_free(kr_engine *engine); /* NULL is allowed. */
@@ -141,27 +141,36 @@ typedef struct kr_vocabulary kr_vocabulary;
 enum { KR_SOURCE_PENDING = 0, KR_SOURCE_PUBLISHED = 1, KR_SOURCE_UNCHANGED = 2 };
 uint32_t kr_vocabulary_new(uint32_t abi, kr_vocabulary **out);
 void kr_vocabulary_free(kr_vocabulary *vocabulary); /* NULL is allowed. */
-enum { KR_SOURCE_MISSING_IS_EMPTY = 1 };
+/* A source is KR_EN or KR_RU, read as a Vim word list, or a learned slot
+ * KR_LEARNED + n for n below KR_LEARNED_SOURCES: a plain list, one word per line,
+ * in UTF-8 or UTF-16 LE with a BOM, as OS spell checkers keep added and excluded
+ * words. Learned words protect and forbid like Vim entries, but automatic
+ * correction never waits for a learned slot; only the two languages gate it. */
+enum { KR_LEARNED = 16, KR_LEARNED_SOURCES = 4 };
+enum { KR_SOURCE_MISSING_IS_EMPTY = 1, KR_SOURCE_EXCLUDED = 2 };
 /* Borrow path bytes for this call: absolute, no NUL, at most 1024 bytes. POSIX
  * paths are raw bytes with no UTF-8 requirement; Windows paths are UTF-8 with a
  * drive or UNC root. No tilde expansion or filesystem access. Zero length
- * (either pointer) unconfigures the language and ignores flags. Same
+ * (either pointer) unconfigures the source and ignores flags. Same
  * bytes and flags are idempotent. A changed path or flag advances its generation
  * and immediately makes that language missing; failed reloads of an unchanged
  * configuration retain last-good. With KR_SOURCE_MISSING_IS_EMPTY, observing a
  * path that does not exist (ENOENT) publishes an empty source instead of failing,
  * until a file at that path has been published; after that ENOENT retains
- * last-good like any other error. Other errors are unchanged. Unknown flag bits
- * are BAD_TAG. Invalid arguments and generation exhaustion (STATE) change nothing.
+ * last-good like any other error. Other errors are unchanged. KR_SOURCE_EXCLUDED,
+ * for learned slots only, makes every word in the list forbidden. Unknown flag
+ * bits are BAD_TAG. Invalid arguments and generation exhaustion (STATE) change
+ * nothing.
  */
-uint32_t kr_vocabulary_configure(kr_vocabulary *vocabulary, uint32_t language, const uint8_t *path,
+uint32_t kr_vocabulary_configure(kr_vocabulary *vocabulary, uint32_t source, const uint8_t *path,
                                  uint32_t len, uint32_t flags);
-/* Configure the language's Vim spell file under home, an absolute directory given
- * like a path above: home/.vim/spell/en.utf-8.add or ru.utf-8.add, and
+/* Configure the language's Vim spell file under home, an absolute directory
+ * given like a path above: home/.vim/spell/en.utf-8.add or ru.utf-8.add, and
  * home\vimfiles\spell\... on Windows, where Vim's zg creates them while
- * 'spellfile' is empty. KR_SOURCE_MISSING_IS_EMPTY is implied. Zero length is
- * PATH; a joined path over KR_MAX_PATH_BYTES is BOUNDS. Configuration otherwise
- * behaves as kr_vocabulary_configure, without filesystem access.
+ * 'spellfile' is empty. KR_SOURCE_MISSING_IS_EMPTY is implied. A learned slot
+ * is BAD_TAG and zero length is PATH; a joined path over KR_MAX_PATH_BYTES is
+ * BOUNDS. Configuration otherwise behaves as kr_vocabulary_configure, without
+ * filesystem access.
  */
 uint32_t kr_vocabulary_configure_default(kr_vocabulary *vocabulary, uint32_t language,
                                          const uint8_t *home, uint32_t len);
@@ -170,16 +179,18 @@ uint32_t kr_vocabulary_configure_default(kr_vocabulary *vocabulary, uint32_t lan
  * DICTIONARY_DATA; other source errors use SOURCE_IO/CHANGED/NOT_REGULAR.
  * Two equal observations are a settling heuristic, not proof a save completed.
  */
-uint32_t kr_vocabulary_observe(kr_vocabulary *vocabulary, uint32_t language,
+uint32_t kr_vocabulary_observe(kr_vocabulary *vocabulary, uint32_t source,
                                uint32_t *observation_out);
-/* Clone both published language views consistently and replace engine snapshots
- * together. Pending plans refuse with STATE and change nothing. This changes no
- * policy, history, receipt, token or editing authority; the last successful adopt
- * or direct dictionary publication wins. A poisoned source leaves the engine
- * unchanged and does not poison it. POISONED may refer to either handle.
- * Cloning is constant-size; releasing previous snapshots can deallocate their
- * data, so this is not a latency guarantee. No filesystem I/O, parse, acquire-lock
- * wait or native call occurs here.
+/* Clone both published language views and the published learned lists
+ * consistently and replace the engine's copies together. Pending plans refuse
+ * with STATE and change nothing. This changes no policy, history, receipt,
+ * token or editing authority; the last successful adopt or direct dictionary
+ * publication wins for a language, and learned lists change only here. A
+ * poisoned source leaves the engine unchanged and does not poison it. POISONED
+ * may refer to either handle. Cloning copies at most six Arcs; releasing
+ * previous snapshots can deallocate their data, so this is not a latency
+ * guarantee. No filesystem I/O, parse, acquire-lock wait or native call occurs
+ * here.
  */
 uint32_t kr_adopt_vocabulary(kr_engine *engine, const kr_vocabulary *vocabulary);
 

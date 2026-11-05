@@ -198,7 +198,7 @@ void testOffDoesNoSourceWork() {
   [runtime stop];
 }
 
-// Explicit paths need no home. Two equal reads publish; an unchanged read wakes nothing; the
+// Two equal reads of explicit paths publish; an unchanged read wakes nothing; the
 // requested session adopts the publication and its next decision uses both sources.
 void testExplicitSourcesPublishAndAdopt() {
   currentTest = "explicit_sources_publish_and_adopt";
@@ -228,7 +228,9 @@ void testExplicitSourcesPublishAndAdopt() {
   NSUInteger posts = harness.posts;
   [runtime tick];
   [harness drain];
-  CHECK(harness.posts == posts && harness.homeCalls == 0);
+  CHECK(harness.posts == posts && harness.homeCalls == 1);
+  // No home means no learned list, and correction above didn't wait for it
+  CHECK(runtime.status.learned == KRSourceStatusMissing);
   [runtime stop];
 }
 
@@ -255,6 +257,41 @@ void testDefaultPathsFromHome() {
   // The EN entry protects the original; manual conversion still overrides it
   CHECK([afterSpace(engine, @"ghbdtn") isEqualToString:@"ghbdtn "]);
   CHECK([afterManual(engine, @"ghbdtn") isEqualToString:@"привет"]);
+  [runtime stop];
+}
+
+// The Learn Spelling list under the home protects its words beside the Vim files, and a
+// rewrite that drops a word lets correction through again
+void testLearnedWordsFromHome() {
+  currentTest = "learned_words_from_home";
+  NSString *home = directory(@"learned");
+  NSString *spell = directory(@"learned/.vim/spell");
+  write([spell stringByAppendingPathComponent:@"en.utf-8.add"], "");
+  write([spell stringByAppendingPathComponent:@"ru.utf-8.add"], "");
+  NSString *learned =
+      [directory(@"learned/Library/Group Containers/group.com.apple.AppleSpell/"
+                 @"Library/Spelling") stringByAppendingPathComponent:@"LocalDictionary"];
+  write(learned, "km/h\nghbdtn\n");
+  Harness *harness = [Harness new];
+  harness.home = home;
+  KRRuntime *runtime = [harness runtimeWithPreferences:@{kModel : @YES}];
+  CHECK(runtime.status.learned == KRSourceStatusPending);
+  kr_engine *engine;
+  KRSession *session = makeSession(runtime, engine);
+  [runtime start];
+  [harness drain];
+  [runtime tick];
+  [runtime requestAdoptionForSession:session];
+  [harness drain];
+  CHECK(sameStatus(runtime.status, KRPolicyStatusModel, KRSourceStatusReady, KRSourceStatusReady));
+  CHECK(runtime.status.learned == KRSourceStatusReady);
+  CHECK([afterSpace(engine, @"ghbdtn") isEqualToString:@"ghbdtn "]);
+
+  write(learned, "km/h\n");
+  [runtime tick];
+  [runtime tick];
+  [harness drain];
+  CHECK([afterSpace(engine, @"ghbdtn") isEqualToString:@"привет "]);
   [runtime stop];
 }
 
@@ -304,9 +341,11 @@ void testUnusablePathSettingsDoNotDiscover() {
   [runtime start];
   [runtime tick];
   [harness drain];
-  CHECK(harness.homeCalls == 0 && harness.posts == 0);
+  // The home is still resolved for the learned list, which is absent here and so empty
+  CHECK(harness.homeCalls == 1);
   CHECK(sameStatus(runtime.status, KRPolicyStatusModel, KRSourceStatusMissing,
                    KRSourceStatusMissing));
+  CHECK(runtime.status.learned == KRSourceStatusReady);
   [runtime stop];
 }
 
@@ -337,6 +376,7 @@ void testUnresolvedHomeAndMissingFile() {
   }];
   session = makeSession(runtime, engine);
   [runtime start];
+  [harness drain];
   [runtime tick];
   [runtime requestAdoptionForSession:session];
   [harness drain];
@@ -366,8 +406,10 @@ void testReloadKeepsLastGood() {
   KRSession *session = makeSession(runtime, engine);
   [runtime requestAdoptionForSession:session];
   [runtime start];
+  [harness drain];
   [runtime tick];
   [harness drain];
+  CHECK(sameStatus(runtime.status, KRPolicyStatusModel, KRSourceStatusReady, KRSourceStatusReady));
   CHECK([afterSpace(engine, @"ghbdtn") isEqualToString:@"ghbdtn "]);
 
   write(english, "/encoding=latin1\n");
@@ -408,6 +450,7 @@ Published publishedRuntime(NSString *name) {
     kRussianPath : russian
   }];
   [runtime start];
+  [harness drain];
   [runtime tick];
   [harness drain];
   CHECK(sameStatus(runtime.status, KRPolicyStatusModel, KRSourceStatusReady, KRSourceStatusReady));
@@ -760,6 +803,7 @@ int main() {
     testOffDoesNoSourceWork();
     testExplicitSourcesPublishAndAdopt();
     testDefaultPathsFromHome();
+    testLearnedWordsFromHome();
     testUnusablePathSettingsDoNotDiscover();
     testUnresolvedHomeAndMissingFile();
     testReloadKeepsLastGood();

@@ -4,6 +4,7 @@ use crate::mapping::{self, Keyboard, Mapping};
 use crate::model::{MAX_MODEL_WORD, Model};
 use crate::session::Mode;
 use crate::vocabulary::{self, Membership, Vocabulary};
+use std::sync::Arc;
 
 /// Reference scoring parameters. These are ranking hypotheses, not calibrated probabilities.
 #[derive(Clone, Copy, Debug)]
@@ -61,6 +62,9 @@ pub struct Dictionaries<'a> {
     pub en: Option<&'a Vocabulary>,
     /// Russian personal source.
     pub ru: Option<&'a Vocabulary>,
+    /// Words learned through the OS spell checker. They protect and forbid like the personal
+    /// sources, but readiness never waits for them.
+    pub learned: &'a [Arc<Vocabulary>],
 }
 
 /// One bounded word supplied by a caller that independently validated token eligibility.
@@ -153,18 +157,17 @@ pub fn is_provisional(unit: u16, keyboard: Keyboard) -> bool {
 }
 
 fn membership(dictionaries: Dictionaries<'_>, word: &[u16]) -> Membership {
-    let en = dictionaries
-        .en
-        .map_or(Membership::Absent, |v| v.lookup(word));
-    let ru = dictionaries
-        .ru
-        .map_or(Membership::Absent, |v| v.lookup(word));
-    match (en, ru) {
-        (Membership::Forbidden, _) | (_, Membership::Forbidden) => Membership::Forbidden,
-        (Membership::Recognized, _) | (_, Membership::Recognized) => Membership::Recognized,
-        (Membership::Rare, _) | (_, Membership::Rare) => Membership::Rare,
-        _ => Membership::Absent,
-    }
+    let learned = dictionaries.learned.iter().map(|v| v.lookup(word));
+    [dictionaries.en, dictionaries.ru]
+        .into_iter()
+        .map(|v| v.map_or(Membership::Absent, |v| v.lookup(word)))
+        .chain(learned)
+        .fold(Membership::Absent, |result, next| match (result, next) {
+            (Membership::Forbidden, _) | (_, Membership::Forbidden) => Membership::Forbidden,
+            (Membership::Recognized, _) | (_, Membership::Recognized) => Membership::Recognized,
+            (Membership::Rare, _) | (_, Membership::Rare) => Membership::Rare,
+            _ => Membership::Absent,
+        })
 }
 
 /// Apply the frozen policy to an eligible owned word; caller still controls all native effects.
@@ -179,7 +182,7 @@ fn membership(dictionaries: Dictionaries<'_>, word: &[u16]) -> Membership {
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let model = Model::embedded()?;
 /// let empty = Vocabulary::parse(b"")?;
-/// let ready = Dictionaries { en: Some(&empty), ru: Some(&empty) };
+/// let ready = Dictionaries { en: Some(&empty), ru: Some(&empty), learned: &[] };
 /// let word: Vec<u16> = "ghbdtn".encode_utf16().collect();
 /// let request = Request {
 ///     word: &word,
@@ -429,6 +432,7 @@ mod tests {
         let dictionaries = Dictionaries {
             en: Some(&empty),
             ru: Some(&empty),
+            learned: &[],
         };
         let neutral = infer(&model, dictionaries, Policy::default(), request);
         let source = infer(
@@ -480,6 +484,53 @@ mod tests {
     }
 
     #[test]
+    fn learned_words_protect_and_forbid_without_making_sources_ready() {
+        let model = Model::embedded().unwrap();
+        let empty = Vocabulary::parse(b"").unwrap();
+        let protects =
+            Arc::new(Vocabulary::parse_words(b"ghbdtn", Membership::Recognized).unwrap());
+        let forbids =
+            Arc::new(Vocabulary::parse_words("привет".as_bytes(), Membership::Forbidden).unwrap());
+        let word: Vec<_> = "ghbdtn".encode_utf16().collect();
+        let request = Request {
+            word: &word,
+            active: Some(Mode::En),
+            context: None,
+            keyboard: Keyboard::Apple,
+            explicit_intent: false,
+        };
+        let reason = |en, ru, learned: &[Arc<Vocabulary>]| {
+            infer(
+                &model,
+                Dictionaries { en, ru, learned },
+                Policy::default(),
+                request,
+            )
+            .reason
+        };
+        let ready = (Some(&empty), Some(&empty));
+        assert_eq!(reason(ready.0, ready.1, &[]), Reason::Correction);
+        assert_eq!(
+            reason(ready.0, ready.1, &[forbids.clone(), protects.clone()]),
+            Reason::Personal
+        );
+        assert_eq!(
+            reason(ready.0, ready.1, std::slice::from_ref(&forbids)),
+            Reason::Forbidden
+        );
+        // A learned list overrides a Vim entry the same way a second Vim entry would
+        let vim = Vocabulary::parse("привет".as_bytes()).unwrap();
+        assert_eq!(
+            reason(Some(&empty), Some(&vim), std::slice::from_ref(&forbids)),
+            Reason::Forbidden
+        );
+        assert_eq!(
+            reason(None, None, &[protects, forbids]),
+            Reason::DictionariesMissing
+        );
+    }
+
+    #[test]
     fn missing_dictionaries_abstain_unless_intent_is_explicit() {
         let model = Model::embedded().unwrap();
         let word: Vec<_> = "ghbdtn".encode_utf16().collect();
@@ -517,6 +568,7 @@ mod tests {
         let dictionaries = Dictionaries {
             en: Some(&empty),
             ru: Some(&empty),
+            learned: &[],
         };
         let decide = |raw: &str, active, context, keyboard| {
             let word: Vec<_> = raw.encode_utf16().collect();
@@ -608,7 +660,8 @@ mod tests {
                 &model,
                 Dictionaries {
                     en: Some(&en),
-                    ru: Some(&ru)
+                    ru: Some(&ru),
+                    learned: &[]
                 },
                 Policy::default(),
                 request

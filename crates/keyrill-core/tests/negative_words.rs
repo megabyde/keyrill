@@ -49,6 +49,7 @@ fn negative_words_are_not_changed() {
     let dictionaries = Dictionaries {
         en: Some(&empty),
         ru: Some(&empty),
+        learned: &[],
     };
     let mut ids = BTreeSet::new();
     let mut per_category = BTreeMap::new();

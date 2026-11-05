@@ -227,6 +227,16 @@ passes the account's home directory to `kr_vocabulary_configure_default`, which 
 exist publishes an empty source. Once a file has been published, its absence keeps the last good
 snapshot, since an editor that saves by rename can leave the path briefly absent.
 
+The same queue reads the list Learn Spelling writes,
+`~/Library/Group Containers/group.com.apple.AppleSpell/Library/Spelling/LocalDictionary`, into
+learned slot `KR_LEARNED`, with a missing file counted as empty. It is one list for all
+languages, and the path is undocumented; the older `~/Library/Spelling/LocalDictionary` isn't
+read. Because this file lives under the home, the home is resolved even when both language paths
+are set explicitly. The group container belongs to Apple's spell service, and macOS protects
+group containers from other apps; whether the input method's read raises an "access data from
+other apps" prompt hasn't been checked on a physical host. A denied read leaves the list missing,
+which the menu shows and correction ignores.
+
 Two equal observations are a settling heuristic, not proof that a save finished: a writer paused
 after truncation across both reads can publish an empty file and drop protection. Snapshots are
 adopted on main, outside any input callback, outside client dispatch and with no pending Rust
@@ -234,8 +244,8 @@ plan; a refused adoption retries on the next observation. Adoption keeps history
 reversal receipt and makes no client calls. Shutdown never waits for a read in progress.
 
 The input menu shows the active application's tier and where it comes from (built-in, unlisted
-or the user's setting), the **Correction in This App** submenu, per-language source state (loading, ready, missing or invalid,
-or update rejected with the previous data kept), the policy, the typing mode, permission status
+or the user's setting), the **Correction in This App** submenu, per-language and learned-word source state (loading, ready,
+missing or invalid, or update rejected with the previous data kept), the policy, the typing mode, permission status
 and the last non-ready input observation (no key yet, excluded application, Secure Input, prefix or
 range mismatch, missing readback, engine refusal, client exception). None of it contains text,
 offsets, bundle identifiers or paths, and none of it queries the client; the tier comes from the
