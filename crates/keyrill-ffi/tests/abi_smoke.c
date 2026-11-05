@@ -113,6 +113,31 @@ static void scenario(uint32_t keyboard, uint32_t mode, const char *typed, const 
   kr_engine_free(engine);
 }
 
+// The default dictionary under a home that doesn't exist counts as empty on every OS
+static void default_dictionary(void) {
+#ifdef _WIN32
+  static const char home[] = "C:\\keyrill-absent-home";
+#else
+  static const char home[] = "/keyrill-absent-home";
+#endif
+  kr_vocabulary *vocabulary = NULL;
+  kr_engine *engine = NULL;
+  uint32_t observation = UINT32_MAX;
+  if (kr_vocabulary_new(KR_ABI_VERSION, &vocabulary) != KR_OK || !vocabulary ||
+      kr_engine_new(KR_ABI_VERSION, &engine) != KR_OK || !engine)
+    fail("vocabulary setup");
+  else if (kr_vocabulary_configure_default(vocabulary, KR_EN, (const uint8_t *)"home", 4) !=
+           KR_PATH)
+    fail("a relative home was accepted");
+  else if (kr_vocabulary_configure_default(vocabulary, KR_EN, (const uint8_t *)home,
+                                           sizeof home - 1) != KR_OK ||
+           kr_vocabulary_observe(vocabulary, KR_EN, &observation) != KR_OK ||
+           observation != KR_SOURCE_PUBLISHED || kr_adopt_vocabulary(engine, vocabulary) != KR_OK)
+    fail("a missing default dictionary was not published empty");
+  kr_engine_free(engine);
+  kr_vocabulary_free(vocabulary);
+}
+
 int main(void) {
   if (kr_abi_version() != KR_ABI_VERSION)
     fail("library and header versions differ");
@@ -133,9 +158,10 @@ int main(void) {
   scenario(pc, KR_EN, "`krf", "`krf", KR_MANUAL, "ёлка", "EN mode: the PC ё key converts");
   scenario(apple, KR_EN, "[jhjij", "[jhjij", KR_MANUAL, "хорошо",
            "EN mode: keys for Russian letters convert");
+  default_dictionary();
 
   if (failures)
     return 1;
-  puts("abi_smoke: 8 scenarios passed");
+  puts("abi_smoke: 8 scenarios and the default dictionary passed");
   return 0;
 }

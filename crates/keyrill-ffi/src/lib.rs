@@ -9,25 +9,23 @@
 //!   panics and poison the handle on one.
 //! - Configuration (`kr_set_automatic_policy`, `kr_set_keyboard`) applies while idle.
 //! - Dictionaries (`kr_set_dictionary_utf8`, `kr_clear_dictionary`,
-//!   `kr_dictionary_skipped_lines`) publish and describe immutable snapshots; reading files
-//!   stays in the adapter.
+//!   `kr_dictionary_skipped_lines`) publish and describe immutable snapshots without reading
+//!   files.
 //! - The compatibility family (`kr_plan_compatibility_event`, `kr_commit_compatibility`) tracks
 //!   observed input for the macOS synthetic-rewrite backend, separately from verified edits.
-//! - On macOS, `vocabulary_source` and `kr_vocabulary_*` read and settle dictionary files on a
-//!   serial queue for the adapter.
+//! - `vocabulary_source` and `kr_vocabulary_*` read and settle dictionary files on a serial
+//!   queue for the adapter, and name Vim's default spell files under a home directory.
 //!
 //! `docs/porting.md` explains how a new platform adapter uses these calls.
 #![deny(unsafe_op_in_unsafe_fn)]
 
-#[cfg(target_os = "macos")]
 pub mod vocabulary_source;
 
-#[cfg(target_os = "macos")]
 pub mod vocabulary_host;
 
 mod compatibility;
 
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(all(test, unix))]
 fn descriptor_flags(file: &std::fs::File) -> i32 {
     use std::os::fd::AsRawFd;
     // SAFETY: the borrowed File keeps the descriptor live; F_GETFL takes no third argument
@@ -52,7 +50,7 @@ const POISONED: u32 = 6;
 const VERSION: u32 = 7;
 const MODEL_ASSET: u32 = 8;
 const DICTIONARY_DATA: u32 = 9;
-const ABI: u32 = 0x0000_0001;
+const ABI: u32 = 0x0000_0002;
 
 #[derive(Default, PartialEq, Eq)]
 enum Backend {
@@ -613,7 +611,7 @@ mod tests {
         // No call overlaps another Rust borrow; each allocated handle is freed exactly once.
         unsafe {
             let mut engine = std::ptr::null_mut();
-            assert_eq!(kr_abi_version(), 0x0000_0001);
+            assert_eq!(kr_abi_version(), 0x0000_0002);
             assert_eq!(kr_engine_new(ABI, &mut engine), OK);
             assert_eq!(kr_set_automatic_policy(std::ptr::null_mut(), 0), NULL);
             assert_eq!(kr_clear_dictionary(std::ptr::null_mut(), 1), NULL);

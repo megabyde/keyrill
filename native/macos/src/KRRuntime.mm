@@ -16,7 +16,6 @@ struct Sources {
 
 constexpr uint32_t kLanguages[2] = {KR_EN, KR_RU};
 NSString *const kPathKeys[2] = {@"EnglishDictionaryPath", @"RussianDictionaryPath"};
-NSString *const kDefaultNames[2] = {@"en.utf-8.add", @"ru.utf-8.add"};
 
 KRSourceStatus &source(KRRuntimeStatus &status, int index) {
   return index ? status.russian : status.english;
@@ -246,13 +245,16 @@ std::string pathBytes(id path) {
   return kr_set_automatic_policy(engine, _enginePolicy);
 }
 
+// For the default setting `path` is the home directory, and Rust names the spell file under it.
+// Only the default location may be absent: a configured file that is missing stays missing
 - (bool)configure:(int)index path:(const std::string &)path {
-  // Only the default location may be absent: a configured file that is missing stays missing
-  uint32_t flags = _paths[index] == PathSetting::Default ? KR_SOURCE_MISSING_IS_EMPTY : 0;
+  auto bytes = reinterpret_cast<const uint8_t *>(path.data());
+  auto len = static_cast<uint32_t>(path.size());
   bool configured =
-      !path.empty() && kr_vocabulary_configure(_vocabulary, kLanguages[index],
-                                               reinterpret_cast<const uint8_t *>(path.data()),
-                                               static_cast<uint32_t>(path.size()), flags) == KR_OK;
+      !path.empty() &&
+      (_paths[index] == PathSetting::Default
+           ? kr_vocabulary_configure_default(_vocabulary, kLanguages[index], bytes, len)
+           : kr_vocabulary_configure(_vocabulary, kLanguages[index], bytes, len, 0)) == KR_OK;
   if (!configured)
     source(_status, index) = KRSourceStatusMissing;
   _configured[index] = configured;
@@ -287,12 +289,8 @@ std::string pathBytes(id path) {
   if (_stopped)
     return;
   for (int i = 0; i < 2; ++i) {
-    if (_paths[i] != PathSetting::Default)
-      continue;
-    NSString *path = nil;
-    if ([home isKindOfClass:NSString.class])
-      path = [NSString pathWithComponents:@[ home, @".vim", @"spell", kDefaultNames[i] ]];
-    [self configure:i path:pathBytes(path)];
+    if (_paths[i] == PathSetting::Default)
+      [self configure:i path:pathBytes(home)];
   }
   [self beginObserving];
 }

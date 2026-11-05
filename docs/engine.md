@@ -103,8 +103,8 @@ and then dropped, so lookup doesn't depend on locale; the flags are accepted eve
 declared region name. A malformed `/regions=` line is skipped like any other bad line.
 
 `vocabulary::Snapshot::replace` parses the whole candidate before publishing it. Readers keep the
-old immutable `Arc` and a failed candidate never partially replaces it. Reading files is the
-adapter's job; the macOS file acquisition is described in [macOS](macos.md#dictionaries).
+old immutable `Arc` and a failed candidate never partially replaces it. `keyrill-ffi` reads the
+files for the adapter; see [macOS](macos.md#dictionaries).
 
 ## Model
 

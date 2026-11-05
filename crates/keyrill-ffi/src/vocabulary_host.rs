@@ -1,4 +1,4 @@
-//! macOS host sources and immutable adoption, without scheduling or native editing authority.
+//! Host dictionary sources and immutable adoption, without scheduling or native editing authority.
 
 use crate::vocabulary_source::{Observation, Source, SourceError};
 use crate::{
@@ -7,9 +7,10 @@ use crate::{
 };
 use keyrill_core::vocabulary::{Snapshot, Vocabulary};
 use std::io::ErrorKind;
+#[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -20,11 +21,17 @@ const SOURCE_NOT_REGULAR: u32 = 12;
 const PATH: u32 = 13;
 const STALE_CONFIGURATION: u32 = 14;
 const MISSING_IS_EMPTY: u32 = 1;
+const DEFAULT_NAMES: [&str; 2] = ["en.utf-8.add", "ru.utf-8.add"];
+// Vim's first 'runtimepath' entry, where `zg` creates spell files while 'spellfile' is empty
+#[cfg(not(windows))]
+const DEFAULT_DIRECTORY: &str = ".vim";
+#[cfg(windows)]
+const DEFAULT_DIRECTORY: &str = "vimfiles";
 
 #[derive(Default)]
 struct Language {
     generation: u64,
-    path: Option<Vec<u8>>,
+    path: Option<PathBuf>,
     missing_is_empty: bool,
     current: Option<Arc<Vocabulary>>,
 }
@@ -51,6 +58,18 @@ fn language_index(language: u32) -> Result<usize, u32> {
     }
 }
 
+// Unix paths are raw bytes; Windows paths cross the ABI as UTF-8
+fn host_path(bytes: &[u8]) -> Option<&Path> {
+    if bytes.contains(&0) {
+        return None;
+    }
+    #[cfg(unix)]
+    let path = Path::new(std::ffi::OsStr::from_bytes(bytes));
+    #[cfg(not(unix))]
+    let path = Path::new(std::str::from_utf8(bytes).ok()?);
+    path.is_absolute().then_some(path)
+}
+
 fn source_status(error: SourceError) -> u32 {
     match error {
         SourceError::Io(_) => SOURCE_IO,
@@ -62,7 +81,7 @@ fn source_status(error: SourceError) -> u32 {
 }
 
 impl VocabularyHandle {
-    fn configure(&self, index: usize, path: Option<Vec<u8>>, missing_is_empty: bool) -> u32 {
+    fn configure(&self, index: usize, path: Option<PathBuf>, missing_is_empty: bool) -> u32 {
         let Ok(mut languages) = self.published.lock() else {
             return POISONED;
         };
@@ -100,8 +119,7 @@ impl VocabularyHandle {
             acquisition.generation[index] = generation;
         }
         checkpoint();
-        let result =
-            acquisition.sources[index].observe(Path::new(std::ffi::OsStr::from_bytes(&path)));
+        let result = acquisition.sources[index].observe(&path);
         let mut languages = self.published.lock().map_err(|_| POISONED)?;
         if languages[index].generation != generation {
             return Err(STALE_CONFIGURATION);
@@ -154,7 +172,7 @@ unsafe fn with_vocabulary(
     status
 }
 
-/// Allocate an isolated macOS source handle with no configured paths or file reads.
+/// Allocate an isolated source handle with no configured paths or file reads.
 ///
 /// # Safety
 /// Non-null `out` must be aligned and writable for one distinct handle pointer.
@@ -231,13 +249,62 @@ pub unsafe extern "C" fn kr_vocabulary_configure(
                 }
                 // SAFETY: bounded nonzero length; caller supplies distinct readable bytes
                 let path = std::slice::from_raw_parts(path, len as usize);
-                if path[0] != b'/' || path.contains(&0) {
+                let Some(path) = host_path(path) else {
                     return PATH;
-                }
-                Some(path.to_vec())
+                };
+                Some(path.to_path_buf())
             };
             let missing_is_empty = path.is_some() && flags & MISSING_IS_EMPTY != 0;
             vocabulary.configure(index, path, missing_is_empty)
+        })
+    }
+}
+
+/// Configure one language's Vim spell file under the absolute `home` directory, without I/O:
+/// `.vim/spell` (`vimfiles\spell` on Windows) and `en.utf-8.add` or `ru.utf-8.add`. A missing
+/// file there behaves as with `MISSING_IS_EMPTY`; a joined path over `MAX_PATH` is `BOUNDS`.
+///
+/// # Safety
+/// `pointer` must be null or a live aligned source allocation throughout this call. For nonzero
+/// `len <= MAX_PATH`, a non-null `home` must address readable bytes not aliasing the handle.
+/// Zero/oversized/null arguments are checked without reading the path. No pointer is retained.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn kr_vocabulary_configure_default(
+    pointer: *mut VocabularyHandle,
+    language: u32,
+    home: *const u8,
+    len: u32,
+) -> u32 {
+    // SAFETY: forward the live shared handle and bounded readable path contracts
+    unsafe {
+        with_vocabulary(pointer, |vocabulary| {
+            let index = match language_index(language) {
+                Ok(index) => index,
+                Err(status) => return status,
+            };
+            if len as usize > MAX_PATH {
+                return BOUNDS;
+            }
+            if len == 0 {
+                return PATH;
+            }
+            if home.is_null() {
+                return NULL;
+            }
+            // SAFETY: bounded nonzero length; caller supplies distinct readable bytes
+            let home = std::slice::from_raw_parts(home, len as usize);
+            let Some(home) = host_path(home) else {
+                return PATH;
+            };
+            let path = home
+                .join(DEFAULT_DIRECTORY)
+                .join("spell")
+                .join(DEFAULT_NAMES[index]);
+            // The home is UTF-8 on Windows, so this counts the bytes an adapter passes on every OS
+            if path.as_os_str().len() > MAX_PATH {
+                return BOUNDS;
+            }
+            vocabulary.configure(index, Some(path), true)
         })
     }
 }
@@ -325,8 +392,8 @@ mod tests {
     };
     use keyrill_core::vocabulary::Membership;
     use std::fs;
+    #[cfg(unix)]
     use std::os::unix::fs::DirBuilderExt;
-    use std::path::PathBuf;
     use std::sync::atomic::AtomicUsize;
     use std::sync::mpsc;
 
@@ -340,7 +407,10 @@ mod tests {
                 std::process::id(),
                 NEXT.fetch_add(1, Ordering::Relaxed)
             ));
+            #[cfg(unix)]
             fs::DirBuilder::new().mode(0o700).create(&path).unwrap();
+            #[cfg(not(unix))]
+            fs::create_dir(&path).unwrap();
             Self(path)
         }
 
@@ -357,6 +427,21 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
+    const ROOT: &[u8] = b"/";
+    #[cfg(not(unix))]
+    const ROOT: &[u8] = b"C:\\";
+
+    #[cfg(unix)]
+    fn bytes(path: &Path) -> &[u8] {
+        path.as_os_str().as_bytes()
+    }
+
+    #[cfg(not(unix))]
+    fn bytes(path: &Path) -> &[u8] {
+        path.to_str().unwrap().as_bytes()
+    }
+
     unsafe fn handles() -> (*mut Engine, *mut VocabularyHandle) {
         // SAFETY: both outputs are distinct live pointer-sized local objects
         unsafe {
@@ -369,7 +454,7 @@ mod tests {
     }
 
     unsafe fn configure(vocabulary: *mut VocabularyHandle, language: u32, path: &Path) {
-        let bytes = path.as_os_str().as_bytes();
+        let bytes = bytes(path);
         // SAFETY: the test retains the handle and readable distinct borrowed path for the call
         unsafe {
             assert_eq!(
@@ -426,9 +511,17 @@ mod tests {
             );
             assert_eq!(kr_vocabulary_observe(vocabulary, 1, &mut output), STATE);
             assert_eq!(output, 77);
+            // Each OS rejects the other's absolute form: a rooted path without a drive or UNC
+            // prefix is relative on Windows, and a drive letter is a relative name on Unix
+            #[cfg(unix)]
+            let foreign = b"C:\\a".as_slice();
+            #[cfg(not(unix))]
+            let foreign = b"/a".as_slice();
+            let nul = [ROOT, b"a\0b"].concat();
             for (path, language, len, expected) in [
                 (b"relative".as_ptr(), 1, 8, PATH),
-                (b"/a\0b".as_ptr(), 1, 4, PATH),
+                (foreign.as_ptr(), 1, foreign.len() as u32, PATH),
+                (nul.as_ptr(), 1, nul.len() as u32, PATH),
                 (std::ptr::null(), 1, 1, NULL),
                 (std::ptr::null(), 1, MAX_PATH as u32 + 1, BOUNDS),
                 (std::ptr::null(), 3, 0, BAD_TAG),
@@ -438,19 +531,34 @@ mod tests {
                     expected
                 );
             }
-            let mut path = vec![b'x'; MAX_PATH];
-            path[0] = b'/';
-            path[1] = 0xff;
+            let mut path = ROOT.to_vec();
+            path.resize(MAX_PATH, b'x');
+            path[ROOT.len()] = 0xff;
+            // Unix passes raw bytes through; Windows requires UTF-8
+            let status = if cfg!(unix) { OK } else { PATH };
+            assert_eq!(
+                kr_vocabulary_configure(vocabulary, 1, path.as_ptr(), path.len() as u32, 0),
+                status
+            );
+            path[ROOT.len()] = b'y';
             assert_eq!(
                 kr_vocabulary_configure(vocabulary, 1, path.as_ptr(), path.len() as u32, 0),
                 OK
             );
+            let stored = path.clone();
             path.fill(b'z');
             let configured = (*vocabulary).published.lock().unwrap()[0].path.clone();
-            assert_eq!(configured.as_ref().unwrap()[..2], [b'/', 0xff]);
+            assert_eq!(bytes(configured.as_ref().unwrap()), stored);
             (*vocabulary).published.lock().unwrap()[0].generation = u64::MAX;
+            let different = [ROOT, b"different"].concat();
             assert_eq!(
-                kr_vocabulary_configure(vocabulary, 1, b"/different".as_ptr(), 10, 0),
+                kr_vocabulary_configure(
+                    vocabulary,
+                    1,
+                    different.as_ptr(),
+                    different.len() as u32,
+                    0
+                ),
                 STATE
             );
             assert_eq!((*vocabulary).published.lock().unwrap()[0].path, configured);
@@ -761,7 +869,7 @@ mod tests {
         path: &Path,
         flags: u32,
     ) -> u32 {
-        let bytes = path.as_os_str().as_bytes();
+        let bytes = bytes(path);
         // SAFETY: the test retains the handle and readable distinct borrowed path for the call
         unsafe {
             kr_vocabulary_configure(
@@ -837,6 +945,124 @@ mod tests {
             );
             assert_eq!(kr_adopt_vocabulary(engine, vocabulary), OK);
             assert!((*engine).dictionaries[0].current().is_none());
+            kr_vocabulary_free(vocabulary);
+            kr_engine_free(engine);
+        }
+    }
+
+    unsafe fn configure_default(
+        vocabulary: *mut VocabularyHandle,
+        language: u32,
+        home: &[u8],
+    ) -> u32 {
+        // SAFETY: the test retains the handle and readable distinct borrowed home for the call
+        unsafe {
+            kr_vocabulary_configure_default(vocabulary, language, home.as_ptr(), home.len() as u32)
+        }
+    }
+
+    #[cfg(not(windows))]
+    const DEFAULT_SUFFIX: &str = "/.vim/spell/en.utf-8.add";
+    #[cfg(windows)]
+    const DEFAULT_SUFFIX: &str = "\\vimfiles\\spell\\en.utf-8.add";
+
+    #[test]
+    fn default_home_arguments_are_checked_and_bound_the_joined_path() {
+        // SAFETY: every accepted pointer refers to a distinct live local allocation; the handle is
+        // serialized here and freed once after its last use
+        unsafe {
+            let mut vocabulary = std::ptr::null_mut();
+            assert_eq!(kr_vocabulary_new(ABI, &mut vocabulary), OK);
+            assert_eq!(configure_default(std::ptr::null_mut(), 1, ROOT), NULL);
+            assert_eq!(configure_default(vocabulary, 3, ROOT), BAD_TAG);
+            assert_eq!(configure_default(vocabulary, 1, b""), PATH);
+            assert_eq!(configure_default(vocabulary, 1, b"home"), PATH);
+            assert_eq!(
+                configure_default(vocabulary, 1, &[ROOT, b"a\0b"].concat()),
+                PATH
+            );
+            assert_eq!(
+                kr_vocabulary_configure_default(vocabulary, 1, std::ptr::null(), 1),
+                NULL
+            );
+            assert_eq!(
+                kr_vocabulary_configure_default(
+                    vocabulary,
+                    1,
+                    std::ptr::null(),
+                    MAX_PATH as u32 + 1
+                ),
+                BOUNDS
+            );
+
+            // The joined file name, not only the home, has to fit in MAX_PATH
+            let mut home = ROOT.to_vec();
+            home.resize(MAX_PATH - DEFAULT_SUFFIX.len() + 1, b'h');
+            assert_eq!(configure_default(vocabulary, 1, &home), BOUNDS);
+            assert!((*vocabulary).published.lock().unwrap()[0].path.is_none());
+            home.pop();
+            assert_eq!(configure_default(vocabulary, 1, &home), OK);
+            let languages = (*vocabulary).published.lock().unwrap();
+            let configured = bytes(languages[0].path.as_ref().unwrap());
+            assert_eq!(configured, [&home, DEFAULT_SUFFIX.as_bytes()].concat());
+            assert_eq!(configured.len(), MAX_PATH);
+            assert!(languages[0].missing_is_empty);
+            drop(languages);
+            kr_vocabulary_free(vocabulary);
+        }
+    }
+
+    #[test]
+    fn source_default_names_vims_spell_files_and_treats_their_absence_as_empty() {
+        let directory = Directory::new();
+        let home = bytes(&directory.0).to_vec();
+        let expected = [
+            [&home, DEFAULT_SUFFIX.as_bytes()].concat(),
+            [&home, DEFAULT_SUFFIX.replace("en.", "ru.").as_bytes()].concat(),
+        ];
+        // SAFETY: handles and outputs are distinct live objects; the engine is used only on this
+        // thread and every handle is freed once after its last use
+        unsafe {
+            let (engine, vocabulary) = handles();
+            assert_eq!(kr_set_automatic_policy(engine, 2), OK);
+            for language in [1, 2] {
+                assert_eq!(configure_default(vocabulary, language, &home), OK);
+            }
+            for (index, expected) in expected.iter().enumerate() {
+                let languages = (*vocabulary).published.lock().unwrap();
+                assert_eq!(bytes(languages[index].path.as_ref().unwrap()), expected);
+            }
+
+            // Neither file exists, so both languages publish empty and correction runs
+            observe(vocabulary, 1, 1);
+            observe(vocabulary, 2, 1);
+            assert_eq!(kr_adopt_vocabulary(engine, vocabulary), OK);
+            assert_eq!(
+                mark(&type_text(engine, 1, "ghbdtn ")),
+                "привет ".encode_utf16().collect::<Vec<_>>()
+            );
+
+            // A file Vim creates there later replaces the empty source and protects its words
+            let english = Path::new(std::str::from_utf8(&expected[0]).unwrap());
+            fs::create_dir_all(english.parent().unwrap()).unwrap();
+            fs::write(english, b"ghbdtn\n").unwrap();
+            observe(vocabulary, 1, 0);
+            observe(vocabulary, 1, 1);
+
+            // Repeating the default is idempotent and keeps the published file
+            let generation = (*vocabulary).published.lock().unwrap()[0].generation;
+            assert_eq!(configure_default(vocabulary, 1, &home), OK);
+            assert_eq!(
+                (*vocabulary).published.lock().unwrap()[0].generation,
+                generation
+            );
+            observe(vocabulary, 1, 2);
+            assert_eq!(kr_adopt_vocabulary(engine, vocabulary), OK);
+            assert_eq!(kr_reset(engine), OK);
+            assert_eq!(
+                mark(&type_text(engine, 1, "ghbdtn ")),
+                "ghbdtn ".encode_utf16().collect::<Vec<_>>()
+            );
             kr_vocabulary_free(vocabulary);
             kr_engine_free(engine);
         }

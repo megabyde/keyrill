@@ -24,7 +24,7 @@ flowchart LR
 | Path | Contents |
 |---|---|
 | `crates/keyrill-core` | Mapping, model loader, inference, Vim vocabulary, word session; std only, `forbid(unsafe_code)` |
-| `crates/keyrill-ffi` | C ABI over the core, panic containment, macOS dictionary-file acquisition |
+| `crates/keyrill-ffi` | C ABI over the core, panic containment, dictionary-file acquisition |
 | `include/keyrill.h` | The ABI contract: layouts, ownership, versioning, every status code |
 | `native/macos` | InputMethodKit server, controller, settings window, compatibility backend, tests |
 | `assets/model.bin` | Frozen EN/RU model, generated from `model/` by `tools/pack-model.py` |

@@ -1,12 +1,15 @@
-//! Bounded macOS vocabulary acquisition, invoked outside input callbacks.
+//! Bounded vocabulary acquisition, invoked outside input callbacks.
 #![forbid(unsafe_code)]
 
 use keyrill_core::vocabulary::{MAX_SOURCE_BYTES, ParseError, Vocabulary};
 use std::fs::{self, File, Metadata, OpenOptions};
 use std::io::{ErrorKind, Read};
+#[cfg(unix)]
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::Path;
 use std::sync::Arc;
+#[cfg(not(unix))]
+use std::time::SystemTime;
 
 /// Content-free reason an observation failed. The last-good vocabulary remains available.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,6 +37,7 @@ pub enum Observation {
     Unchanged,
 }
 
+#[cfg(unix)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct Stamp {
     device: u64,
@@ -43,6 +47,7 @@ struct Stamp {
     changed: (i64, i64),
 }
 
+#[cfg(unix)]
 impl Stamp {
     fn of(metadata: &Metadata) -> Self {
         Self {
@@ -51,6 +56,27 @@ impl Stamp {
             length: metadata.len(),
             modified: (metadata.mtime(), metadata.mtime_nsec()),
             changed: (metadata.ctime(), metadata.ctime_nsec()),
+        }
+    }
+}
+
+// Stable std exposes no file identity on Windows, so a replacement with the same length and
+// timestamps keeps its stamp; the exact byte comparison between observations still catches it
+#[cfg(not(unix))]
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Stamp {
+    length: u64,
+    modified: Option<SystemTime>,
+    created: Option<SystemTime>,
+}
+
+#[cfg(not(unix))]
+impl Stamp {
+    fn of(metadata: &Metadata) -> Self {
+        Self {
+            length: metadata.len(),
+            modified: metadata.modified().ok(),
+            created: metadata.created().ok(),
         }
     }
 }
@@ -118,12 +144,13 @@ impl Source {
         checkpoint(Step::CheckedPath, None);
 
         // Pre-stat narrows device exposure; nonblocking open also avoids waiting on a raced FIFO.
+        // Windows needs no flag: a named-pipe client open fails at once when no instance is free.
         // Follow symlinks because normal dotfile arrangements use them. std sets close-on-exec.
-        let mut file = OpenOptions::new()
-            .read(true)
-            .custom_flags(libc::O_NONBLOCK | libc::O_NOCTTY)
-            .open(path)
-            .map_err(io)?;
+        let mut options = OpenOptions::new();
+        options.read(true);
+        #[cfg(unix)]
+        options.custom_flags(libc::O_NONBLOCK | libc::O_NOCTTY);
+        let mut file = options.open(path).map_err(io)?;
         let opened = file.metadata().map_err(io)?;
         if !opened.is_file() {
             return Err(SourceError::NotRegular);
@@ -187,6 +214,8 @@ enum Step {
 mod tests {
     use super::*;
     use keyrill_core::vocabulary::Membership;
+    // Symlink, FIFO and permission tests are Unix-only; Windows symlinks need a privilege
+    #[cfg(unix)]
     use std::os::unix::fs::{DirBuilderExt, symlink};
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -201,7 +230,10 @@ mod tests {
                 std::process::id(),
                 NEXT.fetch_add(1, Ordering::Relaxed)
             ));
+            #[cfg(unix)]
             fs::DirBuilder::new().mode(0o700).create(&path).unwrap();
+            #[cfg(not(unix))]
+            fs::create_dir(&path).unwrap();
             Self(path)
         }
         fn path(&self, name: &str) -> PathBuf {
@@ -221,6 +253,7 @@ mod tests {
         source.current().unwrap()
     }
 
+    #[cfg(unix)]
     #[test]
     fn symlink_reload_settles_and_retains_immutable_readers() {
         let directory = Directory::new();
@@ -313,6 +346,7 @@ mod tests {
         }
     }
 
+    #[cfg(unix)]
     #[test]
     fn replacement_and_truncate_then_write_require_new_observations() {
         let directory = Directory::new();
@@ -378,6 +412,7 @@ mod tests {
         assert!(Arc::ptr_eq(&good, &source.current().unwrap()));
     }
 
+    #[cfg(unix)]
     #[test]
     fn symlink_retarget_and_disappearance_discard_staging() {
         let directory = Directory::new();
@@ -415,6 +450,7 @@ mod tests {
         assert_eq!(source.observe(&path), Ok(Observation::Pending));
     }
 
+    #[cfg(unix)]
     #[test]
     fn nonblocking_flag_is_checked_before_the_fifo_race() {
         let directory = Directory::new();
@@ -488,6 +524,7 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
     #[test]
     fn permission_failure_preserves_last_good() {
         use std::os::unix::fs::PermissionsExt;
