@@ -399,6 +399,12 @@ mod tests {
             Err(SourceError::TooLarge)
         );
         fs::write(&path, b"hello").unwrap();
+        // Windows refuses to open a directory as a file, so the race fails at the open instead
+        let expected = if cfg!(windows) {
+            SourceError::Io(ErrorKind::PermissionDenied)
+        } else {
+            SourceError::NotRegular
+        };
         assert_eq!(
             source.observe_at(&path, |at, _| {
                 if at == Step::CheckedPath {
@@ -406,7 +412,7 @@ mod tests {
                     fs::create_dir(&path).unwrap();
                 }
             }),
-            Err(SourceError::NotRegular)
+            Err(expected)
         );
         assert!(source.staged.is_none());
         assert!(Arc::ptr_eq(&good, &source.current().unwrap()));
