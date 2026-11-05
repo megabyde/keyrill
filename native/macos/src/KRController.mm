@@ -22,16 +22,42 @@ struct CallbackScope {
   CallbackScope &operator=(const CallbackScope &) = delete;
 };
 
-NSString *policyTitle(const KRRuntimeStatus &status) {
+bool usesCompatibility(KRTier tier) { return tier == KRTierManual || tier == KRTierAutomatic; }
+
+NSString *missingDictionaries(const KRRuntimeStatus &status) {
+  bool english = status.english == KRSourceStatusMissing;
+  bool russian = status.russian == KRSourceStatusMissing;
+  if (english && russian)
+    return @"English and Russian dictionaries";
+  return english ? @"English dictionary" : russian ? @"Russian dictionary" : nil;
+}
+
+// Whether automatic correction will run on the next Space here, and if not the first reason.
+// `compatibilityProblem` is nil when the compatibility backend can post and observe keys.
+NSString *correctionTitle(const KRRuntimeStatus &status, KRTier tier,
+                          NSString *compatibilityProblem, bool paused) {
+  if (tier == KRTierOff)
+    return @"Keyrill is off in this app";
+  if (paused)
+    return @"Correction paused in this field: check your recent text, then switch away and back";
+  if (usesCompatibility(tier) && compatibilityProblem)
+    return [@"Correction unavailable: " stringByAppendingString:compatibilityProblem];
+  if (tier == KRTierManual)
+    return @"Manual conversion only in this app";
   switch (status.policy) {
   case KRPolicyStatusOff:
     return @"Automatic correction: off";
-  case KRPolicyStatusModel:
-    return @"Automatic correction: on";
   case KRPolicyStatusModelUnavailable:
-    return @"Automatic correction: model unavailable";
+    return @"Automatic correction unavailable: model failed to load";
+  case KRPolicyStatusModel:
+    break;
   }
-  return @"Automatic correction: unknown";
+  if (NSString *missing = missingDictionaries(status))
+    return [NSString
+        stringWithFormat:@"Automatic correction unavailable: %@ missing or invalid", missing];
+  if (status.english == KRSourceStatusPending || status.russian == KRSourceStatusPending)
+    return @"Automatic correction: loading dictionaries";
+  return @"Automatic correction: ready";
 }
 
 NSString *sourceState(KRSourceStatus status) {
@@ -55,34 +81,34 @@ void addStatusItem(NSMenu *menu, NSString *title) {
     [menu addItemWithTitle:title action:nil keyEquivalent:@""].enabled = NO;
 }
 
+// Why the last word was left as typed, in the app's terms; content-free
 NSString *inputTitle(KRInputStatus status) {
   switch (status) {
   case KRInputNotObserved:
-    return @"Input: no key observed since activation";
   case KRInputReady:
     return nil;
   case KRInputExcluded:
-    return @"Input: application excluded";
+    return @"Last word left alone: this field is excluded";
   case KRInputSecure:
-    return @"Input: macOS Secure Input is on";
+    return @"Last word left alone: macOS Secure Input is on";
   case KRInputContextUnavailable:
-    return @"Input: no verified word boundary";
+    return @"Last word left alone: the app didn't show what precedes it";
   case KRInputNotAtBoundary:
-    return @"Input: caret follows non-whitespace";
+    return @"Last word left alone: it continues other text";
   case KRInputMarkMismatch:
-    return @"Input: client composition range differs";
+    return @"Last word left alone: the app changed the underlined word";
   case KRInputCaretMismatch:
-    return @"Input: client caret differs";
+    return @"Last word left alone: the app moved the caret";
   case KRInputTextUnavailable:
-    return @"Input: client provides no text readback";
+    return @"Last word left alone: the app doesn't report its text";
   case KRInputTextMismatch:
-    return @"Input: client text or returned range differs";
+    return @"Last word left alone: the app's text didn't match";
   case KRInputInterrupted:
-    return @"Input: callback interrupted verification";
+    return @"Last word left alone: the app interrupted the check";
   case KRInputEngineUnavailable:
-    return @"Input: engine unavailable or protocol refused";
+    return @"Last word left alone: the correction engine refused it";
   case KRInputClientException:
-    return @"Input: client query or update raised an exception";
+    return @"Last word left alone: the app reported an error";
   }
   return nil;
 }
@@ -100,8 +126,6 @@ NSString *tierName(KRTier tier) {
   }
   return @"off";
 }
-
-bool usesCompatibility(KRTier tier) { return tier == KRTierManual || tier == KRTierAutomatic; }
 
 bool isKeyrill(NSString *bundle) {
   return [bundle caseInsensitiveCompare:@KR_BUNDLE_IDENTIFIER] == NSOrderedSame;
@@ -436,7 +460,17 @@ static NSString *keyboardForMode(uint32_t mode) {
   if (!runtime)
     return menu;
   KRRuntimeStatus status = runtime.status;
-  addStatusItem(menu, policyTitle(status));
+  BOOL posting = usesCompatibility(_tier) && CGPreflightPostEventAccess();
+  BOOL listening = usesCompatibility(_tier) && CGPreflightListenEventAccess();
+  NSString *compatibilityProblem = !_compatibility          ? @"correction engine unavailable"
+                                   : !posting || !listening ? @"permissions needed"
+                                                            : nil;
+  bool paused = _tier == KRTierComposition && _session.stopped;
+  addStatusItem(menu, correctionTitle(status, _tier, compatibilityProblem, paused));
+  if (_tier != KRTierOff) {
+    addStatusItem(menu, @"Convert the current word: Control-Option-K");
+    addStatusItem(menu, @"Undo a correction before the next key: Control-Option-Z");
+  }
   [self addTierItemsTo:menu];
   if (_tierStatus)
     addStatusItem(menu, _tierStatus);
@@ -446,21 +480,14 @@ static NSString *keyboardForMode(uint32_t mode) {
   if (_layoutSwitchStatus)
     addStatusItem(menu, _layoutSwitchStatus);
   if (usesCompatibility(_tier)) {
-    BOOL posting = CGPreflightPostEventAccess();
-    BOOL listening = CGPreflightListenEventAccess();
     if (!posting)
       addStatusItem(menu, @"Permission needed: Device Control and Data Access (Accessibility)");
     if (!listening)
       addStatusItem(menu, @"Permission needed: Input Monitoring");
-    if (_compatibility && posting && listening)
+    if (!compatibilityProblem)
       addStatusItem(menu, _compatibility.statusTitle);
-    else if (!_compatibility)
-      addStatusItem(menu, @"Correction unavailable");
   }
-  if (_tier == KRTierComposition && _session.stopped)
-    addStatusItem(menu, @"Correction paused; check your recent text");
-  if (_tier == KRTierComposition && _session && _session.inputStatus != KRInputReady &&
-      _session.inputStatus != KRInputNotObserved)
+  if (_tier == KRTierComposition && _session)
     addStatusItem(menu, inputTitle(_session.inputStatus));
   NSString *english = sourceState(status.english), *russian = sourceState(status.russian);
   if (english)

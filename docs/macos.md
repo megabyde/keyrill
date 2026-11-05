@@ -243,11 +243,15 @@ adopted on main, outside any input callback, outside client dispatch and with no
 plan; a refused adoption retries on the next observation. Adoption keeps history and the
 reversal receipt and makes no client calls. Shutdown never waits for a read in progress.
 
-The input menu shows the active application's tier and where it comes from (built-in, unlisted
-or the user's setting), the **Correction in This App** submenu, per-language and learned-word source state (loading, ready,
-missing or invalid, or update rejected with the previous data kept), the policy, the typing mode, permission status
-and the last non-ready input observation (no key yet, excluded application, Secure Input, prefix or
-range mismatch, missing readback, engine refusal, client exception). None of it contains text,
+The input menu leads with one line saying whether automatic correction runs on the next Space in
+the active application, or the first reason it doesn't: Keyrill off there, correction paused
+after a failed check, manual only, missing permissions, policy off, a missing dictionary, or
+dictionaries still loading. The two shortcuts follow. Below them are the application's tier and
+where it comes from (built-in, unlisted or the user's setting), the **Correction in This App**
+submenu, the typing mode, permission status, why the last word was left alone (excluded field,
+Secure Input, no word boundary, the app changing the mark, caret or text, no readback, engine
+refusal, client exception), and per-language and learned-word source state (loading, ready,
+missing or invalid, or update rejected with the previous data kept). None of it contains text,
 offsets, bundle identifiers or paths, and none of it queries the client; the tier comes from the
 bundle identifier read at routing.
 

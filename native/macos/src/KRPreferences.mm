@@ -119,8 +119,9 @@ NSTextField *label(NSString *text) {
   NSStackView *buttons = [NSStackView stackViewWithViews:@[ _cancelButton, _saveButton ]];
   NSStackView *content = [NSStackView stackViewWithViews:@[
     _automaticCorrection, _inputSourceSwitching, paths,
-    label(@"An empty field uses the default file shown. Dictionaries are read only from the "
-          @"chosen files. After Save, return to your document to apply changes."),
+    label(@"An empty field uses the default file shown. Keyrill also reads the words you added "
+          @"with Learn Spelling, and never writes to either. After Save, return to your "
+          @"document to apply changes."),
     _scopeLabel, _compatibilityNote, _compatibilityEnabled, _unlistedAutomaticCorrection,
     _errorLabel, buttons
   ]];

@@ -91,18 +91,28 @@ measured end to end yet.
 
 ## Status
 
-Every `./tools/verify` mode passes on the current source on macOS, including fuzzing, Miri, the
-dependency audit and coverage (98.4% of lines, 98.3% of regions), and CI passes on macOS,
-Windows and Linux. No physical result is recorded for this build. Known open questions, to check
-first:
+CI runs every gate on each change: the default check on macOS, Windows and Linux, the others on
+macOS. The run page has the results and the line-level coverage report, so this page doesn't
+repeat numbers that go stale.
 
-- Safari: in the browser fixture, manual conversion and reversal have left the field one UTF-16
-  unit short, consistent with a missing trailing Space; omitted versus lost input is unresolved.
+Physical results, for the build that produced them: on the v0.1.0 source the maintainer typed by
+hand with the model policy in TextEdit, in a Safari text field and address bar, and in a Firefox
+text area. Automatic correction, Control+Option+K, Control+Option+Z and the mode switch after a
+correction behaved as expected in all three. Nothing since has a physical result: the default
+paths computed in Rust, the Learn Spelling list and the input menu's status line. Known open
+questions, to check first:
+
+- The Learn Spelling list lives in Apple's spell-service group container; whether the input
+  method's read raises an "access data from other apps" prompt is unknown.
+- VoiceOver uses Control+Option as its modifier, so Control+Option+K is also VoiceOver's
+  Keyboard Help; which one receives the key with VoiceOver on is untested.
+- Safari: in the browser fixture, manual conversion and reversal once left the field one UTF-16
+  unit short, consistent with a missing trailing Space. The hand run didn't show it, but the
+  fixture hasn't been rerun.
 - ChatGPT desktop gets no automatic correction; the cause is unknown.
 - Compatibility: repeated corrections in Notes, terminal behavior, live source switching and
   permission retention across updates.
-- Model-backed typing in all three composition clients.
 
 When reporting a problem from real use, include the application and version, the backend, the
-input menu's `Input:` row and dictionary state, and a synthetic reproduction (what you typed and
-what you got). Don't paste private text.
+input menu's first line, its "Last word left alone" row and dictionary state, and a synthetic
+reproduction (what you typed and what you got). Don't paste private text.

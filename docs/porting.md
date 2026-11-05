@@ -54,7 +54,7 @@ an item that exists on one OS only ([development](development.md#style)).
 
 `include/keyrill.h` is the authoritative contract; this is the map.
 
-- **Versioning.** The ABI is 0.1 (`KR_ABI_VERSION`); pass that to `kr_engine_new(abi, &engine)`.
+- **Versioning.** Pass `KR_ABI_VERSION` from the header to `kr_engine_new(abi, &engine)`.
   Before 1.0 there is no compatibility promise: any other version is refused with `KR_VERSION`, and
   a change that breaks callers bumps the minor version.
 - **Threading.** One engine per input context, called serially from the thread that owns that

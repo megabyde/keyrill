@@ -20,8 +20,11 @@ prefers a missed correction to a wrong one.
 | Action | Key |
 |---|---|
 | Convert the current word regardless of the model | Control+Option+K |
-| Undo the last correction | Control+Option+Z |
+| Undo a correction, right after it and before the next key | Control+Option+Z |
 | Restore the original and keep it | Escape, while the word is still marked |
+
+The input menu lists both shortcuts and leads with one line saying whether automatic correction
+is ready in the current application, and if not, why.
 
 After an automatic correction, Keyrill switches to the input mode that matches the corrected
 language, so the next word is typed in the right layout; undoing the correction switches back.
