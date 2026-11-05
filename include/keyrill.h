@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define KR_ABI_VERSION UINT32_C(0x00000001)
+#define KR_ABI_VERSION UINT32_C(0x00000002)
 #define KR_TEXT_CAPACITY 128
 #define KR_EVENT_CAPACITY 8
 #define KR_MAX_DICTIONARY_BYTES UINT32_C(1048576)
@@ -81,7 +81,7 @@ typedef struct {
  * UTF-16 lengths count units, not bytes. Rust never calls IMK/client objects.
  */
 uint32_t kr_abi_version(void);
-/* Versions encode major << 16 | minor; this is 0.1. Pass KR_ABI_VERSION as abi.
+/* Versions encode major << 16 | minor; this is 0.2. Pass KR_ABI_VERSION as abi.
  * Before 1.0 there is no compatibility promise: any other value returns KR_VERSION. */
 uint32_t kr_engine_new(uint32_t abi, kr_engine **out);
 void kr_engine_free(kr_engine *engine); /* NULL is allowed. */
@@ -128,8 +128,7 @@ uint32_t kr_clear_dictionary(kr_engine *engine, uint32_t language);
  */
 uint32_t kr_dictionary_skipped_lines(kr_engine *engine, uint32_t language, uint32_t *skipped_out);
 
-#ifdef __APPLE__
-/* macOS host extension. The vocabulary handle owns read-only sources; it owns no
+/* Dictionary files. The vocabulary handle owns read-only sources; it owns no
  * client, editing authority, timer or worker. Observe only on a serial acquisition
  * queue, never on the UI thread or inside a native input callback. Configure/adopt
  * run on the controller thread. They may overlap observation. Free only after ALL
@@ -143,9 +142,10 @@ enum { KR_SOURCE_PENDING = 0, KR_SOURCE_PUBLISHED = 1, KR_SOURCE_UNCHANGED = 2 }
 uint32_t kr_vocabulary_new(uint32_t abi, kr_vocabulary **out);
 void kr_vocabulary_free(kr_vocabulary *vocabulary); /* NULL is allowed. */
 enum { KR_SOURCE_MISSING_IS_EMPTY = 1 };
-/* Borrow raw POSIX path bytes for this call: absolute, no NUL, at most 1024 bytes.
- * No UTF-8 requirement, tilde expansion, default discovery or filesystem access.
- * Zero length (either pointer) unconfigures the language and ignores flags. Same
+/* Borrow path bytes for this call: absolute, no NUL, at most 1024 bytes. POSIX
+ * paths are raw bytes with no UTF-8 requirement; Windows paths are UTF-8 with a
+ * drive or UNC root. No tilde expansion or filesystem access. Zero length
+ * (either pointer) unconfigures the language and ignores flags. Same
  * bytes and flags are idempotent. A changed path or flag advances its generation
  * and immediately makes that language missing; failed reloads of an unchanged
  * configuration retain last-good. With KR_SOURCE_MISSING_IS_EMPTY, observing a
@@ -156,6 +156,15 @@ enum { KR_SOURCE_MISSING_IS_EMPTY = 1 };
  */
 uint32_t kr_vocabulary_configure(kr_vocabulary *vocabulary, uint32_t language, const uint8_t *path,
                                  uint32_t len, uint32_t flags);
+/* Configure the language's Vim spell file under home, an absolute directory given
+ * like a path above: home/.vim/spell/en.utf-8.add or ru.utf-8.add, and
+ * home\vimfiles\spell\... on Windows, where Vim's zg creates them while
+ * 'spellfile' is empty. KR_SOURCE_MISSING_IS_EMPTY is implied. Zero length is
+ * PATH; a joined path over KR_MAX_PATH_BYTES is BOUNDS. Configuration otherwise
+ * behaves as kr_vocabulary_configure, without filesystem access.
+ */
+uint32_t kr_vocabulary_configure_default(kr_vocabulary *vocabulary, uint32_t language,
+                                         const uint8_t *home, uint32_t len);
 /* Write observation_out only on OK. Unconfigured is STATE; a superseded read is
  * STALE_CONFIGURATION and publishes nothing. Size/parse errors are BOUNDS /
  * DICTIONARY_DATA; other source errors use SOURCE_IO/CHANGED/NOT_REGULAR.
@@ -173,7 +182,6 @@ uint32_t kr_vocabulary_observe(kr_vocabulary *vocabulary, uint32_t language,
  * wait or native call occurs here.
  */
 uint32_t kr_adopt_vocabulary(kr_engine *engine, const kr_vocabulary *vocabulary);
-#endif
 
 uint32_t kr_plan_event(kr_engine *engine, const kr_event *event, kr_plan *out);
 /* One plan permits at most one native write. Verify expected text, client,

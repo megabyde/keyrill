@@ -216,13 +216,14 @@ than written over committed text.
 
 ## Dictionaries
 
-`keyrill-ffi`'s `vocabulary_source` (exported as `kr_vocabulary_*`, `__APPLE__` only) reads the
+`keyrill-ffi`'s `vocabulary_source` (exported as `kr_vocabulary_*`) reads the
 two files on one serial utility queue, right after configuration and then every 2 seconds. It
 follows symlinks, requires a regular file before and after opening, opens read-only with
 `O_NONBLOCK | O_NOCTTY`, reads at most 1 MiB plus one byte, and compares descriptor and path
 identity, size, mtime and ctime around the read. Two equal observations of identity and bytes
-publish an immutable snapshot; failures keep the last good one. A default path is configured
-with `KR_SOURCE_MISSING_IS_EMPTY`: while no file there has been published, a path that doesn't
+publish an immutable snapshot; failures keep the last good one. For a default path the adapter
+passes the account's home directory to `kr_vocabulary_configure_default`, which names
+`~/.vim/spell/{en,ru}.utf-8.add`: while no file there has been published, a path that doesn't
 exist publishes an empty source. Once a file has been published, its absence keeps the last good
 snapshot, since an editor that saves by rename can leave the path briefly absent.
 

@@ -26,7 +26,7 @@ $ cargo rustc --locked --release -p keyrill-ffi -- --print native-static-libs
 
 Link `keyrill_ffi.lib` or `libkeyrill_ffi.a` together with the system libraries the last command
 prints. Include `include/keyrill.h` rather than copying its declarations; its `static_assert`s
-pin the struct layouts. The `kr_vocabulary_*` file-acquisition handle is `__APPLE__` only.
+pin the struct layouts.
 CI runs the portable checks on `windows-2025` and `ubuntu-24.04` as well as `macos-15`.
 
 ## Starting an adapter
@@ -72,8 +72,14 @@ an item that exists on one OS only ([development](development.md#style)).
   `KR_ATTEMPTED_UNKNOWN`.
 - **Policy and dictionaries.** `kr_set_automatic_policy` selects off, fixture or model while idle.
   `kr_set_dictionary_utf8` publishes a whole dictionary (at most 1 MiB, NULL+0 is a valid empty
-  source); `kr_clear_dictionary` makes a language missing. Reading the files, and deciding when a
-  file has settled, is the adapter's job.
+  source); `kr_clear_dictionary` makes a language missing. The `kr_vocabulary_*` handle reads
+  and settles the files for you, as [macOS](macos.md#dictionaries) describes; the adapter owns
+  the serial queue it observes on and adopts snapshots outside input callbacks. Paths are UTF-8
+  on Windows. `kr_vocabulary_configure_default` takes the home directory and names Vim's own
+  files under it, `~/vimfiles/spell/{en,ru}.utf-8.add` on Windows and `~/.vim/spell` elsewhere.
+  std has no stable file identity on Windows, so a read there is checked against size and the
+  modified and creation times; the byte comparison between two observations still catches a
+  same-size replacement.
 - **Failures.** Status codes are content-free. A Rust panic is caught at the boundary and
   permanently poisons the handle (`KR_POISONED`).
 - **Compatibility path.** `kr_plan_compatibility_event` and `kr_commit_compatibility` are the

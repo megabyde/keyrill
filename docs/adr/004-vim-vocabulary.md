@@ -14,7 +14,9 @@ Recognized, rare, forbidden and case distinctions are preserved. Personal member
 a word but doesn't give a candidate a frequency. A missing file never blocks typing or manual
 conversion. Automatic correction needs a source for both languages; an empty file is a valid
 source, and so is a missing file at the default path, since Vim creates it only on the first
-`zg`. A missing file at a path the user chose keeps that language missing. Keyrill never modifies the files.
+`zg`. The default path is where `zg` creates it while `'spellfile'` is empty:
+`~/.vim/spell/{en,ru}.utf-8.add`, or `~/vimfiles/spell` on Windows. A missing file at a path the
+user chose keeps that language missing. Keyrill never modifies the files.
 
 Revisit if the user's vocabulary workflow changes or a required semantic can't be expressed in
 this format.
