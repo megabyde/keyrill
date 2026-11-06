@@ -2410,6 +2410,59 @@ NSString *temporaryDirectory(NSString *name) {
   return root;
 }
 
+// The menu's first line names the first reason automatic correction won't run, then says ready
+void testControllerStatusLine() {
+  currentTest = "controller_status_line";
+  NSString *root = temporaryDirectory(@"status");
+  NSString *en = [root stringByAppendingPathComponent:@"en"];
+  NSString *ru = [root stringByAppendingPathComponent:@"ru"];
+  CHECK([@"" writeToFile:ru atomically:YES encoding:NSUTF8StringEncoding error:nil]);
+  NSDictionary *preferences = @{
+    @"AutomaticCorrectionEnabled" : @YES,
+    @"EnglishDictionaryPath" : en,
+    @"RussianDictionaryPath" : ru
+  };
+  ControllerHarness h(preferences);
+  FakeClient *client = fixtureClient();
+  client.bundle = @"com.apple.TextEdit";
+  [h.controller activateServer:client];
+  CHECK([h.menuTitles().firstObject isEqualToString:@"Automatic correction: loading dictionaries"]);
+  h.settle();
+  NSArray<NSString *> *titles = h.menuTitles();
+  CHECK([titles.firstObject
+      isEqualToString:@"Automatic correction unavailable: English dictionary missing or invalid"]);
+  CHECK([titles containsObject:@"English dictionary: missing or invalid"]);
+  CHECK([titles containsObject:@"Undo a correction before the next key: Control-Option-Z"]);
+
+  // A compatibility rewrite cut short stops correction until reactivation, whatever the
+  // permissions on this machine
+  ControllerHarness compatibility(@{});
+  compatibility.controller.configureCompatibility = ^(KRCompatibilitySession *session) {
+    session.targetSnapshot = ^KRCompatibilityTarget(NSString *, id<IMKTextInput>) {
+      return {4242, 1, YES, 0};
+    };
+    session.observedKeyCount = ^uint64_t {
+      return 0;
+    };
+    session.dispatchRewrite =
+        ^KRCompatibilityDispatch(pid_t, const kr_compatibility_plan *, BOOL (^)(void)) {
+          return KRCompatibilityPartial;
+        };
+  };
+  NSString *paused =
+      @"Correction paused in this field: check your recent text, then switch away and back";
+  FakeClient *terminal = fixtureClient();
+  terminal.bundle = @"com.apple.Terminal";
+  [compatibility.controller activateServer:terminal];
+  for (NSString *unit in @[ @"g", @"h", @"b", @"d", @"t", @"n" ])
+    CHECK(![compatibility.controller handleEvent:keyDown(unit, kVK_ANSI_A) client:terminal]);
+  CHECK(![compatibility.menuTitles().firstObject isEqualToString:paused]);
+  CHECK([compatibility.controller handleEvent:command(kVK_ANSI_K) client:terminal]);
+  CHECK([compatibility.menuTitles().firstObject isEqualToString:paused]);
+  [compatibility.controller activateServer:terminal];
+  CHECK(![compatibility.menuTitles().firstObject isEqualToString:paused]);
+}
+
 // Automatic correction, the requested switch and its echo, and reversal through the controller
 void testControllerCorrectionSwitchAndReversal() {
   currentTest = "controller_correction_switch_reversal";
@@ -2432,6 +2485,7 @@ void testControllerCorrectionSwitchAndReversal() {
     client.bundle = @"com.apple.TextEdit";
     [h.controller activateServer:client];
     h.settle();
+    CHECK([h.menuTitles().firstObject isEqualToString:@"Automatic correction: ready"]);
     CHECK(h.type(client, @"ghbdtn "));
     CHECK(documentIs(client, withAffixes(@"привет "), after(@"привет "),
                      NSMakeRange(kPrefix.length, 7)));
@@ -2538,6 +2592,14 @@ void testControllerTierRouting() {
       CHECK([titles containsObject:c.line]);
     else
       CHECK(![titles containsObject:@"Correction in This App"]);
+    // The first line says whether correction runs here; the policy is off in these cases, and
+    // the compatibility line depends on this machine's permissions
+    if (c.tier == KRTierOff)
+      CHECK([titles.firstObject isEqualToString:@"Keyrill is off in this app"]);
+    if (c.tier == KRTierComposition)
+      CHECK([titles.firstObject isEqualToString:@"Automatic correction: off"]);
+    CHECK([titles containsObject:@"Convert the current word: Control-Option-K"] ==
+          (c.tier != KRTierOff));
     BOOL compatible = c.tier == KRTierManual || c.tier == KRTierAutomatic;
     CHECK(h.guardStarts == (compatible ? 1u : 0u));
     BOOL letter = [h.controller handleEvent:keyDown(@"g", kVK_ANSI_G) client:client];
@@ -2817,6 +2879,7 @@ int main() {
     testReadbackCommitKeepsWordInTextView();
     testSecureInputDuringClientCalls();
     testKeptMarkAcrossModeChange();
+    testControllerStatusLine();
     testControllerCorrectionSwitchAndReversal();
     testControllerTierRouting();
     testControllerTierOverride();
