@@ -10,7 +10,7 @@ INPUT_METHODS := $(HOME)/Library/Input Methods
 NATIVE_SOURCES = $(wildcard native/macos/src/*.h native/macos/src/*.mm native/macos/tests/*.mm \
 	native/macos/tools/*.mm)
 C_SOURCES := include/keyrill.h crates/keyrill-ffi/tests/abi_smoke.c
-VERIFY_MODES := sanitize browser-fixture audit coverage evaluate fuzz miri
+VERIFY_MODES := sanitize browser-fixture markdown audit coverage evaluate fuzz miri
 
 .DEFAULT_GOAL := help
 
@@ -24,11 +24,16 @@ help: ## Show this help message
 check: ## Run the default verification (Rust, C ABI smoke test, native tests on macOS)
 	./tools/verify
 
+# These targets carry only their help text; the $(VERIFY_MODES) rule below runs each one as the
+# ./tools/verify mode of the same name
 .PHONY: sanitize
 sanitize: ## Run the native tests under ASan/UBSan
 
 .PHONY: browser-fixture
 browser-fixture: ## Run the browser fixture checks (Node 18+)
+
+.PHONY: markdown
+markdown: ## Check Markdown formatting and lint it (uv)
 
 .PHONY: audit
 audit: ## Check advisories, sources, licenses and bans (cargo-deny)
@@ -49,10 +54,11 @@ $(VERIFY_MODES):
 	./tools/verify $@
 
 .PHONY: format
-format: ## Format Rust, C and Objective-C++ sources in place
+format: ## Format Rust, C, Objective-C++ and Markdown sources in place
 	cargo fmt --all
 	cargo fmt --manifest-path fuzz/Cargo.toml
 	clang-format -i $(C_SOURCES) $(NATIVE_SOURCES)
+	./tools/verify markdown fix
 
 .PHONY: bundle
 bundle: ## Build KeyrillAlpha.app and sign it with SIGN_IDENTITY
