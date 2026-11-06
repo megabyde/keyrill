@@ -2433,6 +2433,34 @@ void testControllerStatusLine() {
       isEqualToString:@"Automatic correction unavailable: English dictionary missing or invalid"]);
   CHECK([titles containsObject:@"English dictionary: missing or invalid"]);
   CHECK([titles containsObject:@"Undo a correction before the next key: Control-Option-Z"]);
+
+  // A compatibility rewrite cut short stops correction until reactivation, whatever the
+  // permissions on this machine
+  ControllerHarness compatibility(@{});
+  compatibility.controller.configureCompatibility = ^(KRCompatibilitySession *session) {
+    session.targetSnapshot = ^KRCompatibilityTarget(NSString *, id<IMKTextInput>) {
+      return {4242, 1, YES, 0};
+    };
+    session.observedKeyCount = ^uint64_t {
+      return 0;
+    };
+    session.dispatchRewrite =
+        ^KRCompatibilityDispatch(pid_t, const kr_compatibility_plan *, BOOL (^)(void)) {
+          return KRCompatibilityPartial;
+        };
+  };
+  NSString *paused =
+      @"Correction paused in this field: check your recent text, then switch away and back";
+  FakeClient *terminal = fixtureClient();
+  terminal.bundle = @"com.apple.Terminal";
+  [compatibility.controller activateServer:terminal];
+  for (NSString *unit in @[ @"g", @"h", @"b", @"d", @"t", @"n" ])
+    CHECK(![compatibility.controller handleEvent:keyDown(unit, kVK_ANSI_A) client:terminal]);
+  CHECK(![compatibility.menuTitles().firstObject isEqualToString:paused]);
+  CHECK([compatibility.controller handleEvent:command(kVK_ANSI_K) client:terminal]);
+  CHECK([compatibility.menuTitles().firstObject isEqualToString:paused]);
+  [compatibility.controller activateServer:terminal];
+  CHECK(![compatibility.menuTitles().firstObject isEqualToString:paused]);
 }
 
 // Automatic correction, the requested switch and its echo, and reversal through the controller

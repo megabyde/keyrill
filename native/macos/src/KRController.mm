@@ -465,7 +465,8 @@ static NSString *keyboardForMode(uint32_t mode) {
   NSString *compatibilityProblem = !_compatibility          ? @"correction engine unavailable"
                                    : !posting || !listening ? @"permissions needed"
                                                             : nil;
-  bool paused = _tier == KRTierComposition && _session.stopped;
+  bool paused = (_tier == KRTierComposition && _session.stopped) ||
+                (usesCompatibility(_tier) && _compatibility.stopped);
   addStatusItem(menu, correctionTitle(status, _tier, compatibilityProblem, paused));
   if (_tier != KRTierOff) {
     addStatusItem(menu, @"Convert the current word: Control-Option-K");
