@@ -45,6 +45,11 @@ case "${1:-check}" in
     if [ "${2:-}" = fix ]; then $mdformat $files; else $mdformat --check $files; fi
     uvx --from pymarkdownlnt==0.9.40 pymarkdown scan $files
     ;;
+  site)
+    test "$(mdbook --version)" = "mdbook v0.5.4"
+    test "$(mdbook-mermaid --version)" = "mdbook-mermaid 0.17.1"
+    python3 tools/build-site.py
+    ;;
   audit)
     test "$(cargo deny --version)" = "cargo-deny 0.20.2"
     cargo deny --locked check
@@ -90,5 +95,5 @@ case "${1:-check}" in
       --skip vocabulary_source:: --skip vocabulary_host::tests::source_ \
       --skip model_policy_bridge_preserves_configuration_context_and_receipts
     ;;
-  *) echo "usage: ./tools/verify [check|sanitize|browser-fixture|markdown [fix]|audit|coverage|evaluate|fuzz|miri]" >&2; exit 2 ;;
+  *) echo "usage: ./tools/verify [check|sanitize|browser-fixture|markdown [fix]|site|audit|coverage|evaluate|fuzz|miri]" >&2; exit 2 ;;
 esac
