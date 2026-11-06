@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import sys
 
+# Loading model/tools/evaluate.py as a module would otherwise leave __pycache__ in model/tools
 sys.dont_write_bytecode = True
 
 # Floors sit about two points below the lower of the dev and test results of the default
@@ -40,6 +41,8 @@ for name in ["evaluation-sources.json", "model-manifest.json"]:
     shutil.copyfile(reference / "data" / name, output / "data" / name)
 for corpus in (reference / "corpora").glob("*.conllu"):
     shutil.copyfile(corpus, output / ".cache/evaluation" / corpus.name)
+# evaluate.py reads its sources and writes its report under ROOT; pointing ROOT at a copy in
+# target/ keeps the tracked model/ tree unchanged
 spec = importlib.util.spec_from_file_location("keyrill_reference_evaluation", reference / "tools/evaluate.py")
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)

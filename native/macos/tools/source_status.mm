@@ -1,6 +1,10 @@
 #import <Carbon/Carbon.h>
 #import <Foundation/Foundation.h>
 
+// Read-only diagnostic: prints, as JSON, the current keyboard input source and every input
+// source whose identifier starts with Keyrill's bundle identifier, with their TIS flags. It
+// enables and selects nothing
+
 static id property(TISInputSourceRef source, CFStringRef key) {
   id value = (__bridge id)TISGetInputSourceProperty(source, key);
   return value ? value : NSNull.null;

@@ -1,9 +1,31 @@
 //! Embedded reference EN/RU word frequencies and order-2 character chains.
 //!
+//! Each language has two tables, and inference asks each a different question. The lexicon maps
+//! a lowercase word to its log10 corpus frequency: it says how common the candidate reading is
+//! and whether the typed string is already a word of its own language. The character chain gives
+//! the probability of each letter after the two before it, with start and end markers, so it can
+//! score any string of the alphabet, including one the lexicon has never seen; inference uses it
+//! for the chance that the typed letters were meant as typed.
+//!
 //! `assets/model.bin` is produced by `tools/pack-model.py`, which documents the layout. Values
 //! are log10 probabilities stored as integer micro-units; dividing by 10^6 reproduces the
 //! correctly rounded parse of the frozen six-decimal source text exactly. Corpus frequencies
 //! are not calibrated layout-error probabilities.
+//!
+//! ```text
+//! offset 0   "KRMODEL\0"  u32 version  [u8; 32] source SHA-256  u32 languages = 2
+//! offset 48  per language, en then ru, all little-endian:
+//!              u32 L          u16[L] alphabet, UTF-16 units
+//!              u32 n          u32[n + 1] offsets, from 0, increasing
+//!              u8[offsets[n]] each word as alphabet indices, words in UTF-16 order
+//!              i32[n]         log10 frequency of word i, micro-units
+//!              i32[S * S * S] log10 P(c | a, b) at (a * S + b) * S + c, micro-units
+//!            where S = L + 2: index L is the end marker and L + 1 the start marker
+//! ```
+//!
+//! The words are sorted so that a lookup is a binary search; ё (U+0451) sorts after я, although
+//! the alphabet lists it after е. [`Model::parse`] checks every count, offset, index and the
+//! order once; each section is then its own slice, and a lookup cannot read past it.
 
 use crate::session::Mode;
 
@@ -17,7 +39,7 @@ const SOURCE_SHA256: [u8; 32] = [
     0x82, 0xb2, 0x2d, 0xd4, 0x05, 0x5c, 0x4b, 0xdb, 0x70, 0x3d, 0xf8, 0xa8, 0x1b, 0x1a, 0x15, 0x47,
     0x4b, 0x5b, 0x9b, 0xe2, 0x2a, 0x64, 0x52, 0x5d, 0x41, 0x6f, 0x53, 0x60, 0x93, 0x81, 0xac, 0x27,
 ];
-/// Longest stored word in UTF-16 units.
+/// Longest stored word in UTF-16 units. Inference treats a longer word as ineligible.
 pub const MAX_MODEL_WORD: usize = 32;
 
 /// Structural reason an asset was rejected; carries no asset content.
@@ -37,7 +59,7 @@ pub enum ModelError {
     Alphabet,
     /// Entry count differs from the frozen language table.
     WordCount,
-    /// Word offsets are not increasing, in bounds and within the word length limit.
+    /// Word offsets do not start at zero, or a word is empty or longer than [`MAX_MODEL_WORD`].
     Offsets,
     /// A word contains an index outside its alphabet.
     Word,
@@ -84,6 +106,7 @@ pub struct Model<'a> {
     ru: LanguageModel<'a>,
 }
 
+/// Cursor over the asset; a read past the end is [`ModelError::Truncated`].
 struct Reader<'a> {
     bytes: &'a [u8],
 }
@@ -166,6 +189,7 @@ impl<'a> LanguageModel<'a> {
             return Err(ModelError::Word);
         }
         let frequencies = reader.take_array(count, 4)?;
+        // The chain has two marker indices after the letters: end, then start
         let size = letters + 2;
         let chain = reader.take_array(size * size * size, 4)?;
         let model = Self {
@@ -175,6 +199,7 @@ impl<'a> LanguageModel<'a> {
             frequencies,
             chain,
         };
+        // Strict order is what `frequency` binary-searches on, and it also rules out duplicates
         for i in 1..count {
             let (previous, current) = (model.word(i - 1), model.word(i));
             let ordered = previous
@@ -250,8 +275,10 @@ impl<'a> LanguageModel<'a> {
 }
 
 impl<'a> Model<'a> {
-    /// Validate format and frozen identity metadata. External bytes still need provenance
-    /// verification; the header is not payload authentication. Lookups use checked slices.
+    /// Parse and validate an asset. The source hash and the frozen alphabets and counts make a
+    /// different or damaged model fail; they are a consistency check, not authentication, so
+    /// bytes from outside the build still need their own provenance. Lookups on the result use
+    /// checked slices.
     ///
     /// # Errors
     ///

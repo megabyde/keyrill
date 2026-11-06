@@ -1,4 +1,61 @@
-//! Proposals carry no native editing authority and advance only on acknowledgement.
+//! The word session: one owned word at a time, advanced only by verified acknowledgements.
+//!
+//! While a word is typed, the adapter keeps it in the host as an owned composition, marked text
+//! that Keyrill inserted and can still replace as a whole. The session is the Rust record of
+//! that word; it never touches the host. For each event the adapter asks for a [`Plan`], performs
+//! the one native action the plan permits, verifies it and reports the [`Outcome`]. Proposing
+//! changes nothing the session has confirmed: the proposed state waits in the session until
+//! [`Session::acknowledge`] receives a verified outcome for that plan's id, and a newer proposal
+//! makes an older plan stale.
+//!
+//! ```text
+//! adapter                                          Session
+//! key event      --- propose_*(event) -------->    plan the event against the confirmed state
+//!                <-- Plan { id: n, .. } -------    keep the proposed state as pending
+//! the mark still holds `expected`?
+//!   no: report Refused, nothing written
+//! perform `action` with `text`, at most one write
+//! read the result back
+//!                --- acknowledge(n, outcome) -->   Verified: adopt the pending state
+//!                                                  Refused or Unknown: Invalidated
+//! pass the key, consume it or propose it again, as `disposition` says
+//! ```
+//!
+//! The word moves through four states. `ARCHITECTURE.md` uses these names; in the code Composing
+//! and BoundaryRetained are one `Owned` state with the `boundary` flag clear or set.
+//!
+//! ```text
+//!                   letter at a boundary: Mark
+//!    +------+ ---------------------------------> +-----------+  letter, Backspace,
+//!    | Idle |                                    | Composing |  Manual, Reverse: Mark
+//!    +------+ <--------------------------------- +-----------+
+//!       ^      Backspace to empty: Mark (empty)        |
+//!       |      Escape or any other event: Finish       | Space: infer, then Mark the word
+//!       |                                              v        and the Space
+//!       |      Escape or any other event: Finish  +------------------+
+//!       +---------------------------------------- | BoundaryRetained |  Manual, Reverse: Mark
+//!              (a letter is then planned again)   +------------------+
+//!
+//!    Idle passes every other event. Manual or Reverse with nothing to act on is consumed
+//!    without a write, in every state.
+//!
+//!    From any state, a Refused or Unknown outcome, a mode change while a word is owned or an
+//!    exhausted token counter leads to Invalidated, which refuses every proposal; reset()
+//!    returns to Idle, except after exhaustion.
+//! ```
+//!
+//! A receipt is the text the word had before the session first converted it, automatically at
+//! Space or by a manual command. While the same word is owned, Reverse restores it once, and
+//! Escape restores it and finishes the word; an edit expires it, and so does finishing. Manual
+//! and Reverse also set explicit intent, which stops inference for the rest of that word, so
+//! inference never undoes a choice the user made. A Backspace is not intent, and a corrected
+//! typo still converts.
+//!
+//! Language context comes from the session's own finished words, never from the document. A
+//! word that ends in its Space and is finished by the letter that starts the next word is
+//! appended once that finish is verified, up to 256 UTF-16 units. Any other finish, and any
+//! event the host handles, clears it, because the host can then move the caret or edit the
+//! text; so do a mode change, a refused or unknown outcome and reset.
 
 use crate::inference::{self, Dictionaries, Policy, Request};
 use crate::mapping::{self, Keyboard, Mapping};
@@ -8,7 +65,7 @@ use crate::model::Model;
 pub const MAX_WORD: usize = 64;
 const MAX_HISTORY: usize = 256;
 
-/// Selected custom input mode.
+/// Input mode: the layout Keyrill types in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
     /// English mode.
@@ -17,51 +74,56 @@ pub enum Mode {
     Ru,
 }
 
-/// Native-validated complete-token prefix.
+/// What the adapter verified before the caret. It matters only when no word is owned: a letter
+/// starts a word only at [`Context::Boundary`], so the session never takes over the tail of a
+/// token already in the document.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Context {
     /// Start of document or whitespace.
     Boundary,
-    /// Other or unavailable context.
+    /// Anything else, or a prefix the adapter could not establish.
     Ineligible,
 }
 
 /// Input supplied by the native controller, without document offsets.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Event {
-    /// Text units supplied by the host.
+    /// Text units the key would insert. A single letter, or in English mode a single
+    /// provisional unit, starts or continues a word; a single Space takes an owned word to its
+    /// boundary; anything else finishes an owned word and goes to the host.
     Text(Vec<u16>),
-    /// Delete one owned letter.
+    /// Delete the last owned unit; at the boundary it finishes the word and goes to the host.
     Backspace,
     /// Restore the original and finish if a receipt exists; otherwise finish as typed and pass.
     Escape,
-    /// Deterministic conversion of the owned word.
+    /// Convert the owned word key by key to the other layout; a conversion sets explicit intent.
     Manual,
-    /// Restore the exact original while owned.
+    /// Restore the receipt's text exactly while the same word is owned, with explicit intent.
     Reverse,
-    /// Finish owned text and allow the host's action.
+    /// Finish the owned word as it stands and let the host handle the event.
     Finish,
 }
 
-/// At most one native operation per proposal.
+/// The one native operation a plan permits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {
     /// No native mutation.
     Pass,
-    /// Replace the owned mark or start an eligible new one.
+    /// Set the owned mark to `text`, or start one if none is owned. An empty `text` ends the
+    /// composition with nothing in it.
     Mark,
-    /// Commit the owned mark once.
+    /// Commit `text` in place of the owned mark, once, and end the composition.
     Finish,
-    /// Reserved command has no safe owned target.
+    /// A reserved command (Manual or Reverse) with nothing to act on; nothing is written.
     Unavailable,
 }
 
-/// Ordinary event disposition after successful verified application.
+/// What happens to the key event once the plan's action is verified.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Disposition {
     /// Let the host handle the event once.
     Pass,
-    /// Text or reserved command has been handled.
+    /// The event is handled; the host does not see it.
     Consumed,
     /// Finish was acknowledged; plan the same event again from Idle.
     Replan,
@@ -70,7 +132,7 @@ pub enum Disposition {
 /// Native effect acknowledgement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Outcome {
-    /// Native effect and readback verified.
+    /// Native effect and readback verified, or the plan had no native effect.
     Verified,
     /// Rejected before any native write.
     Refused,
@@ -81,7 +143,8 @@ pub enum Outcome {
 /// Session protocol errors; no raw text is included.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
-    /// Token is not the most recently proposed operation.
+    /// The id is not the pending plan: a later proposal superseded it, it was already
+    /// acknowledged, or a reset expired it.
     Stale,
     /// Session invalidated or token counter exhausted.
     Invalidated,
@@ -102,27 +165,36 @@ impl std::error::Error for Error {}
 enum State {
     #[default]
     Idle,
+    /// Composing while `boundary` is clear, BoundaryRetained once the Space has joined the mark.
     Owned {
+        /// What the owned mark holds, including the Space once `boundary` is set.
         text: Vec<u16>,
+        /// The receipt: the text before the word was first converted; `None` if it was never
+        /// converted, or after an edit or a Reverse.
         original: Option<Vec<u16>>,
         boundary: bool,
+        /// Set by Manual or Reverse; Space then keeps the word without inference.
         explicit: bool,
+        /// Input mode the word was started in.
         mode: Mode,
     },
     Invalidated,
 }
 
+/// Automatic correction at Space: the fixture policy, on or off, or the model.
 enum Automatic<'a> {
     Fixture(bool),
     Model(&'a Model<'a>, Dictionaries<'a>, Policy),
 }
 
+/// What a verified plan does to the language history.
 enum HistoryEffect {
     Keep,
     Clear,
     Append(Vec<u16>),
 }
 
+/// The proposed state of the latest plan, adopted only by a verified acknowledgement.
 struct Pending {
     id: u64,
     state: State,
@@ -130,7 +202,8 @@ struct Pending {
     mode: Mode,
 }
 
-/// Copied proposal for native validation and a single native effect.
+/// Copied proposal for native validation and a single native effect. It owns its text and
+/// borrows nothing from the session, the model or the vocabulary snapshots.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Plan {
     /// Latest-only acknowledgement token.
@@ -139,20 +212,27 @@ pub struct Plan {
     pub action: Action,
     /// Event disposition after verification.
     pub disposition: Disposition,
-    /// Expected current owned UTF-16 units.
+    /// The UTF-16 units the owned mark must hold before the action; empty when none is owned.
     pub expected: Vec<u16>,
-    /// Proposed marked or committed UTF-16 units.
+    /// The UTF-16 units to mark or commit; empty for [`Action::Pass`] and
+    /// [`Action::Unavailable`].
     pub text: Vec<u16>,
 }
 
-/// One controller's bounded word state; contains no native objects or callbacks.
+/// One controller's bounded word state; contains no native objects or callbacks. It holds at
+/// most one word of [`MAX_WORD`] units plus its Space, the word's receipt, and 256 UTF-16 units
+/// of history.
 #[derive(Default)]
 pub struct Session {
+    /// Confirmed state.
     state: State,
     pending: Option<Pending>,
+    /// Last issued token; never reset, so no later plan can reuse an expired id.
     serial: u64,
     fixtures: bool,
+    /// Finished words in document order, each followed by its Space.
     history: Vec<u16>,
+    /// Input mode of the last verified plan; history is consulted only under the same mode.
     mode: Option<Mode>,
     keyboard: Keyboard,
 }
@@ -163,12 +243,14 @@ impl Session {
         self.pending.is_some()
     }
 
-    /// Whether the portable word record is nonempty, without granting native authority.
+    /// Whether the session holds an owned word. This is not evidence that the host still shows
+    /// the mark, and it grants no native authority.
     pub fn has_word(&self) -> bool {
         matches!(self.state, State::Owned { .. })
     }
 
     /// Invalidate outstanding tokens and drop all text/receipts on native lifecycle change.
+    /// The session returns to Idle with no history; the keyboard and fixture selections stay.
     pub fn reset(&mut self) {
         self.pending = None;
         self.state = State::Idle;
@@ -176,8 +258,8 @@ impl Session {
         self.mode = None;
     }
 
-    /// Enable the deterministic fixture policy, which converts only `ghbdtn` and `руддщ`, while
-    /// idle.
+    /// Enable the deterministic fixture policy of [`Session::propose`], which converts only
+    /// `ghbdtn` and `руддщ`, while idle.
     ///
     /// # Errors
     ///
@@ -191,8 +273,8 @@ impl Session {
     }
 
     /// Select the Russian keyboard map for manual conversion and inference while idle. The
-    /// default is [`Keyboard::Apple`]; [`Session::reset`] keeps the selection, and so does the
-    /// word history, which holds finished document text rather than key positions.
+    /// default is [`Keyboard::Apple`], and [`Session::reset`] keeps the selection. A change
+    /// keeps the word history, which holds finished document text rather than key positions.
     ///
     /// # Errors
     ///
@@ -230,9 +312,10 @@ impl Session {
     }
 
     /// Construct a model-backed proposal with explicit borrowed protection snapshots and policy.
-    /// Only Space evaluates inference. Context comes from this session's verified finished words;
-    /// the pending operation retains no model, vocabulary reference or native callback. See the
-    /// [crate-level example](crate#example) for a complete word.
+    /// Only Space evaluates inference, and not after explicit intent. Context comes from this
+    /// session's verified finished words; the pending operation retains no model, vocabulary
+    /// reference or native callback. See the [crate-level example](crate#example) for a
+    /// complete word.
     ///
     /// # Errors
     ///
@@ -264,6 +347,7 @@ impl Session {
         if self.state == State::Invalidated {
             return Err(Error::Invalidated);
         }
+        // Exhaustion is permanent: reset keeps the counter, so every later proposal fails too
         let Some(id) = self.serial.checked_add(1) else {
             self.state = State::Invalidated;
             self.pending = None;
@@ -277,6 +361,8 @@ impl Session {
             _ => Vec::new(),
         };
         let (action, disposition, text, next) = self.transition(event, mode, context, automatic);
+        // Only a word finished by the letter that starts the next one is appended: the session
+        // saw everything around it
         let history = if next == State::Invalidated
             || self.mode.is_some_and(|previous| previous != mode)
             || matches!(event, Event::Finish | Event::Escape)
@@ -310,7 +396,8 @@ impl Session {
     /// Confirm the latest proposal, or drop authority after refusal/unknown effect.
     ///
     /// [`Outcome::Verified`] advances the session to the proposed state. Any other outcome
-    /// invalidates the word, its receipt and the language history.
+    /// invalidates the word, its receipt and the language history, and the session refuses
+    /// proposals until [`Session::reset`].
     ///
     /// # Errors
     ///
@@ -326,6 +413,8 @@ impl Session {
                 HistoryEffect::Clear => self.history.clear(),
                 HistoryEffect::Append(text) => {
                     self.history.extend(text);
+                    // Trim at a Space so the window starts at a whole word; this can drop one
+                    // word more than the bound requires
                     if self.history.len() > MAX_HISTORY {
                         let minimum = self.history.len() - MAX_HISTORY;
                         let remove = self.history[minimum..]
@@ -346,6 +435,8 @@ impl Session {
         Ok(())
     }
 
+    /// The transition table: the plan's action, disposition and text, and the proposed state.
+    /// Reads the confirmed state and changes nothing.
     fn transition(
         &self,
         event: &Event,
@@ -380,6 +471,7 @@ impl Session {
                     };
                     return (Mark, Consumed, text, next);
                 }
+                // A reserved command is consumed even with nothing to act on
                 let reserved = matches!(event, Event::Manual | Event::Reverse);
                 (
                     if reserved { Unavailable } else { Pass },
@@ -399,6 +491,7 @@ impl Session {
                 explicit,
                 mode: owned_mode,
             } => {
+                // A word is never finished or converted under a mode it was not typed in
                 if mode != *owned_mode {
                     return (Pass, Disposition::Pass, Vec::new(), State::Invalidated);
                 }
@@ -425,6 +518,8 @@ impl Session {
                         if converted == text {
                             return (Pass, Consumed, Vec::new(), self.state.clone());
                         }
+                        // A second conversion keeps the first receipt, so Reverse returns to
+                        // what was typed
                         original = Some(original.unwrap_or_else(|| text.clone()));
                         text = converted;
                         explicit = true;
@@ -472,6 +567,8 @@ impl Session {
                                 text = converted;
                             }
                         }
+                        // The Space joins the mark, and the receipt, so that Reverse replaces
+                        // the word and its Space as one owned range
                         text.push(32);
                         if let Some(raw) = &mut original {
                             raw.push(32);
@@ -482,6 +579,7 @@ impl Session {
                         text.pop();
                         // An edit expires the conversion receipt
                         original = None;
+                        // An empty mark is its own native operation and ends the word
                         if text.is_empty() {
                             return (Mark, Consumed, text, State::Idle);
                         }
@@ -490,6 +588,8 @@ impl Session {
                         text.push(letter.expect("classified letter"));
                         original = None;
                     }
+                    // After the boundary a letter starts the next word, so it is planned again
+                    // from Idle; any other event, or a letter past MAX_WORD, goes to the host
                     _ => {
                         let disposition = if boundary && letter.is_some() {
                             Replan
@@ -513,6 +613,7 @@ impl Session {
     }
 }
 
+/// The fixture policy: converts exactly `ghbdtn` and `руддщ`, and nothing else.
 fn fixture(text: &[u16], mode: Mode) -> Option<Vec<u16>> {
     let (source, target) = match mode {
         Mode::En => ("ghbdtn", "привет"),
@@ -598,8 +699,10 @@ mod tests {
             (Mode::Ru, "цщкдв", "world "),
         ] {
             let mut session = Session::default();
+            // The fixture policy cannot convert these words, so a conversion proves the model ran
             session.set_fixtures(true).unwrap();
             type_model(&mut session, &model, dictionaries, mode, raw);
+            // Context is consulted only to start a word; an owned word converts whatever it says
             let boundary = session
                 .propose_with_inference(
                     &Event::Text(vec![32]),
@@ -642,6 +745,7 @@ mod tests {
         ru.replace(b"").unwrap();
         let ru = ru.current().unwrap();
         let mut session = Session::default();
+        // A missing source stops automatic correction but not manual conversion
         let missing = Dictionaries {
             en: None,
             ru: Some(&ru),
@@ -656,6 +760,7 @@ mod tests {
             "список ".encode_utf16().collect::<Vec<_>>()
         );
         session.reset();
+        // A rejected candidate cannot change the snapshot a reader already holds
         en.replace(b"cgbcjr").unwrap();
         let protected = en.current().unwrap();
         assert!(en.replace(b"invalid\0").is_err());
@@ -676,6 +781,8 @@ mod tests {
             ru: Some(&ru),
             learned: &[],
         };
+        // Of two proposals for one Space only the latest, made with the protecting snapshot,
+        // can be acknowledged, so a decision from the earlier snapshot never lands
         type_model(&mut session, &model, dictionaries, Mode::En, "cgbcjr");
         let superseded = session
             .propose_with_inference(
@@ -718,6 +825,8 @@ mod tests {
             ru: Some(&empty),
             learned: &[],
         };
+        // Manual then Reverse is explicit intent and Space keeps the typed word; a Backspace and
+        // a retyped letter are not, so that word still converts
         let mut session = Session::default();
         type_model(&mut session, &model, dictionaries, Mode::En, "cgbcjr");
         model_apply(&mut session, &model, dictionaries, Mode::En, Event::Manual);
@@ -799,6 +908,8 @@ mod tests {
             type_model(&mut neutral, &model, dictionaries, Mode::En, "dfv ").text,
             "dfv ".encode_utf16().collect::<Vec<_>>()
         );
+        // History holds the reversed word as typed; no lexicon has `ghbdtn`, so there is no
+        // context and `dfv` stays
         let mut reversed = Session::default();
         type_model(&mut reversed, &model, dictionaries, Mode::En, "ghbdtn ");
         model_apply(
@@ -827,6 +938,9 @@ mod tests {
             ru: Some(&empty),
             learned: &[],
         };
+        // A proposal or a stale acknowledgement never changes history, trimming keeps whole
+        // words, and Refused, Unknown, Finish, a mode change in Idle or while owned, reset and
+        // token exhaustion all clear it
         let mut session = Session::default();
         type_model(&mut session, &model, dictionaries, Mode::En, "hello ");
         let event = Event::Text(vec![119]);
@@ -947,6 +1061,7 @@ mod tests {
             ("... ", "... "),
             ("; ", "; "),
             ("'quoted' ", "'quoted' "),
+            // On Apple the backtick is not the ё key: it goes to the host and the word starts at k
             ("`krf ", "krf "),
         ] {
             let mut session = Session::default();
@@ -1200,6 +1315,7 @@ mod tests {
 
     #[test]
     fn mode_change_and_token_exhaustion_cannot_restore_authority() {
+        // A command in another mode invalidates instead of converting under the wrong map
         let mut s = Session::default();
         type_word(&mut s, "x");
         assert_eq!(s.set_fixtures(true), Err(Error::Invalidated));

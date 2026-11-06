@@ -26,7 +26,10 @@ NSString *string(const uint16_t *units, uint32_t length) {
 @implementation KRSession {
   kr_engine *_engine;
   NSSet<NSString *> *_allowedClients;
+  // Bumped by every invalidation; each client call is followed by a comparison with the value
+  // taken before it
   uint64_t _generation;
+  // A plan is in flight; a callback that finds it set came through a nested run loop
   BOOL _busy;
   BOOL _poisoned;
   BOOL _finishVerified;
@@ -165,6 +168,7 @@ NSString *string(const uint16_t *units, uint32_t length) {
   } @finally {
     _lifecycleFinish = NO;
   }
+  // Whatever the engine planned, a lifecycle finish leaves no authority behind
   if (_owner)
     [self invalidate];
   return _finishVerified && !_stopped;
@@ -192,6 +196,8 @@ NSString *string(const uint16_t *units, uint32_t length) {
   _automaticSwitchMode = 0;
   _finishVerified = NO;
   BOOL reserved = input->role == KR_MANUAL || input->role == KR_REVERSE;
+  // A key arriving while a plan is in flight came through a nested run loop inside a client
+  // call. Invalidating here is what makes the outer operation's next recheck fail
   if (_busy) {
     _inputStatus = KRInputInterrupted;
     [self invalidate];
@@ -209,6 +215,7 @@ NSString *string(const uint16_t *units, uint32_t length) {
     [self invalidate];
     return NO;
   }
+  // Authority belongs to one client; a key from another drops it without a call to either
   if (_owner && client != _owner)
     [self invalidate];
   _busy = YES;
@@ -219,6 +226,9 @@ NSString *string(const uint16_t *units, uint32_t length) {
   }
 }
 
+// One key, in at most two passes: plan, apply, acknowledge. The second pass exists for a FINISH
+// with REPLAN, and for a kept mark finished before a text key: the finish is acknowledged, then
+// the same key is planned again from Idle
 - (BOOL)runEvent:(kr_event)input client:(id<IMKTextInput>)client generation:(uint64_t)generation {
   for (int pass = 0; pass < 2; ++pass) {
     // A boundary mark kept across a requested mode change is planned in its own mode, where the
@@ -240,6 +250,7 @@ NSString *string(const uint16_t *units, uint32_t length) {
     } else {
       event.context = KR_CTX_INELIGIBLE;
     }
+    // Admission and context are client queries, and either can reenter
     if (generation != _generation)
       return NO;
 
@@ -260,6 +271,9 @@ NSString *string(const uint16_t *units, uint32_t length) {
 
     status = kr_commit(_engine, plan.plan_id, outcome);
     if (outcome == KR_ATTEMPTED_UNKNOWN) {
+      // Only a check after the write that failed on the client's answer, with the generation
+      // unchanged, earns the one readback commit; after reentrancy, a client exception or Secure
+      // Input the client gets no further call
       BOOL commit = _checkFailed && generation == _generation;
       [self invalidate];
       _stopped = YES;
@@ -296,6 +310,8 @@ NSString *string(const uint16_t *units, uint32_t length) {
       _ownerMode = event.mode;
     bool changed = plan.mark_len != plan.expected_len ||
                    std::memcmp(plan.expected, plan.mark, plan.expected_len * sizeof(uint16_t)) != 0;
+    // At Space the mark is the word plus one Space; if the word's own units differ from what was
+    // typed, the engine converted it, and the other mode follows
     if (event.role == KR_TEXT && event.len == 1 && event.units[0] == 32 && plan.action == KR_MARK &&
         plan.mark_len == plan.expected_len + 1 &&
         std::memcmp(plan.expected, plan.mark, plan.expected_len * sizeof(uint16_t)) != 0)
@@ -312,11 +328,15 @@ NSString *string(const uint16_t *units, uint32_t length) {
       return YES;
     break;
   }
-  // A second REPLAN or an unknown disposition: nothing was written for this pass
+  // A REPLAN on the second pass, or a disposition outside the contract. Any write in this pass
+  // was already verified and acknowledged; authority is dropped and the key passes
   [self invalidate];
   return NO;
 }
 
+// Admission before any text is read: the client's bundle identifier must be in the composition
+// set. The identifier query is itself a client call, so the generation and Secure Input are
+// rechecked after it
 - (BOOL)clientAllowed:(id<IMKTextInput>)client generation:(uint64_t)generation {
   @try {
     NSString *bundle = [client bundleIdentifier];
@@ -331,6 +351,9 @@ NSString *string(const uint16_t *units, uint32_t length) {
   }
 }
 
+// Context for a composition start: a collapsed caret, no mark of any origin, and either the
+// document start or one whitespace unit before the caret, read back over exactly the range
+// asked for. Records the caret so that the first MARK can require it unmoved
 - (uint32_t)contextIn:(id<IMKTextInput>)client generation:(uint64_t)generation {
   _contextLocation = NSNotFound;
   _inputStatus = KRInputContextUnavailable;
@@ -367,8 +390,8 @@ NSString *string(const uint16_t *units, uint32_t length) {
 }
 
 // Requires the exact mark, caret and text; reads the client three times and checks the
-// generation after each read. A caret of NSNotFound skips the caret read, and readText NO the
-// text read
+// generation after each read, and Secure Input after the range reads. A caret of NSNotFound skips
+// the caret read, and readText NO the text read. On failure inputStatus names the first mismatch
 - (BOOL)verifyMark:(NSString *)text
                 at:(NSUInteger)start
              caret:(NSUInteger)caret
@@ -414,6 +437,11 @@ NSString *string(const uint16_t *units, uint32_t length) {
   return YES;
 }
 
+// Applies one MARK or FINISH plan: checks the client against the plan, performs the plan's one
+// write and verifies its effect. Returns REFUSED_BEFORE_WRITE when a check fails before the
+// write, ATTEMPTED_UNKNOWN when the write may have happened but its effect isn't verified, and
+// APPLIED_VERIFIED otherwise. Sets _checkFailed only when a check after the write failed on the
+// client's answer, not on reentrancy, an exception or Secure Input
 - (uint32_t)apply:(const kr_plan &)plan
            client:(id<IMKTextInput>)client
        generation:(uint64_t)generation {
@@ -432,6 +460,8 @@ NSString *string(const uint16_t *units, uint32_t length) {
 
   NSUInteger start;
   @try {
+    // A composition start: nothing owned, nothing marked, and the caret still where the context
+    // read found the boundary
     if (plan.expected_len == 0) {
       if (_owner || plan.action != KR_MARK || plan.mark_len == 0)
         return KR_REFUSED_BEFORE_WRITE;
@@ -454,6 +484,7 @@ NSString *string(const uint16_t *units, uint32_t length) {
         return KR_REFUSED_BEFORE_WRITE;
       start = _start;
     }
+    // The last check before the write
     if ([self secureAfterQuery])
       return KR_REFUSED_BEFORE_WRITE;
   } @catch (NSException *) {
@@ -492,6 +523,9 @@ NSString *string(const uint16_t *units, uint32_t length) {
       return KR_APPLIED_VERIFIED;
     }
 
+    // A finish must leave no mark, the caret after the committed text (not checked for an
+    // unchanged commit) and the committed text in place (not read back for a lifecycle commit
+    // of unchanged text)
     NSRange marked = [client markedRange];
     if (generation != _generation)
       return KR_ATTEMPTED_UNKNOWN;
@@ -540,7 +574,8 @@ NSString *string(const uint16_t *units, uint32_t length) {
 
 // After a failed readback check, a client such as NSTextView replaces its marked text with the
 // next passed key. Committing the client's own readback of the marked range once keeps what the
-// user sees; nothing is written when the mark or its exact readback is unavailable.
+// user sees. This is the one write allowed after an unknown outcome and repairs nothing; nothing
+// is written when the mark or its exact readback is unavailable, or once Secure Input is on.
 - (void)commitReadbackIn:(id<IMKTextInput>)client generation:(uint64_t)generation {
   @try {
     NSRange marked = [client markedRange];

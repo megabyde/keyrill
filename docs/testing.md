@@ -1,13 +1,22 @@
 # Testing
 
 A native API call that returns success is not a document result, a controlled `NSTextView` is not
-system IMK, and a generated event in a real editor is not physical input. Record which of these
-a result is. Results belong to the binary that produced them, not to later builds.
+system IMK, and a generated event in a real editor is not physical input. Record which of these a
+result is. Results belong to the binary that produced them, not to later builds.
+
+```mermaid
+flowchart LR
+    A["API call<br/>returned success"] --> B["Controlled client:<br/>scripted IMK, whole document"]
+    B --> C["Generated events<br/>in a real editor"]
+    C --> D["Physical keys<br/>in a real editor"]
+```
+
+Each step to the right is stronger evidence, and only the last one shows that an application works.
 
 ## Layers
 
 | Layer | Where | Covers |
-|---|---|---|
+| -- | -- | -- |
 | Unit and property | `crates/*/src`, `crates/keyrill-core/tests` | Mapping, vocabulary flags, policy, session transitions, ABI bounds; fixed proptest seeds |
 | Reference vectors | `tests/fixtures/engine-vectors.jsonl` | 1,217 mapping, vocabulary, context and inference outputs, see [engine](engine.md#reference-tests) |
 | Negative set | `tests/fixtures/negative-words.jsonl`, `tests/negative_words.rs` | 766 words automatic correction must leave alone |
@@ -18,35 +27,35 @@ a result is. Results belong to the binary that produced them, not to later build
 | Browser fixture | `native/macos/tests/browser-fixture.html` | Field and caret oracle for physical browser runs |
 | Physical | Real applications, real keys | The only evidence that an application works |
 
-The controlled native tests drive `KRSession`, the compatibility session and the controller
-with scripted clients that hold a whole document, and an offscreen `NSTextView` for the
-readback commit after a failed check. They check correction, protection, forbidden targets, reversal,
-reentrant callbacks that change generation or client, unknown effects, empty composition,
-dictionary reload and adoption deferral, key disposition, and compatibility rewrites including
-missing echoes and a terminal that forwards consumed keys. One test,
-`compatibility_known_interleaving_hazard`, keeps a schedule where a typed character is deleted
-and the word corrupted; it documents the backend's limit and is not integrity evidence.
+The controlled native tests drive `KRSession`, the compatibility session and the controller with
+scripted clients that hold a whole document, and an offscreen `NSTextView` for the readback commit
+after a failed check. They check correction, protection, forbidden targets, reversal, reentrant
+callbacks that change generation or client, unknown effects, empty composition, dictionary reload
+and adoption deferral, key disposition, and compatibility rewrites including missing echoes and a
+terminal that forwards consumed keys. One test, `compatibility_known_interleaving_hazard`, keeps a
+schedule where a typed character is deleted and the word corrupted; it documents the backend's limit
+and is not integrity evidence.
 
 ## Regression schedules
 
-[`regressions.json`](regressions.json) lists sixteen schedules (R01–R16) any adapter has to
-answer. R01–R04 are negative controls for the rejected transports: a test passes by showing
-the damage in the rejected mechanism or by refusing the schedule, never by reproducing the
-unsafe edit. The rest cover reentrant invalidation, foreign marks on reused proxies, caret
-disagreement, empty composition, manual boundaries, rapid continuation, focus reuse, source
-selection versus delivery, dictionary reload, key disposition, TSF grants, and secure fields and
-shutdown. Use deterministic barriers and callbacks, not shorter sleeps.
+[`regressions.json`](regressions.json) lists sixteen schedules (R01–R16) any adapter has to answer.
+R01–R04 are negative controls for the rejected transports: a test passes by showing the damage in
+the rejected mechanism or by refusing the schedule, never by reproducing the unsafe edit. The rest
+cover reentrant invalidation, foreign marks on reused proxies, caret disagreement, empty
+composition, manual boundaries, rapid continuation, focus reuse, source selection versus delivery,
+dictionary reload, key disposition, TSF grants, and secure fields and shutdown. Use deterministic
+barriers and callbacks, not shorter sleeps.
 
 ## Physical scenarios
 
-Observe whole synthetic documents or fields, prefix and suffix, and the UTF-16 caret; for
-two-field cases observe both. Native readback is the client's view: prefer an independent
-oracle such as a saved file or the browser fixture. Classify each result as passed, failed,
-unsupported, untested or setup-blocked. A permission or activation problem with no keys typed
-is not a correction failure, and input that never reached Rust is not an abstention.
+Observe whole synthetic documents or fields, prefix and suffix, and the UTF-16 caret; for two-field
+cases observe both. Native readback is the client's view: prefer an independent oracle such as a
+saved file or the browser fixture. Classify each result as passed, failed, unsupported, untested or
+setup-blocked. A permission or activation problem with no keys typed is not a correction failure,
+and input that never reached Rust is not an abstention.
 
 | ID | Scenario | Expected |
-|---|---|---|
+| -- | -- | -- |
 | V01 | EN mode: `ghbdtn Space hello Space ghbdtn Space` | `привет hello привет `, caret after the last Space; repeat without restarting |
 | V02 | RU mode: `руддщ Space цщкдв Space` | `hello world ` |
 | V03 | `Ghbdtn`, all-caps, acronyms, identifiers, URLs | Title case converted; the rest unchanged |
@@ -74,11 +83,11 @@ manual-availability checks first.
 
 ### Browser fixture
 
-`browser-fixture.html` is a standalone page with one textarea holding fixed prefix and suffix
-text (including a surrogate pair), with spellcheck, autocorrect and autocomplete off. Its four
-scenarios (EN automatic, manual, reversal, RU automatic) record ordered full-field checkpoints,
-composition events and the final UTF-16 caret, and give a pass or fail verdict. The report holds
-flags, positions and counts, never text. It can't prove which input method produced the input.
+`browser-fixture.html` is a standalone page with one textarea holding fixed prefix and suffix text
+(including a surrogate pair), with spellcheck, autocorrect and autocomplete off. Its four scenarios
+(EN automatic, manual, reversal, RU automatic) record ordered full-field checkpoints, composition
+events and the final UTF-16 caret, and give a pass or fail verdict. The report holds flags,
+positions and counts, never text. It can't prove which input method produced the input.
 `./tools/verify browser-fixture` checks the oracle itself, not a browser.
 
 ### Performance targets
@@ -92,27 +101,27 @@ measured end to end yet.
 ## Status
 
 CI runs every gate on each change: the default check on macOS, Windows and Linux, the others on
-macOS. The run page has the results and the line-level coverage report, so this page doesn't
-repeat numbers that go stale.
+macOS. The run page has the results and the line-level coverage report, so this page doesn't repeat
+numbers that go stale.
 
 Physical results, for the build that produced them: on the v0.1.0 source the maintainer typed by
 hand with the model policy in TextEdit, in a Safari text field and address bar, and in a Firefox
 text area. Automatic correction, Control+Option+K, Control+Option+Z and the mode switch after a
-correction behaved as expected in all three. Nothing since has a physical result: the default
-paths computed in Rust, the Learn Spelling list and the input menu's status line. Known open
-questions, to check first:
+correction behaved as expected in all three. Nothing since has a physical result: the default paths
+computed in Rust, the Learn Spelling list and the input menu's status line. Known open questions, to
+check first:
 
-- The Learn Spelling list lives in Apple's spell-service group container; whether the input
-  method's read raises an "access data from other apps" prompt is unknown.
-- VoiceOver uses Control+Option as its modifier, so Control+Option+K is also VoiceOver's
-  Keyboard Help; which one receives the key with VoiceOver on is untested.
-- Safari: in the browser fixture, manual conversion and reversal once left the field one UTF-16
-  unit short, consistent with a missing trailing Space. The hand run didn't show it, but the
-  fixture hasn't been rerun.
+- The Learn Spelling list lives in Apple's spell-service group container; whether the input method's
+  read raises an "access data from other apps" prompt is unknown.
+- VoiceOver uses Control+Option as its modifier, so Control+Option+K is also VoiceOver's Keyboard
+  Help; which one receives the key with VoiceOver on is untested.
+- Safari: in the browser fixture, manual conversion and reversal once left the field one UTF-16 unit
+  short, consistent with a missing trailing Space. The hand run didn't show it, but the fixture
+  hasn't been rerun.
 - ChatGPT desktop gets no automatic correction; the cause is unknown.
 - Compatibility: repeated corrections in Notes, terminal behavior, live source switching and
   permission retention across updates.
 
-When reporting a problem from real use, include the application and version, the backend, the
-input menu's first line, its "Last word left alone" row and dictionary state, and a synthetic
-reproduction (what you typed and what you got). Don't paste private text.
+When reporting a problem from real use, include the application and version, the backend, the input
+menu's first line, its "Last word left alone" row and dictionary state, and a synthetic reproduction
+(what you typed and what you got). Don't paste private text.

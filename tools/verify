@@ -1,4 +1,7 @@
 #!/bin/sh
+# Verification entry point. The default mode, check, is the integration gate on every platform;
+# the other modes need extra tools, and audit, coverage and fuzz refuse a version other than the
+# pinned one. docs/development.md lists what each mode requires
 set -eu
 cd "$(dirname "$0")/.."
 case "${1:-check}" in
@@ -34,6 +37,14 @@ case "${1:-check}" in
     ;;
   sanitize) native/macos/build.sh sanitize ;;
   browser-fixture) node native/macos/tests/browser-fixture.test.cjs ;;
+  markdown)
+    # model/corpora holds upstream READMEs pinned by hash, so their bytes must stay as published.
+    # pymarkdown reads .pymarkdown; line length is mdformat's job, since table rows can't wrap
+    files=$(git ls-files '*.md' ':!model/corpora/*')
+    mdformat="uvx --from mdformat==1.0.0 --with mdformat-gfm==1.0.0 --with mdformat-gfm-alerts==2.1.0 mdformat"
+    if [ "${2:-}" = fix ]; then $mdformat $files; else $mdformat --check $files; fi
+    uvx --from pymarkdownlnt==0.9.40 pymarkdown scan $files
+    ;;
   audit)
     test "$(cargo deny --version)" = "cargo-deny 0.20.2"
     cargo deny --locked check
@@ -73,9 +84,11 @@ case "${1:-check}" in
     tail -n 1 "$run_dir/model.log"
     ;;
   miri)
+    # Skipped: tests that use the file system, which Miri isolation blocks, and the one that
+    # walks the whole embedded model, about 26 minutes under Miri; the normal suite runs them
     cargo +nightly-2026-10-26 miri test --locked -p keyrill-ffi --lib -- \
       --skip vocabulary_source:: --skip vocabulary_host::tests::source_ \
       --skip model_policy_bridge_preserves_configuration_context_and_receipts
     ;;
-  *) echo "usage: ./tools/verify [check|sanitize|browser-fixture|audit|coverage|evaluate|fuzz|miri]" >&2; exit 2 ;;
+  *) echo "usage: ./tools/verify [check|sanitize|browser-fixture|markdown [fix]|audit|coverage|evaluate|fuzz|miri]" >&2; exit 2 ;;
 esac

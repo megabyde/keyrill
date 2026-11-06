@@ -1,8 +1,9 @@
 #!/bin/sh
 # Builds the macOS input method shim with Command Line Tools clang only (no Xcode, no XCTest)
 #
-#   build.sh check     format check, plist lint, app executable and controlled tests (release lib)
-#   build.sh sanitize  controlled tests under ASan/UBSan (debug lib)
+#   build.sh check     format check, plist lint, icon check, static analysis, app executable,
+#                      diagnostic tools and controlled tests (release lib)
+#   build.sh sanitize  icon check and controlled tests under ASan/UBSan (debug lib)
 #   build.sh bundle    assemble KeyrillAlpha.app in the output directory; never installs it
 #   build.sh status    read current and Keyrill input-source identity/flags; never selects
 #   build.sh source-plan  inspect the exact Keyrill parent; no settings changes

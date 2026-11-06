@@ -11,6 +11,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+/// The automatic-correction policy as the input menu reports it.
 typedef NS_ENUM(uint8_t, KRPolicyStatus) {
   KRPolicyStatusOff,
   KRPolicyStatusModel,
@@ -21,7 +22,10 @@ typedef NS_ENUM(uint8_t, KRPolicyStatus) {
 /// Content-free state of one language's personal source in the shared vocabulary handle. Ready
 /// means published there, not yet adopted by any particular engine.
 typedef NS_ENUM(uint8_t, KRSourceStatus) {
+  /// No vocabulary is in use (policy OFF, or the model failed validation), so no source is
+  /// configured or read.
   KRSourceStatusUnconfigured,
+  /// Configured, with no settled observation yet.
   KRSourceStatusPending,
   KRSourceStatusReady,
   /// A later read failed; the last good snapshot stays in force.
@@ -54,10 +58,11 @@ typedef struct {
 
 /// Process-wide automatic-correction configuration and personal-source acquisition. Policy and
 /// paths are read once at initialization. Under MODEL, a serial work queue observes both
-/// sources and published snapshots are adopted on the main thread into the session that last
-/// requested them, never inside a host callback. Other sessions refresh on their next request.
-/// Main-thread only except where noted. Production keeps one instance for the process lifetime;
-/// queued work retains it, so deallocation happens only after that work has drained.
+/// language sources and the learned list, and published snapshots are adopted on the main thread
+/// into the session that last requested them, never inside a host callback. Other sessions refresh
+/// on their next request. Main-thread only except where noted. Production keeps one instance for
+/// the process lifetime; queued work retains it, so deallocation happens only after that work has
+/// drained.
 @interface KRRuntime : NSObject
 
 /// MODEL when AutomaticCorrectionEnabled is a true NSNumber, else OFF. Values of any other type

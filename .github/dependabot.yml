@@ -1,3 +1,5 @@
+# The Rust toolchains, the nightly date, the `cargo install` tool versions and the model
+# generator's Python requirements are pinned by hand and are not updated here
 version: 2
 updates:
   - package-ecosystem: "cargo"

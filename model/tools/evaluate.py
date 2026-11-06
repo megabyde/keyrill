@@ -1,3 +1,8 @@
+# Offline evaluation of the engine on two Universal Dependencies corpora, English EWT and Russian
+# Taiga, each pinned by commit and hash. Sentences are typed through the session mode of
+# tools/inference-probe, which drives the real Session as the macOS adapter does, and isolated
+# tokens are judged by its word mode, which calls inference directly. docs/engine.md#evaluation
+# defines the replays, the negative set and the metrics. Only --download uses the network
 import argparse
 import collections
 import hashlib
@@ -215,7 +220,9 @@ def evaluate(split, probe, policy=()):
     cases = sorted({case for stratum in negatives.values() for case in stratum})
     lines = [f"{mode} {hex16(word)} -\n" for mode, word in cases]
     reasons = {case: line.split("\t") for case, line in zip(cases, run_probe(probe, "word", lines, policy))}
-    # With the known-word gate closed, reason 3 is exactly membership in the model's lexicon
+    # With the known-word gate closed every lexicon word that passes the eligibility checks
+    # abstains with reason 3, and no other word can; an ineligible lexicon word, such as an
+    # all-capital one, is counted as OOV
     lexicon = {case for case, line in zip(cases, run_probe(probe, "word", lines, [*policy, "known_ceiling=0"]))
                if line.startswith("3\t")}
     for lang in SOURCES:

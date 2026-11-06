@@ -7,7 +7,10 @@
 
 namespace {
 
+// "KEYRILLC" in ASCII, stored in kCGEventSourceUserData of every posted event
 constexpr int64_t kSyntheticTag = INT64_C(0x4b455952494c4c43);
+// Process-wide guard state. The tap's run-loop source is on the main run loop, so the callback
+// and every reader run on main
 uint64_t guardGeneration = 1;
 uint64_t sourceGeneration = 0;
 uint64_t observedKeyDowns = 0;
@@ -15,12 +18,16 @@ BOOL guardExhausted = NO;
 CFMachPortRef guardTap;
 CFRunLoopSourceRef guardSource;
 
+// One posted key as the echo matcher expects to see it again
 struct PostedKey {
   CGKeyCode code;
   CGEventFlags flags;
   uint16_t unit;
 };
 
+// The ANSI key and Shift state that type `unit` in the US or Russian layout. A posted event
+// carries the unit as its Unicode string and this key as its keycode and flags, and the echo
+// matcher compares all three. A unit with no key here refuses the whole rewrite
 bool keyForUnit(uint16_t unit, PostedKey &key) {
   if (unit == 32) {
     key = {kVK_Space, 0, unit};
@@ -63,11 +70,17 @@ void invalidateGuard() {
     ++guardGeneration;
 }
 
-// Permission preflights are IPC to the TCC daemon. They run once per handled key, not for each
-// posted event: a revocation between two posts in one synchronous batch is a race that per-event
-// checks can't close either, since each check still precedes its post
+// Set while a rewrite is being posted; guardReady then skips the permission preflights. Those
+// are IPC to the TCC daemon and run once per handled key, not for each posted event: a
+// revocation between two posts in one synchronous batch is a race that per-event checks can't
+// close either, since each check still precedes its post
 bool dispatching = false;
 
+// Listen-only tap callback. It reads keycodes and modifier flags, never characters. Plain and
+// shifted typing and the two reserved chords keep tracking; any other key with Command, Control
+// or Option, navigation, Forward Delete, Tab, Return, Escape and every mouse or scroll event
+// expire it. Untagged key-downs are counted for the automatic-rewrite gate; tagged events are
+// ignored entirely
 CGEventRef observeEvent(CGEventTapProxy, CGEventType type, CGEventRef event, void *) {
   if (type == kCGEventTapDisabledByTimeout || type == kCGEventTapDisabledByUserInput) {
     // Events were missed while the tap was off, so tracking restarts
@@ -102,6 +115,7 @@ CGEventRef observeEvent(CGEventTapProxy, CGEventType type, CGEventRef event, voi
   return event;
 }
 
+// Posting is allowed only while the guard can see what would expire tracking
 BOOL guardReady() {
   return guardTap && !guardExhausted && CGEventTapIsEnabled(guardTap) &&
          (dispatching || (CGPreflightListenEventAccess() && CGPreflightPostEventAccess()));
@@ -125,6 +139,7 @@ KRCompatibilityTarget snapshot(NSString *bundle, id<IMKTextInput> client) {
   return target;
 }
 
+// The deletion bound of 65 is the engine's 64-unit word limit plus one Space
 KRCompatibilityDispatch dispatch(pid_t pid, const kr_compatibility_plan *plan,
                                  BOOL (^stillCurrent)(void), void (^post)(pid_t, CGEventRef)) {
   if (pid <= 0 || plan->operation != KR_COMPAT_REWRITE || plan->delete_units == 0 ||
@@ -167,6 +182,7 @@ KRCompatibilityDispatch dispatch(pid_t pid, const kr_compatibility_plan *plan,
       for (size_t i = 0; i < count; ++i) {
         if (!stillCurrent())
           break;
+        // Counted before the call: a post that throws may still have been delivered
         ++submitted;
         post(pid, events[i]);
       }
@@ -190,14 +206,19 @@ KRCompatibilityDispatch dispatch(pid_t pid, const kr_compatibility_plan *plan,
   BOOL _busy;
   BOOL _poisoned;
   uint64_t _generation;
+  // Target of the previous key; another pid or guard generation since then restarts tracking
   KRCompatibilityTarget _previous;
   NSString *_statusTitle;
+  // The sequence the last rewrite posted and how much of its echo has arrived
   std::array<PostedKey, 65 + KR_TEXT_CAPACITY> _posted;
   uint32_t _postedCount;
   uint32_t _postedIndex;
   uint64_t _postedGuardGeneration;
+  // Untagged key-downs counted at the last rewrite; the next automatic one needs the count to
+  // have moved
   BOOL _rewriteDispatched;
   uint64_t _observedAtRewrite;
+  // One guard change made only of source changes is expected: the echo of Keyrill's request
   BOOL _acceptAutomaticSourceChange;
   // Mode of a tracked word kept across a requested mode change; zero when none
   uint32_t _heldMode;
@@ -340,6 +361,9 @@ KRCompatibilityDispatch dispatch(pid_t pid, const kr_compatibility_plan *plan,
   return tagged;
 }
 
+// Accepts a guard advance once after Keyrill's own mode request, when every guard step since
+// the baseline was a source change, and moves the baseline to it. Any other guard event in
+// between makes the two advances differ
 - (BOOL)rebaselineAutomaticSourceChange:(uint64_t)generation source:(uint64_t)source {
   if (!_acceptAutomaticSourceChange || generation <= _previous.generation ||
       source <= _previous.sourceGeneration ||
@@ -452,6 +476,7 @@ KRCompatibilityDispatch dispatch(pid_t pid, const kr_compatibility_plan *plan,
       _statusTitle = @"Compatibility: permissions, guard or foreground target unavailable";
       return reserved;
     }
+    // Tracking describes input to one process within one guard generation
     BOOL differentProcess = _previous.available && _previous.pid != target.pid;
     BOOL differentGuard = (_previous.available || _acceptAutomaticSourceChange) &&
                           _previous.generation != target.generation;
@@ -536,6 +561,7 @@ KRCompatibilityDispatch dispatch(pid_t pid, const kr_compatibility_plan *plan,
     } @finally {
       dispatching = false;
     }
+    // Each outcome names what was submitted; none says what the client did with it
     uint32_t outcome = result == KRCompatibilitySubmitted ? KR_COMPAT_DISPATCHED
                        : result == KRCompatibilityPartial ? KR_COMPAT_PARTIAL
                                                           : KR_COMPAT_REFUSED;
@@ -543,6 +569,8 @@ KRCompatibilityDispatch dispatch(pid_t pid, const kr_compatibility_plan *plan,
     if (result != KRCompatibilitySubmitted || status != KR_OK) {
       [self invalidate];
       _poisoned = _poisoned || status == KR_POISONED;
+      // Nothing posted drops only the word. Once anything was posted and not acknowledged as a
+      // full submission, the text is unknown: stop until activation, with no replay
       _stopped = result != KRCompatibilityNotStarted || _poisoned;
       _statusTitle = _stopped ? @"Compatibility paused until reactivation; check your recent text"
                               : @"Compatibility: rewrite refused before dispatch";
@@ -559,6 +587,8 @@ KRCompatibilityDispatch dispatch(pid_t pid, const kr_compatibility_plan *plan,
     [self invalidate];
     _stopped = YES;
     _statusTitle = @"Compatibility paused until reactivation; check your recent text";
+    // Once dispatch began the plan's disposition stands: an automatic rewrite counted the
+    // typed Space among its deletions, so that Space must still pass
     return dispatchEntered ? plan.disposition == KR_KEY_CONSUMED : reserved;
   } @finally {
     _busy = NO;

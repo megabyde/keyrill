@@ -1,3 +1,4 @@
+# cargo-deny policy for the fuzz graph: the root deny.toml plus the license libFuzzer brings
 [graph]
 all-features = false
 
@@ -12,6 +13,7 @@ include-dev = true
 [licenses.private]
 ignore = true
 
+# libfuzzer-sys bundles LLVM's libFuzzer sources, released under NCSA
 [[licenses.exceptions]]
 name = "libfuzzer-sys"
 version = "=0.4.13"

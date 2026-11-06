@@ -1,4 +1,10 @@
 //! Reference vectors and reproducible UTF-16/session properties.
+//!
+//! `fixtures/engine-vectors.jsonl` pins the output of the mapping, the vocabulary parser,
+//! context detection and inference for fixed requests (the protocol is in `docs/engine.md`). A
+//! change in behavior, or a score that moves beyond the tolerance, fails here, and each test also
+//! counts its vectors so that a fixture which lost lines cannot pass by testing less. Expected
+//! values are not edited to make a failure pass.
 
 use keyrill_core::inference::{self, Dictionaries, Policy, Request};
 use keyrill_core::mapping::{self, Keyboard, Mapping};
@@ -164,6 +170,7 @@ fn reference_context_and_inference_vectors() {
             );
             assert_eq!(replacement, expected[2], "{request}");
             let expected_score: f64 = expected[1].parse().unwrap();
+            // Absolute 1e-10 plus relative 1e-12
             let difference = (decision.score - expected_score).abs();
             assert!(
                 difference <= 1e-10 + 1e-12 * expected_score.abs(),
@@ -189,6 +196,9 @@ proptest! {
         }
     }
 
+    // Ids grow strictly across resets and invalidation, so a late acknowledgement of an expired
+    // plan can never match a later one; plans stay within one word and its Space. Codes divisible
+    // by 3 reset before acknowledging, code 7 reports Unknown, and a failed proposal resets
     #[test]
     fn arbitrary_event_schedules_never_resurrect_a_reset_token(events in proptest::collection::vec(0u8..12, 0..=256)) {
         let mut session = Session::default();

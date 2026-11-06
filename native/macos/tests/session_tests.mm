@@ -2,6 +2,14 @@
 // Rust engine, a scripted in-process IMKTextInput client and an offscreen NSTextView. No window,
 // input source, event tap or host application is involved, so these results are controlled-native
 // evidence only, never system IMK evidence.
+//
+// Each test is a schedule: keys, client faults and lifecycle calls in a fixed order, with the
+// hostile step injected from a client hook at the exact native call where a real host could do
+// it. The oracle is the whole document (prefix, typed region, suffix, caret and mark) and the
+// key disposition, never a return code alone. A test names the safety invariant it falsifies
+// (S1..S10 in ARCHITECTURE.md) and, where one applies, the schedule in docs/regressions.json.
+// The fixture policy corrects only ghbdtn and руддщ, so most session tests don't depend on the
+// model; makeModelSession and a runtime with automatic correction on use the real model.
 #import <Carbon/Carbon.h>
 #import <Foundation/Foundation.h>
 
@@ -32,32 +40,64 @@ static const char *currentTest = "";
 
 static const NSString *kTestBundle = @"org.keyrill.test.client";
 
+/// A scripted IMKTextInput client: one document string, a selection and a marked range, all in
+/// UTF-16 units. setMarkedText ignores its replacement range and writes over the mark, or over
+/// the selection when there is none, then places the caret by the mark-relative selection.
+/// insertText writes to the same place for an NSNotFound range, or to exactly the explicit range
+/// it is given, and puts the caret after the text.
+/// stringFromRange clamps the range to the document and reports the clamped actual range.
+///
+/// A test plays the hostile host through `hook`, which runs at the entry of each call Keyrill
+/// makes: it can move the caret, plant a foreign mark, switch Secure Input on, reenter the
+/// session or throw, at exactly the call where a real host could. The flags below script what a
+/// host does with a write. `calls` and `writes` let a test assert zero client contact or zero
+/// writes after a refusal.
+///
+/// The client does nothing on its own: no focus, layout, undo, attributes or IMK reentrancy, and
+/// it never moves the caret or commits the mark unless a test tells it to. That keeps every
+/// schedule deterministic. A pass shows that the session refuses or verifies the scripted
+/// schedule; it shows nothing about what a real application does.
 @interface FakeClient : NSObject <IMKTextInput>
+/// Whole-document oracle; prefix and suffix outside the typed region must survive every test.
 @property(nonatomic) NSMutableString *document;
+/// Collapsed caret, or a selection a test sets directly.
 @property(nonatomic) NSRange selection;
+/// Marked range, {NSNotFound, 0} without a mark. A test sets it to plant a foreign mark.
 @property(nonatomic) NSRange marked;
+/// Returned by bundleIdentifier; tests also assign nil and non-string objects to it.
 @property(nonatomic, copy) NSString *bundle;
+/// Calls that reached `enter:`; unchanged across a key means the key made no client query.
 @property(nonatomic) NSUInteger calls;
+/// setMarkedText and insertText calls, counted at entry before any effect, so an attempted
+/// write whose effect is unknown still counts.
 @property(nonatomic) NSUInteger writes;
+/// setMarkedText calls alone; the readback commit after a failed check is an insertText.
 @property(nonatomic) NSUInteger markWrites;
+/// Raises after insertText has changed the document: an effect Keyrill can't confirm.
 @property(nonatomic) BOOL throwAfterInsert;
+/// stringFromRange returns nil with an NSNotFound actual range: a client without text readback.
 @property(nonatomic) BOOL noTextReadback;
 /// Returns object replacement characters over the exact requested range, as Firefox does for
 /// a composition while it loses focus.
 @property(nonatomic) BOOL garbleReadback;
-/// Misbehaving hosts: keep the mark after insertText, insert altered same-length text, or leave
-/// the caret at the document start.
+/// insertText leaves its text marked, as a host that ignores the commit.
 @property(nonatomic) BOOL keepMarkOnInsert;
+/// insertText writes text of the same length with its last unit replaced by '#'.
 @property(nonatomic) BOOL alterInsert;
+/// insertText leaves the caret at the document start.
 @property(nonatomic) BOOL misplaceCaretOnInsert;
+/// Writes of empty text through insertText and through setMarkedText.
 @property(nonatomic) NSUInteger emptyInserts;
 @property(nonatomic) NSUInteger emptyMarks;
+/// Both writes are accepted and change nothing, as a client that drops input-method writes.
 @property(nonatomic) BOOL ignoreWrites;
 /// Reports the caret at the document start after a marked-text write, as a misbehaving host.
 @property(nonatomic) BOOL misplaceCaretOnMark;
 /// Input modes requested through selectInputMode, in order.
 @property(nonatomic) NSMutableArray<NSString *> *selectedModes;
-/// Invoked at the entry of every client call (and after each write's effect) with its name.
+/// Invoked with the call's name at the entry of bundleIdentifier, selectedRange, markedRange,
+/// stringFromRange, both writes and selectInputMode, and once more after each write's effect
+/// ("setMarkedText+after", "insertText+after").
 @property(nonatomic, copy) void (^hook)(NSString *call);
 - (instancetype)initWithText:(NSString *)text caret:(NSUInteger)caret;
 - (void)enter:(NSString *)call;
@@ -222,6 +262,9 @@ static const NSString *kTestBundle = @"org.keyrill.test.client";
 
 /// IMKTextInput over a real offscreen NSTextView. Writes and reads go to the text view; the only
 /// scripted behavior is an optional fault in the client's report after a marked-text write.
+/// The inherited document, selection and mark are unused, and `markWrites` stays zero. It exists
+/// to show, with AppKit's own text system, that NSTextView replaces marked text with the next
+/// inserted key, which is the loss the readback commit after a failed check prevents.
 @interface TextViewClient : FakeClient
 @property(nonatomic, readonly) NSTextView *view;
 /// After the next marked-text write, report the caret at the document start once.
@@ -286,7 +329,8 @@ static const NSString *kTestBundle = @"org.keyrill.test.client";
 
 @end
 
-/// Forwards to a key event and counts reads of its characters.
+/// Forwards to a key event and counts reads of its characters, so a test can show that a key
+/// typed under Secure Input never had its characters read (S8).
 @interface EventSpy : NSProxy
 @property(nonatomic, readonly) NSUInteger characterReads;
 - (instancetype)initWithEvent:(NSEvent *)event;
@@ -401,6 +445,8 @@ bool type(KRSession *session, FakeClient *client, NSString *text) {
   return all;
 }
 
+// The whole-document oracle: exact text, a collapsed caret at `caret` and exactly `marked`, or
+// no mark for kNoMark
 bool documentIs(FakeClient *client, NSString *text, NSUInteger caret, NSRange marked) {
   bool markMatches = (marked.location == NSNotFound && client.marked.location == NSNotFound) ||
                      NSEqualRanges(marked, client.marked);
@@ -409,6 +455,8 @@ bool documentIs(FakeClient *client, NSString *text, NSUInteger caret, NSRange ma
 }
 
 constexpr NSRange kNoMark = {NSNotFound, 0};
+// Unrelated text on both sides of the typed region. The prefix ends in a space, so the caret
+// starts at a word boundary; a write outside the owned range changes one of them (S1).
 NSString *const kPrefix = @"pre ";
 NSString *const kSuffix = @"\nsuf";
 
@@ -423,6 +471,10 @@ NSString *withAffixes(NSString *middle) {
 
 NSUInteger after(NSString *middle) { return kPrefix.length + middle.length; }
 
+// The basic loop in both modes. Space converts the word and keeps the word and Space marked
+// until the next key, which finishes that boundary mark and starts its own word; prefix, suffix
+// and caret stay exact (S1). With policy OFF the same keys compose and commit as typed, so a
+// policy that leaked into the off state would show as a converted word.
 void testFixtureBothDirections() {
   currentTest = "fixture_both_directions";
   {
@@ -453,6 +505,9 @@ void testFixtureBothDirections() {
   }
 }
 
+// R09: manual conversion before Space, Space, reversal while the boundary mark is owned, then
+// a finished mark. The reversal restores the exact original with its Space; after the finish the
+// receipt is gone, and a late reversal that still wrote would replace committed text (S7, S6).
 void testManualReversalAndExpiry() {
   currentTest = "manual_reversal_expiry";
   KRSession *session = makeSession(true);
@@ -472,6 +527,10 @@ void testManualReversalAndExpiry() {
   CHECK(documentIs(client, withAffixes(@"ghbdtn hello "), after(@"ghbdtn hello "), kNoMark));
 }
 
+// A mode switch is requested only for a verified automatic Space conversion, and the request is
+// cleared by the next event. Manual conversion, a write the client ignored and a finish the
+// client didn't honor request none: switching the layout for a correction that may not be in the
+// document would report an unverified result as done (S5).
 void testAutomaticSwitchRequiresVerifiedCorrectionAndFinish() {
   currentTest = "automatic_switch_verified_correction_and_finish";
   for (uint32_t mode : {KR_EN, KR_RU}) {
@@ -511,6 +570,7 @@ void testAutomaticSwitchRequiresVerifiedCorrectionAndFinish() {
   CHECK(failedFinish.stopped && failedFinish.automaticSwitchMode == 0);
 }
 
+// Escape with a receipt restores the typed word and Space, finishes the mark and is consumed
 void testEscapeRestoresOriginal() {
   currentTest = "escape_restores_original";
   KRSession *session = makeSession(true);
@@ -521,6 +581,9 @@ void testEscapeRestoresOriginal() {
   CHECK(!session.owned);
 }
 
+// Punctuation after a boundary mark is not a trigger: it finishes the mark with exactly one
+// write and passes, so the host types it once after the corrected word (S4). A consumed key
+// would be lost, and a key planned into the mark would land inside the word.
 void testBoundaryThenPunctuationPassesOnce() {
   currentTest = "boundary_punctuation";
   for (NSString *punctuation in @[ @"!", @"(", @"-", @"?" ]) {
@@ -570,6 +633,9 @@ void testProvisionalLettersConvert() {
   }
 }
 
+// R08: Backspace over the only composed letter ends the composition with an empty
+// setMarkedText, never an empty insertText, which left a stray character in TextEdit. Only the
+// owned unit disappears and the next word starts normally.
 void testEmptyComposition() {
   currentTest = "empty_composition";
   KRSession *session = makeSession(true);
@@ -584,6 +650,10 @@ void testEmptyComposition() {
   CHECK(documentIs(client, withAffixes(@"hello "), after(@"hello "), kNoMark));
 }
 
+// A mark Keyrill didn't write, present when a word would start, and a caret moved away from the
+// owned mark between keys. Both refuse with zero writes and leave the client's state as it is
+// (S2). Writing anyway would compose over another input method's text, or rewrite a mark while
+// the user's caret is elsewhere.
 void testForeignMarkAndMovedCaret() {
   currentTest = "foreign_mark";
   {
@@ -610,6 +680,9 @@ void testForeignMarkAndMovedCaret() {
   }
 }
 
+// The caret moves between the boundary read and the first write. The write path rechecks the
+// caret against the one the context was read at and refuses (S3); a write that trusted the
+// earlier read would start a word in the middle of "pre".
 void testCaretMovedAfterContextRead() {
   currentTest = "caret_moved_after_context";
   KRSession *session = makeSession(true);
@@ -626,6 +699,9 @@ void testCaretMovedAfterContextRead() {
   CHECK(documentIs(client, withAffixes(@""), 1, kNoMark));
 }
 
+// A key from a second client while the first holds an owned mark. The session drops the old
+// mark without another call to the first client and starts fresh in the second; nothing typed
+// in one field is carried into the other (S2, V08).
 void testClientChangeLeavesOldClientUntouched() {
   currentTest = "client_change";
   KRSession *session = makeSession(true);
@@ -640,6 +716,9 @@ void testClientChangeLeavesOldClientUntouched() {
   CHECK(documentIs(second, withAffixes(@"h"), after(@"h"), kNoMark));
 }
 
+// The input mode changes under a word that isn't a boundary mark kept for a requested switch.
+// The engine refuses a key in another mode than the word's, the session drops its authority,
+// and the later finish has nothing owned to write: zero further writes (S3).
 void testModeMismatchMakesNoWrite() {
   currentTest = "mode_mismatch";
   KRSession *session = makeSession(true);
@@ -654,6 +733,10 @@ void testModeMismatchMakesNoWrite() {
   CHECK(documentIs(client, withAffixes(@"g"), after(@"g"), NSMakeRange(4, 1)));
 }
 
+// A client accepts setMarkedText and changes nothing. The readback can't confirm the write, so
+// the outcome is unknown: the key is consumed, since it may be in the document, and is never
+// replayed (S4, S5). No write has verified since activation, so the session stops: later keys
+// make zero client calls, reserved commands stay consumed, and only activate re-arms it.
 void testIgnoredWriteIsUnknownAndStops() {
   currentTest = "ignored_write";
   KRSession *session = makeSession(true);
@@ -670,6 +753,10 @@ void testIgnoredWriteIsUnknownAndStops() {
   CHECK(!session.stopped);
 }
 
+// Installing new settings finishes an owned mark through the verified path first. A verified
+// finish reports success; an unknown finish stops only that word; a reconfiguration that
+// reenters from inside the finish's own write is refused with zero client calls, and the outer
+// finish then reports unknown (R05).
 void testReconfigurationFinishesOrKeepsTheStop() {
   currentTest = "reconfigure_verified_finish";
   {
@@ -723,6 +810,10 @@ void testReconfigurationFinishesOrKeepsTheStop() {
   }
 }
 
+// Key disposition after a finish with an unknown effect (S4). A letter that triggered the finish
+// wasn't part of the write, so it passes once and is never planned again. A finish request such
+// as a shortcut passes, and passes with zero client calls once the session stopped. Escape
+// carried the restore write itself, so it stays consumed.
 void testUnknownFinishPassesFreshKeyOnce() {
   currentTest = "unknown_finish_then_letter";
   {
@@ -761,6 +852,12 @@ void testUnknownFinishPassesFreshKeyOnce() {
   }
 }
 
+// What a finish checks, and when it may skip a check. A host that keeps the mark after the
+// commit, or commits different text of the same length, makes the outcome unknown: the session
+// stops and plans no new mark for the key (S5). The cases after them separate the three kinds of
+// finish: a lifecycle commit of the unchanged mark trusts the text last verified in it but still
+// needs the exact marked range; a typed key's finish still reads the text back; an unchanged
+// finish ignores the caret, and a finish that changes the text (Escape) still requires it (S2).
 void testMisbehavingFinishIsUnknown() {
   const char *names[] = {"finish_kept_mark", "finish_altered_text"};
   for (int variant = 0; variant < 2; ++variant) {
@@ -860,6 +957,8 @@ void testMisbehavingFinishIsUnknown() {
   }
 }
 
+// R05 at the start of a word: a foreign mark appears during the boundary read. The write path
+// queries the mark again and refuses with zero writes (S2, S3).
 void testForeignMarkAfterContextRead() {
   currentTest = "foreign_mark_after_context";
   KRSession *session = makeSession(true);
@@ -876,6 +975,8 @@ void testForeignMarkAfterContextRead() {
   CHECK(documentIs(client, withAffixes(@""), after(@""), NSMakeRange(1, 2)));
 }
 
+// Under Secure Input a key passes before the first client call; an unlisted client gets one
+// bundle query and no write, and its reserved command passes too (S8, S10)
 void testSecureAndUnlistedClientsAreUntouched() {
   currentTest = "secure_input";
   {
@@ -900,6 +1001,10 @@ void testSecureAndUnlistedClientsAreUntouched() {
   }
 }
 
+// Composition admission is an exact bundle-identifier match against the built-in list:
+// near-miss identifiers, prefixes and identifiers with spaces get one bundle query and nothing
+// else. A bundle query that throws refuses the key, and under Secure Input the query isn't made.
+// A looser match would admit applications whose marked-text behavior was never tested.
 void testCompositionClientsAreExactAndFailClosed() {
   currentTest = "composition_client_scope";
   NSSet *allowed = offRuntime(@{}).compositionClients;
@@ -957,7 +1062,11 @@ void testCompositionClientsAreExactAndFailClosed() {
   }
 }
 
-// An application the user moved to composition gets the same checks as the built-in ones
+// An application the user moved to composition gets the same checks as the built-in ones: it
+// corrects, reverses and converts; a missing, non-string, own or case-variant identifier is
+// refused after one bundle query per key; and a throwing query, a foreign mark and an ignored
+// write refuse or stop exactly as in a built-in client. The override widens admission, not
+// authority.
 void testOverrideAdmissionKeepsAuthorityChecks() {
   currentTest = "override_application_admission";
   NSSet<NSString *> *editor = [NSSet setWithObject:@"com.example.editor"];
@@ -1032,6 +1141,9 @@ void testOverrideAdmissionKeepsAuthorityChecks() {
   }
 }
 
+// A word at the 64-unit limit: the next letter finishes it and passes, and later letters are
+// mid-token, so they never start a composition of their own. Otherwise the tail of a long token
+// would be corrected as if it were a word.
 void testLongWordFinishesWithoutSuffixCorrection() {
   currentTest = "long_word";
   KRSession *session = makeSession(true);
@@ -1049,6 +1161,9 @@ void testLongWordFinishesWithoutSuffixCorrection() {
   CHECK(client.writes == writes);
 }
 
+// The last strong reference to the session goes away inside a client callback, during a start,
+// a finish and a reconfiguration finish. The session must stay alive until its method returns
+// and then deallocate; under ASan a use after free in the rest of the method fails the run (S9).
 void testOwnerReleaseDuringCallback() {
   currentTest = "owner_release_during_callback";
   for (int action : {0, 1, 2}) {
@@ -1087,6 +1202,9 @@ void testOwnerReleaseDuringCallback() {
   }
 }
 
+// Letters after punctuation inside a token are not at a whitespace boundary, so they never start
+// an owned word, and the manual command then has nothing to convert. Composing there would
+// convert a fragment such as the tail of "g-hbdtn" and split the token.
 void testPunctuationTokensNeverAcquireSuffix() {
   currentTest = "punctuation_tokens_no_suffix";
   for (NSString *raw in @[ @"(ghbdtn", @"b(hf", @"g-hbdtn" ]) {
@@ -1117,6 +1235,8 @@ void testPunctuationTokensNeverAcquireSuffix() {
   }
 }
 
+// The real model in both modes with empty dictionaries: wrong-layout words convert, a word
+// already in the right layout stays, and the whole document matches (V01, V02)
 void testModelWholeDocument() {
   currentTest = "model_whole_document_en";
   {
@@ -1168,6 +1288,10 @@ void testModelMissingDictionaries() {
                    after(@"ghbdtn привет ghbdtn привет ghbdtn "), kNoMark));
 }
 
+// R13 through the session: an EN dictionary entry protects the typed word, a rejected candidate
+// keeps the published protection instead of dropping to missing, an empty valid file releases
+// it, and a forbidden RU target (`/!`) blocks the conversion from the other side. Publication
+// happens between plans, with a boundary mark owned.
 void testModelDictionaryProtectionAndLastGood() {
   currentTest = "model_dictionary_last_good";
   kr_engine *engine;
@@ -1190,6 +1314,9 @@ void testModelDictionaryProtectionAndLastGood() {
                    after(@"ghbdtn слово ghbdtn привет ghbdtn "), kNoMark));
 }
 
+// A dictionary that protects the typed word is published while the word's converted boundary
+// mark is owned. The shown mark stays, and the receipt still restores the exact original (S7): the
+// receipt belongs to the mark, not to the vocabulary that produced it.
 void testModelReversalSurvivesDictionaryChange() {
   currentTest = "model_reversal_dictionary_change";
   kr_engine *engine;
@@ -1246,6 +1373,11 @@ void testConfigurationDuringPendingPlan() {
   kr_vocabulary_free(vocabulary);
 }
 
+// Snapshot adoption runs only on main, outside every host callback and outside the session's
+// own dispatch. The callback depth nests and ignores an end at zero; off main the depth reads as
+// active. Each refusal makes zero client calls. A successful adoption keeps the owned mark and
+// its receipt, and the source handle can be freed at once: the engine keeps what it adopted. An
+// adoption inside a callback would swap the vocabulary under a plan the host is still applying.
 void testAdoptionOutsideHostCallbacks() {
   currentTest = "adoption_outside_host_callbacks";
   kr_engine *engine;
@@ -1271,7 +1403,8 @@ void testAdoptionOutsideHostCallbacks() {
   __block uint32_t offMainStatus = KR_OK;
   __block BOOL offMainActive = NO;
   dispatch_semaphore_t done = dispatch_semaphore_create(0);
-  // No owning-thread session access occurs until this refused probe signals completion
+  // Main blocks on the semaphore, so the off-main probe never runs alongside session work on
+  // main; the session must refuse it before touching any state
   dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
     [KRSession beginInputCallback];
     offMainActive = [KRSession inputCallbackActive];
@@ -1369,6 +1502,10 @@ void testAdoptedSourcesDecideWholeDocument() {
   CHECK([NSFileManager.defaultManager removeItemAtPath:root error:nil]);
 }
 
+// R13 end to end through KRRuntime with real files: pending sources abstain, settled sources
+// convert, a rewrite observed inside an input callback is adopted only after the callback ends
+// and then with zero client calls, the owned mark and its receipt survive the adoption, an
+// invalid file keeps the last good protection (retained), and an empty file releases it.
 void testRuntimeReloadPreservesWholeDocumentAndReceipt() {
   currentTest = "runtime_reload_whole_document_and_receipt";
   NSString *root = [NSTemporaryDirectory()
@@ -1400,6 +1537,7 @@ void testRuntimeReloadPreservesWholeDocumentAndReceipt() {
         }
       }
       observationInterval:0];
+  // Waits for the work queue, then runs what it posted to main, until neither has work
   void (^drain)(void) = ^{
     for (;;) {
       dispatch_sync(queue, ^{
@@ -1479,10 +1617,13 @@ void testRuntimeReloadPreservesWholeDocumentAndReceipt() {
 
 enum class Fault { Reenter, Throw };
 
-// Runs the faulted key once to count client calls, then once per call index k with a fault
-// injected at call k. Each faulted run must make zero writes after the fault and preserve the
-// prefix/suffix. The key is consumed only when the fault follows the attempt of a write that
-// carried it (setMarkedText for every swept key); otherwise it passes unhandled once.
+// R05 and R14 as an exhaustive sweep. Runs the faulted key once to count client calls, then
+// once per call index k with a fault injected at call k: either a reentrant key from another
+// client, which must be refused with zero calls to that client, or an exception. Each faulted
+// run must make zero writes after the fault and preserve the prefix and suffix (S1, S3). The key
+// is consumed only when the fault follows the attempt of a write that carried it (setMarkedText
+// for every swept key); otherwise it passes unhandled once (S4). The run then types one more key
+// to show that lost authority is never resumed.
 void sweep(const char *name, NSString *setup, NSString *faultedKey, Fault fault) {
   currentTest = name;
   NSUInteger total = 0;
@@ -1558,6 +1699,12 @@ void sweep(const char *name, NSString *setup, NSString *faultedKey, Fault fault)
   }
 }
 
+// NSEvent to kr_event translation. Only unmodified or shifted printable text becomes KR_TEXT,
+// and a non-BMP character arrives as its surrogate pair. Control+Option+K and Control+Option+Z
+// are commands by key code, whatever the layout puts in `characters`; Caps Lock doesn't matter,
+// and adding Shift makes them ordinary shortcuts. Every other modified key, Return, Tab,
+// navigation, Shift+Backspace and an empty or overlong string is a finish request that carries
+// no text, so a shortcut can't reach the engine as a letter.
 void testKeyMapping() {
   currentTest = "key_mapping";
   const NSEventModifierFlags shift = NSEventModifierFlagShift, ctrl = NSEventModifierFlagControl,
@@ -1589,6 +1736,11 @@ void testKeyMapping() {
   CHECK(other.len == 0);
 }
 
+// The input status names why the last word was left alone with an enum value, never text or
+// offsets (S8, S10). A client without readback refuses at the boundary read and stays usable; at
+// position zero no boundary read is needed, so the first write happens, can't be verified and
+// stops the session, which then makes no further client calls until activation. Secure Input
+// and exclusion report their own status.
 void testInputStatusIsContentFreeAndDoesNotRetry() {
   currentTest = "input_status";
   KRSession *session = makeSession(true, KR_EN, [NSSet setWithObject:@"com.example.editor"]);
@@ -1631,6 +1783,9 @@ void testInputStatusIsContentFreeAndDoesNotRetry() {
   CHECK(client.writes == 1);
 }
 
+// IMK asks for a commit from inside the first mark write, after its effect. The nested finish
+// makes zero client calls and reports an interruption; the outer write is then unknown, its key
+// stays consumed, and the session stops with the client's document as the write left it (S3, S4)
 void testLifecycleInterruptionStatus() {
   currentTest = "lifecycle_interruption_status";
   KRSession *session = makeSession(true);
@@ -1654,6 +1809,31 @@ void testLifecycleInterruptionStatus() {
   client.hook = nil;
 }
 
+// Runs a KRCompatibilitySession for "com.example.editor" against a scripted foreground process
+// whose text is a FakeClient document. `target` is the snapshot the session takes before every
+// plan and before each posted event: `available` stands for granted permissions, a running guard
+// tap and a matching frontmost process; `generation` and `sourceGeneration` are the guard's
+// focus and input-source counters. The dispatcher runs the real dispatchPlan, which builds the
+// tagged events, but queues each one instead of calling CGEventPostToPid.
+//
+// key() then plays the host for one physical key. The key is first matched against the expected
+// echoes, as the controller does; otherwise the session handles it, and a passed text key is
+// inserted at the caret. Only after that are the queued key-downs delivered, each as an echo
+// through shouldPassPostedEvent (unless delivery is deferred) followed by its effect: Backspace
+// deletes the unit before the caret, a Unicode key inserts its unit. A Backspace that would reach
+// into the fixed prefix fails the test.
+//
+// The flags script host behavior that ADR 006 accepts as risk: `interleave` types a real "x"
+// after the first delivered event, `stripTags` re-creates echoes without the tag,
+// `reletterEchoes` turns echoed Cyrillic letters back into Latin ones, `deferDelivery` never
+// passes posted keys back through the input method, `rawKeyFallback` types a text key even when
+// the session consumed it, `interruptAfter` changes the guard generation after that many posted
+// events, and `maximumBatches` refuses later dispatches. `observedKeys` counts physical
+// key-downs, as the guard tap does.
+//
+// Not simulated: event timing, the system event queue, permissions and the tap itself. Every
+// posted key lands where it was aimed, which is the optimistic case; document() checks the text,
+// the caret and that no IMK write happened, never that the backend verified anything (S5).
 struct CompatibilityHarness {
   KRCompatibilitySession *session;
   FakeClient *client = fixtureClient();
@@ -1712,6 +1892,8 @@ struct CompatibilityHarness {
                                             ++target.generation;
                                         }];
     };
+    // The backend may ask the client for its bundle identifier and nothing else: it never reads
+    // or writes the document through IMK
     client.hook = ^(NSString *call) {
       CHECK([call isEqualToString:@"bundleIdentifier"]);
     };
@@ -1757,6 +1939,8 @@ struct CompatibilityHarness {
     }
     kr_event event =
         role == KR_TEXT ? textEvent(text, session.mode) : roleEvent(role, session.mode);
+    // As in the controller: a physical key that matches the next expected echo is taken as that
+    // echo, and only a command chord among them is reported handled
     BOOL handled = [session shouldPassPostedEvent:physical]
                        ? (!secure && (role == KR_MANUAL || role == KR_REVERSE))
                        : [session handleEvent:&event client:client];
@@ -1796,6 +1980,8 @@ struct CompatibilityHarness {
               }
             }
           }
+          // Only a relettered echo may fail to match; it then reaches tracking as typed input,
+          // and the session must pass it rather than consume a key the host already applies
           BOOL passEcho = [session shouldPassPostedEvent:echo];
           if (!passEcho) {
             CHECK(reletterEchoes);
@@ -1820,6 +2006,8 @@ struct CompatibilityHarness {
           UniCharCount length = 0;
           CGEventKeyboardGetUnicodeString(posted, 1, &length, &unit);
           CHECK(length == 1);
+          // A posted letter carries the key that types it in the US or Russian layout, with
+          // Shift for a capital, besides its Unicode string
           if (unit == 32)
             CHECK(code == kVK_Space);
           if (unit == u'п' || unit == u'П')
@@ -1850,6 +2038,13 @@ struct CompatibilityHarness {
   }
 };
 
+// The compatibility backend's ordinary path. Manual only: typed keys pass and are tracked, the
+// command rewrites the word in one batch of 6 Backspaces and 6 letters (24 posted events with
+// key-ups), Space passes, reversal rewrites back, and once a new word is typed the reversal is
+// consumed with no batch. Automatic: a word after an observed Space is rewritten on Space and a
+// switch to the other mode is requested; without automatic correction Space rewrites nothing.
+// With tags stripped, the expected-key sequence still recognizes the echoes, so they don't
+// enter tracking as typed input.
 void testCompatibilityDispatchAndTracking() {
   currentTest = "compatibility_dispatch_and_tracking";
   CompatibilityHarness manual;
@@ -1887,6 +2082,12 @@ void testCompatibilityDispatchAndTracking() {
   CHECK(untagged.document(@"Ghbdtn "));
 }
 
+// Refusals before any post, and one interruption during a batch. Under Secure Input a key passes
+// with zero client calls. Without a target (permissions, guard or frontmost process) the command
+// is consumed with no batch and no client query. A guard event since the word was typed restarts
+// tracking, so there is nothing to rewrite. A focus change after the first posted event stops the
+// batch: one Backspace has landed, the session stops, and later keys pass with zero client calls
+// and no posts, because what the field holds after a partial batch is unknown (S10).
 void testCompatibilityRefusalInterruptionAndSecureInput() {
   currentTest = "compatibility_refusal_interruption_secure";
   CompatibilityHarness secure;
@@ -1918,6 +2119,11 @@ void testCompatibilityRefusalInterruptionAndSecureInput() {
   CHECK(interrupted.document(@"ghbdtq"));
 }
 
+// The limit ADR 006 accepts, kept as a documented counterexample, not as integrity evidence.
+// A real "x" lands after the first posted Backspace; the remaining five Backspaces delete it and
+// four letters of the word, leaving "g" before the replacement. The typed key is lost and the
+// word corrupted (S1, S4), and the backend can't see it: it still reports ready. This is the R03
+// schedule that rules counted deletion out of the composition path.
 void testCompatibilityKnownInterleavingHazard() {
   currentTest = "compatibility_known_interleaving_hazard";
   CompatibilityHarness h;
@@ -1930,6 +2136,13 @@ void testCompatibilityKnownInterleavingHazard() {
   CHECK([h.session.statusTitle isEqualToString:@"Compatibility: ready"]);
 }
 
+// Hosts need not echo posted keys through the input method. With no echoes, the next physical
+// key ends the expectation and correction continues word after word. In a raw-key terminal that
+// types every key whatever IMK returns, Space passes anyway and is counted in the deletion, so
+// the document is the same. When echoes come back untagged and altered, they reach tracking as
+// a wrong-layout word; the rewrite they would trigger is refused because no physical key has
+// been observed since the last one. Without that rule each rewrite's echoes would set off the
+// next rewrite.
 void testCompatibilityContinuesWithoutPostedEchoes() {
   currentTest = "compatibility_continues_without_posted_echoes";
   CompatibilityHarness h(true);
@@ -1958,6 +2171,11 @@ void testCompatibilityContinuesWithoutPostedEchoes() {
   CHECK([altered.session.statusTitle containsString:@"new observed typing"]);
 }
 
+// After an automatic rewrite Keyrill requests the other mode, and IMK's echo of that request
+// keeps the tracked word, so it can still be reversed in the new mode. The source-change guard
+// event that follows the echo advances the guard and source generations together and is taken
+// as part of the switch. Any other guard event expires the word and its reversal, and the next
+// word then has no observed Space before it. A stopped session ignores the request.
 void testCompatibilityBoundaryAcrossAutomaticModeEcho() {
   currentTest = "compatibility_boundary_after_automatic_mode_echo";
   {
@@ -2017,7 +2235,7 @@ void testCompatibilityBoundaryAcrossAutomaticModeEcho() {
 }
 
 // A failed readback check after a write commits the client's own readback of the mark once, so
-// a host that replaces marked text with the next passed key can't lose the word
+// a host that replaces marked text with the next passed key can't lose the word (S4)
 void testReadbackCommitAfterFailedCheck() {
   currentTest = "readback_commit_after_failed_check";
   {
@@ -2095,6 +2313,11 @@ void testReadbackCommitAfterFailedCheck() {
   }
 }
 
+// The same readback commit against AppKit's NSTextView. First the plain cycle: the boundary mark,
+// its reversal and a finish that leaves no mark. Then a caret misreported once after the Space's
+// mark: the readback commit leaves the word committed, and the next letter re-arms from the
+// text view's own boundary. Last the control: with no readback nothing may be committed, the
+// mark stays, and the host's next key replaces the whole word.
 void testReadbackCommitKeepsWordInTextView() {
   currentTest = "readback_commit_text_view";
   NSString *initial = [kPrefix stringByAppendingString:kSuffix];
@@ -2140,7 +2363,7 @@ void testReadbackCommitKeepsWordInTextView() {
   }
 }
 
-// Secure Input that starts during a client call stops inspection and writes at the next step
+// Secure Input that starts during a client call stops inspection and writes at the next step (S8)
 void testSecureInputDuringClientCalls() {
   currentTest = "secure_input_during_client_calls";
   for (NSString *trigger in @[ @"bundleIdentifier", @"markedRange" ]) {
@@ -2281,7 +2504,14 @@ NSEvent *command(unsigned short code) {
                  NSEventModifierFlagControl | NSEventModifierFlagOption);
 }
 
-// A controller with test seams and a runtime whose work runs only when drained
+// A KeyrillAlphaController built without an IMKServer, with its system edges replaced by seams:
+// `secure` answers the Secure Input query, startGuard counts guard starts instead of installing
+// the event tap, and preferencesUpdater merges changes into `preferences` and installs a fresh
+// runtime instead of writing the defaults domain. The runtime's work queue and the blocks it
+// posts to main run only in drain(); the controller's own deferred work runs only in
+// runMainQueue(). IMK's mode echo is a direct setValue:forTag: call (echo()). Nothing reaches the
+// input-source system, the tap or the user's defaults; a compatibility tier finds no running
+// guard and refuses unless a test injects a target through configureCompatibility.
 struct ControllerHarness {
   dispatch_queue_t queue = dispatch_queue_create("org.keyrill.test.controller", nullptr);
   NSMutableArray<dispatch_block_t> *pending = [NSMutableArray array];
@@ -2549,6 +2779,11 @@ void testControllerCorrectionSwitchAndReversal() {
   CHECK([NSFileManager.defaultManager removeItemAtPath:root error:nil]);
 }
 
+// Routing reads only the bundle identifier, once per activation, and picks one tier before any
+// edit. The table covers built-in, unlisted, automatic-unlisted, Off, compatibility switched off,
+// user overrides and Keyrill's own identifier, which stays Off even when overridden. For each
+// it checks the menu, the guard start, and what a letter and the command do. The blocks after
+// it show that Secure Input defers routing and passes keys with zero client queries (S8).
 void testControllerTierRouting() {
   currentTest = "controller_tier_routing";
   struct Case {
@@ -2699,7 +2934,7 @@ void testControllerTierOverride() {
 }
 
 // A reentrant lifecycle change during deferred routing leaves the newer activation in charge, and
-// the stale key writes nothing into the document that lost focus
+// the stale key writes nothing into the document that lost focus (S3)
 void testControllerReentrantDeferredRouting() {
   currentTest = "controller_reentrant_deferred_routing";
   // Terminal routes the newer activation to compatibility; Safari to composition, where a stale
@@ -2773,7 +3008,7 @@ void testControllerSecureInputCancelsQueuedSwitch() {
   CHECK([NSFileManager.defaultManager removeItemAtPath:root error:nil]);
 }
 
-// No key character is read while Secure Input is on, including when it starts during routing
+// No key character is read while Secure Input is on, including when it starts during routing (S8)
 void testControllerSecureInputBeforeCharacters() {
   currentTest = "controller_secure_input_before_characters";
   {
@@ -2917,6 +3152,8 @@ int main() {
     testAdoptionOutsideHostCallbacks();
     testAdoptedSourcesDecideWholeDocument();
     testRuntimeReloadPreservesWholeDocumentAndReceipt();
+    // Four schedules per fault: the first letter of a word, a letter inside it, a letter after a
+    // boundary mark (finish, then a new mark) and the converting Space
     for (Fault fault : {Fault::Reenter, Fault::Throw}) {
       bool reenter = fault == Fault::Reenter;
       sweep(reenter ? "reenter_start" : "throw_start", @"", @"g", fault);

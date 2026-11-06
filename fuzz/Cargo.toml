@@ -26,5 +26,7 @@ test = false
 doc = false
 bench = false
 
+# A workspace of its own: the fuzz targets build on a pinned nightly, and libfuzzer-sys stays out
+# of the main Cargo.lock
 [workspace]
 members = ["."]

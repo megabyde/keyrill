@@ -1,4 +1,58 @@
-//! Conservative reference ranking policy, independent of native editing authority.
+//! Whether a complete word was typed in the wrong layout, and what it should read instead.
+//!
+//! [`infer`] compares two readings of one key sequence: the word as typed, in the language of the
+//! active input mode (the source), and the same keys read in the other layout (the candidate). A
+//! false change rewrites a word the user typed correctly, and that costs far more than a missed
+//! correction, so abstention is the default. Each step in the table either ends the decision or
+//! passes it on, and all but two of them can only abstain.
+//!
+//! ```text
+//! step, in order                                                 result
+//! -------------------------------------------------------------  ------------------------
+//! manual or reversal intent at this boundary                     7 ExplicitIntent
+//! no mode, over 32 units, no letters or letters outside the
+//!   mode's script, invalid policy, mixed case or a multi-letter
+//!   capital word                                                 1 Ineligible
+//! the English or the Russian Vim source is missing               6 DictionariesMissing
+//! word or core recognized or rare in a vocabulary source         2 Personal
+//! core in the source lexicon and not yielding                    3 Known
+//! candidate not all in the target script                         1 Ineligible
+//! candidate forbidden in a vocabulary source                     4 Forbidden
+//! candidate not in the target lexicon, or below minimum Zipf     5 Weak
+//! core in the source lexicon and yielding                        0 Correction, Zipf margin
+//! score below log10(cost) + length penalty                       5 Weak, with the score
+//! otherwise                                                      0 Correction, with the score
+//! ```
+//!
+//! Frequencies are compared on the Zipf scale, log10 of occurrences per billion words, which is
+//! the stored log10 frequency plus 9. The score of the last two steps is a log10 odds:
+//!
+//! ```text
+//! score = log10 f(candidate) - log10 P(letters) + provisional penalties
+//!       + log10(prior / (1 - prior)) + log10(context factor)
+//! ```
+//!
+//! Here `f` is the candidate's corpus frequency in the target lexicon and `P` the source
+//! language's character chain over the typed letters. The context factor is 19 when the
+//! session's recent words are in the target language, 1/19 when they are in the source language
+//! and 1 without context. The score must reach log10 of the false-correction cost, plus 4, 2 or
+//! 1 for a word of one, two or three units. The prior, the cost and the penalties are ranking
+//! parameters, not calibrated probabilities; the minimum Zipf and the known-word gate were
+//! chosen on the dev split of the evaluation (`docs/engine.md`).
+//!
+//! A typed string that is itself a word of the source lexicon is protected by that alone, and
+//! the chain is never consulted for it. It yields only when it is rare (Zipf below
+//! [`Policy::known_ceiling`]) and the candidate is more frequent by a wide margin; the decision
+//! then rests on that frequency ratio, and the margin is its score. A word of one unit never
+//! yields.
+//!
+//! In English mode the keys `[ ] ; ' , .` and the ё key type punctuation, but in Russian they
+//! type letters, so they are provisional: they can start or continue a word (see
+//! [`is_provisional`]). For such a word the candidate is the whole key sequence read in Russian,
+//! and the source reading is the letters alone, with a penalty per provisional unit for how
+//! rarely English words carry that punctuation in that position. The core is the word up to its
+//! last letter. Only when every provisional unit trails, as in `it.`, is the core all letters,
+//! and only then can lexicon protection apply.
 
 use crate::mapping::{self, Keyboard, Mapping};
 use crate::model::{MAX_MODEL_WORD, Model};
@@ -7,11 +61,12 @@ use crate::vocabulary::{self, Membership, Vocabulary};
 use std::sync::Arc;
 
 /// Reference scoring parameters. These are ranking hypotheses, not calibrated probabilities.
+/// Zipf values are log10 occurrences per billion words.
 #[derive(Clone, Copy, Debug)]
 pub struct Policy {
-    /// Assumed layout-error prior, strictly between zero and one.
+    /// Assumed layout-error prior, strictly between zero and one; the score adds its log10 odds.
     pub error_prior: f64,
-    /// Cost of a false automatic change, positive and finite.
+    /// Cost of a false automatic change, positive and finite; the score must reach its log10.
     pub false_correction_cost: f64,
     /// Minimum candidate corpus Zipf score, finite and in 0..=9.
     pub minimum_zipf: f64,
@@ -19,7 +74,7 @@ pub struct Policy {
     pub known_ceiling: f64,
     /// Zipf margin by which the other reading must exceed a yielding known word, in 0..=9.
     pub known_margin: f64,
-    /// Margin for a two-letter known word without target-language context, in 0..=9.
+    /// Margin for a known word of two units without target-language context, in 0..=9.
     pub short_known_margin: f64,
 }
 
@@ -56,27 +111,31 @@ impl Policy {
 }
 
 /// Ready protection sources. `None` means missing; an explicitly empty vocabulary is ready.
+///
+/// Every source is consulted for every word, whatever its language: the English source can
+/// protect a Russian word. The split names the two Vim files whose readiness gates correction.
 #[derive(Clone, Copy, Default)]
 pub struct Dictionaries<'a> {
-    /// English personal source.
+    /// English Vim vocabulary source.
     pub en: Option<&'a Vocabulary>,
-    /// Russian personal source.
+    /// Russian Vim vocabulary source.
     pub ru: Option<&'a Vocabulary>,
     /// Words learned through the OS spell checker. They protect and forbid like the personal
     /// sources, but readiness never waits for them.
     pub learned: &'a [Arc<Vocabulary>],
 }
 
-/// One bounded word supplied by a caller that independently validated token eligibility.
+/// One word to decide. The caller establishes that the word is complete and owned; [`infer`]
+/// still checks its length, script and case.
 #[derive(Clone, Copy)]
 pub struct Request<'a> {
     /// Complete word, without delimiter or normalization.
     pub word: &'a [u16],
-    /// Active custom input mode; unknown modes are ineligible.
+    /// Input mode the word was typed in; `None`, an unknown mode, is ineligible.
     pub active: Option<Mode>,
-    /// Bounded prior language evidence, if available.
+    /// Language of the recent finished words, from [`detect_context`], if known.
     pub context: Option<Mode>,
-    /// Defined physical map variant.
+    /// Russian layout variant, which places the ё key.
     pub keyboard: Keyboard,
     /// An explicit manual/reversal choice forbids reinference at this boundary.
     pub explicit_intent: bool,
@@ -90,15 +149,16 @@ pub enum Reason {
     Correction = 0,
     /// Token, mode, case or policy is ineligible.
     Ineligible = 1,
-    /// Personal original-word protection.
+    /// The typed word, or its core, is recognized or rare in a vocabulary source.
     Personal = 2,
-    /// Original is a retained general lexical word.
+    /// The core is a word of the source lexicon and does not yield.
     Known = 3,
-    /// Mapped candidate is forbidden by a personal declaration.
+    /// The candidate is forbidden in a vocabulary source.
     Forbidden = 4,
-    /// Candidate is absent, too weak, or below the length-adjusted threshold.
+    /// The candidate is absent from the target lexicon, below the minimum Zipf score, or its
+    /// score is below the length-adjusted threshold.
     Weak = 5,
-    /// A configured protection source has never loaded successfully.
+    /// The English or the Russian Vim source is missing; learned words do not count.
     DictionariesMissing = 6,
     /// Preserve explicit manual/reversal intent.
     ExplicitIntent = 7,
@@ -107,11 +167,13 @@ pub enum Reason {
 /// A correction proposal; never grants native write authority.
 #[derive(Clone, Debug)]
 pub struct Decision {
-    /// Eligibility/protection/ranking result.
+    /// Why the word is corrected or left as typed.
     pub reason: Reason,
-    /// Reference log10 ranking score; zero when no score was evaluated.
+    /// The log10 score of the final comparison, or the Zipf margin of a yielding known word;
+    /// zero when the decision ended before either.
     pub score: f64,
-    /// Exact case-preserving replacement only for an accepted correction.
+    /// The candidate, present only with [`Reason::Correction`]. The map converts key by key, so
+    /// shifted keys stay capitals.
     pub replacement: Option<Vec<u16>>,
 }
 
@@ -125,6 +187,7 @@ impl Decision {
     }
 }
 
+/// The one script all units of `word` belong to, or `None` for an empty or mixed word.
 fn script(word: &[u16]) -> Option<Mode> {
     if word.is_empty() {
         return None;
@@ -156,6 +219,8 @@ pub fn is_provisional(unit: u16, keyboard: Keyboard) -> bool {
     u8::try_from(unit).is_ok_and(|byte| b"[];',.{}:\"<>".contains(&byte) || yo.contains(&byte))
 }
 
+/// Membership across all sources, with the precedence a single source applies to its own
+/// entries: forbidden, then recognized, then rare.
 fn membership(dictionaries: Dictionaries<'_>, word: &[u16]) -> Membership {
     let learned = dictionaries.learned.iter().map(|v| v.lookup(word));
     [dictionaries.en, dictionaries.ru]
@@ -170,7 +235,9 @@ fn membership(dictionaries: Dictionaries<'_>, word: &[u16]) -> Membership {
         })
 }
 
-/// Apply the frozen policy to an eligible owned word; caller still controls all native effects.
+/// Decide one word under `policy`, following the steps in the [module
+/// docs](crate::inference). The result is a proposal only: the caller still controls every
+/// native effect.
 ///
 /// ```
 /// use keyrill_core::inference::{infer, Dictionaries, Policy, Reason, Request};
@@ -218,8 +285,8 @@ pub fn infer(
     };
     let keyboard = request.keyboard;
     let provisional = active == Mode::En && word.iter().any(|&unit| is_provisional(unit, keyboard));
-    // Provisional units carry no English evidence: the source reading is the letters alone, and
-    // only a word with them at its end alone has an English core that can be a known word
+    // Provisional units carry no English letters, so the source reading drops them; the core
+    // keeps every unit up to the last letter and is plain English only when they all trail
     let letters: Vec<u16> = word
         .iter()
         .copied()
@@ -242,7 +309,7 @@ pub fn infer(
         Mode::Ru => (Mode::En, Mapping::RuToEn),
     };
     let candidate = mapping::convert(word, keyboard, mapping);
-    // Case is judged on the letters as they read in the target layout
+    // A provisional word's case is judged on its target reading, where every unit is a letter
     let cased = if provisional { &candidate } else { word };
     let lower = vocabulary::lowercase(cased);
     let upper = vocabulary::uppercase(cased);
@@ -269,6 +336,7 @@ pub fn infer(
                 .frequency(&vocabulary::lowercase(&candidate))
         })
         .flatten();
+    // A typed word the user declared forbidden loses its lexicon protection
     let known = (original_membership != Membership::Forbidden && script(core) == Some(active))
         .then(|| {
             model
@@ -285,6 +353,7 @@ pub fn infer(
         };
         ratio = frequency
             .map(|frequency| frequency - source)
+            // Stored values are log10 frequencies; adding 9 gives Zipf
             .filter(|&ratio| {
                 word.len() > 1 && source + 9.0 < policy.known_ceiling && ratio >= margin
             });
@@ -316,6 +385,7 @@ pub fn infer(
         .language(active)
         .log_likelihood(&vocabulary::lowercase(&letters))
     else {
+        // Unreachable after the script and length checks; kept as an abstention, not a panic
         return Decision::abstain(Reason::Ineligible);
     };
     if provisional {
@@ -363,9 +433,13 @@ pub fn infer(
     }
 }
 
-/// Infer context from the last two recognized letter runs, skipping nonletters but stopping at
-/// LF/CR, within 256 UTF-16 units. This consumes supplied context, never reads a document, and
-/// does not define automatic token eligibility or authorize a replacement range.
+/// Language of the last two words in `prefix`, the session's own finished text.
+///
+/// The scan runs back over at most the last 256 UTF-16 units, skips non-letters and gives up at
+/// LF or CR. It returns a language only when the last two letter runs are both words of the same
+/// language's lexicon; fewer than two runs, a mixed-script run, a word the lexicon lacks or a run
+/// cut by the 256-unit window gives `None`. This consumes supplied context, never reads a
+/// document, and does not define automatic token eligibility or authorize a replacement range.
 pub fn detect_context(model: &Model<'_>, prefix: &[u16]) -> Option<Mode> {
     let start = prefix.len().saturating_sub(256);
     let mut cursor = prefix.len();
@@ -448,6 +522,7 @@ mod tests {
             },
         );
         assert!((neutral.score - source.score - 19.0_f64.log10()).abs() < 1e-12);
+        // Single letters are lexicon words and never yield
         for raw in ["A", "B", "Ф"] {
             let word: Vec<_> = raw.encode_utf16().collect();
             let mode = script(&word).unwrap();
@@ -466,6 +541,7 @@ mod tests {
                 Reason::Known
             );
         }
+        // б and ж read as `,` and `;`, outside the English alphabet
         let word: Vec<_> = "Абаж".encode_utf16().collect();
         assert_eq!(
             infer(
@@ -645,6 +721,8 @@ mod tests {
     #[test]
     fn dictionary_membership_alone_never_promotes_a_weak_candidate() {
         let model = Model::embedded().unwrap();
+        // The candidate is in the Russian source but not in the model; membership supplies no
+        // frequency, so the decision stays Weak
         let en = Vocabulary::parse(b"").unwrap();
         let word: Vec<_> = "qqqqqq".encode_utf16().collect();
         let ru = Vocabulary::parse("йййййй\n".as_bytes()).unwrap();

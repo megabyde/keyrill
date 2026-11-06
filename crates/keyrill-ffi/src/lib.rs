@@ -4,6 +4,21 @@
 //! caller contract: struct layouts, ownership, threading, versioning and every status code. The
 //! exports here implement it and are not meant to be called from Rust.
 //!
+//! The boundary keeps everything Rust owns out of native reach. Events are copied into owned
+//! values before the session sees them, and plans are copied out into fixed-size `#[repr(C)]`
+//! structs whose arrays belong to the caller, so no Rust allocation, borrow or lifetime crosses
+//! the interface and the adapter frees nothing but handles. Every export that can fail runs
+//! inside [`std::panic::catch_unwind`]: a panic marks the handle poisoned, and every later call
+//! on it returns `KR_POISONED` rather than touch state the panic may have left half-updated.
+//! Rust never calls back into the adapter, so no Rust borrow is live while native code runs.
+//!
+//! ```text
+//!   adapter (C, Objective-C++, ...)         keyrill-ffi                  keyrill-core
+//!   kr_event, caller-owned     --copy-->    decode_event   --Event-->    Session::propose*
+//!   kr_plan, caller-owned      <--copy--    NativePlan     <--Plan---
+//!   kr_commit(plan_id, outcome)   ------------------------------------>  Session::acknowledge
+//! ```
+//!
 //! - Engine handles (`kr_engine_*`, `kr_plan_event`, `kr_commit`) wrap one
 //!   [`keyrill_core::session::Session`] each, copy every buffer across the boundary, catch
 //!   panics and poison the handle on one.
@@ -25,6 +40,7 @@ pub mod vocabulary_host;
 
 mod compatibility;
 
+// Lives at the crate root because `vocabulary_source` forbids unsafe code, tests included
 #[cfg(all(test, unix))]
 fn descriptor_flags(file: &std::fs::File) -> i32 {
     use std::os::fd::AsRawFd;
@@ -40,6 +56,7 @@ use keyrill_core::vocabulary::{MAX_SOURCE_BYTES, Snapshot, Vocabulary};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, OnceLock};
 
+// Status codes, the KR_* values of include/keyrill.h
 const OK: u32 = 0;
 const NULL: u32 = 1;
 const BOUNDS: u32 = 2;
@@ -50,8 +67,11 @@ const POISONED: u32 = 6;
 const VERSION: u32 = 7;
 const MODEL_ASSET: u32 = 8;
 const DICTIONARY_DATA: u32 = 9;
+// KR_ABI_VERSION, major << 16 | minor
 const ABI: u32 = 0x0000_0003;
 
+// The plan/commit family a handle is bound to. The first successful plan selects it and reset
+// keeps it, so composition and compatibility state never meet in one session.
 #[derive(Default, PartialEq, Eq)]
 enum Backend {
     #[default]
@@ -60,6 +80,8 @@ enum Backend {
     Compatibility,
 }
 
+// A compatibility plan awaiting acknowledgement, with the tracker state that takes effect only
+// if it is acknowledged; the three flags mirror the `compatibility_*` fields of `Engine`
 #[derive(Clone, Copy)]
 struct CompatibilityPending {
     id: u64,
@@ -74,6 +96,7 @@ fn compatible_abi(abi: u32) -> bool {
     abi == ABI
 }
 
+// The automatic policy kr_set_automatic_policy selected
 #[derive(Default)]
 enum Automatic {
     #[default]
@@ -82,21 +105,31 @@ enum Automatic {
     Model(Model<'static>),
 }
 
-/// Opaque native-owned handle; mutable access must be serialized without aliasing.
+/// `kr_engine`: one word session for one input context, owned by the native adapter.
+///
+/// The handle holds no native object and no reference into the adapter. Mutable access must be
+/// serialized without aliasing; the exports take a unique borrow for the length of one call.
 pub struct Engine {
     session: Session,
     poisoned: bool,
     automatic: Automatic,
+    // English and Russian Vim dictionaries; a missing one keeps the automatic policy unready
     dictionaries: [Snapshot; 2],
+    // Learned-word lists, changed only by kr_adopt_vocabulary
     learned: Vec<Arc<Vocabulary>>,
     backend: Backend,
+    // The last observed input was a Space, so a word that starts next may be corrected
+    // automatically; reset clears it, since activation shows no document boundary
     compatibility_boundary: bool,
+    // The tracked word started right after an observed Space
     compatibility_word_boundary: bool,
+    // The next letter may start a tracked word: true after reset or a Space, false after any
+    // other observed input, so a word glued to an identifier or punctuation is never collected
     compatibility_collect: bool,
     compatibility_pending: Option<CompatibilityPending>,
 }
 
-/// Fixed-size event layout matching the C header.
+/// `kr_event`: one key or command, read by value; `len` counts the UTF-16 units in use.
 #[repr(C)]
 pub struct NativeEvent {
     role: u32,
@@ -106,7 +139,8 @@ pub struct NativeEvent {
     units: [u16; 8],
 }
 
-/// Copied fixed-size proposal; no Rust allocation crosses the interface.
+/// `kr_plan`: a proposal copied into caller-owned arrays; no Rust allocation crosses the
+/// interface.
 #[repr(C)]
 pub struct NativePlan {
     plan_id: u64,
@@ -118,7 +152,8 @@ pub struct NativePlan {
     mark: [u16; 128],
 }
 
-/// Best-effort committed-input proposal; submission is not document verification.
+/// `kr_compatibility_plan`: a best-effort rewrite of committed input; submitting it does not
+/// verify the document.
 #[repr(C)]
 pub struct CompatibilityPlan {
     plan_id: u64,
@@ -129,19 +164,24 @@ pub struct CompatibilityPlan {
     replacement: [u16; 128],
 }
 
+// The same layouts the header's static assertions pin
 const _: () = assert!(size_of::<CompatibilityPlan>() == 280);
 
 const _: () = assert!(size_of::<NativeEvent>() == 32);
 const _: () = assert!(size_of::<NativePlan>() == 536);
 const _: () = assert!(std::mem::offset_of!(NativePlan, expected) == 24);
+// A word plus its Space fits the 128-unit plan arrays
 const _: () = assert!(keyrill_core::session::MAX_WORD < 128);
+// KR_MAX_DICTIONARY_BYTES
 const _: () = assert!(MAX_SOURCE_BYTES == 1_048_576);
 
+// Validated once per process; every engine that selects MODEL shares the result, a failure too
 fn embedded_model() -> Result<Model<'static>, ModelError> {
     static MODEL: OnceLock<Result<Model<'static>, ModelError>> = OnceLock::new();
     *MODEL.get_or_init(Model::embedded)
 }
 
+// The model loader is a parameter so a test can inject an asset failure
 fn set_policy(
     engine: &mut Engine,
     policy: u32,
@@ -150,6 +190,7 @@ fn set_policy(
     if policy > 2 {
         return BAD_TAG;
     }
+    // Also the Idle check: an owned word or a pending plan refuses before anything changes
     if let Err(error) = engine.session.set_fixtures(policy == 1) {
         return status(error);
     }
@@ -164,6 +205,7 @@ fn set_policy(
     engine.compatibility_boundary = false;
     engine.compatibility_word_boundary = false;
     engine.compatibility_collect = true;
+    // Not redundant: a model failure returns from inside the match and must leave OFF behind
     engine.automatic = Automatic::Off;
     engine.automatic = match policy {
         0 => Automatic::Off,
@@ -212,6 +254,8 @@ fn decode_event(event: &NativeEvent) -> Result<(Event, Mode, Context), u32> {
     Ok((input, mode, context))
 }
 
+// `automatic` false asks for a manual-only proposal; otherwise the selected policy decides,
+// with the fixture flag kept inside the session
 fn propose(
     engine: &mut Engine,
     input: &Event,
@@ -245,13 +289,17 @@ fn propose(
     }
 }
 
-// Callers provide live, uniquely borrowed handles. No callback is made while this
-// borrow exists; every export releases it before returning to Objective-C++.
+// Callers provide live, uniquely borrowed handles. No callback is made while this borrow
+// exists; every export releases it before returning to native code. A panic in `f` poisons the
+// handle, which also drops the word, history and pending plans it held. AssertUnwindSafe is
+// acceptable because nothing relies on state a panic may have left inconsistent: the handle is
+// only reset, and every later call returns POISONED before touching it.
 unsafe fn with_engine(pointer: *mut Engine, f: impl FnOnce(&mut Engine) -> u32) -> u32 {
     if pointer.is_null() {
         return NULL;
     }
-    // SAFETY: the exported caller contract requires a live aligned unique handle
+    // SAFETY: non-null was checked above; the caller contract requires a live aligned handle from
+    // kr_engine_new, not yet freed, with no other reference to it alive during this call
     let engine = unsafe { &mut *pointer };
     if engine.poisoned {
         return POISONED;
@@ -273,16 +321,19 @@ pub extern "C" fn kr_abi_version() -> u32 {
     ABI
 }
 
-/// Allocate a session with the OFF policy.
+/// Allocate an engine in Idle with the OFF policy, the Apple keyboard and both dictionaries
+/// missing. `*out` is set to null first and receives the handle only on `KR_OK`.
 ///
 /// # Safety
-/// `out` must be writable and aligned for one handle pointer; it must not alias a live handle.
+/// `out` must be null, or writable and aligned for one handle pointer; it must not alias a live
+/// handle.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kr_engine_new(abi: u32, out: *mut *mut Engine) -> u32 {
     if out.is_null() {
         return NULL;
     }
-    // SAFETY: caller supplies a valid writable pointer-sized output object
+    // SAFETY: `out` is non-null (checked above), and the caller guarantees it is aligned and
+    // writable for one pointer
     unsafe {
         out.write(std::ptr::null_mut());
     }
@@ -314,13 +365,15 @@ pub unsafe extern "C" fn kr_engine_new(abi: u32, out: *mut *mut Engine) -> u32 {
     }
 }
 
-/// Free once, after all callbacks have drained. Null is a no-op.
+/// Free once, after every call on the engine has returned and no callback can reach it. Null is
+/// a no-op.
 ///
 /// # Safety
 /// A non-null pointer must be the live allocation returned by `kr_engine_new`, with no aliases.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kr_engine_free(pointer: *mut Engine) {
     if !pointer.is_null() {
+        // An unwind must not cross into C; a panic while dropping is discarded
         let _ = catch_unwind(AssertUnwindSafe(|| {
             // SAFETY: caller transfers the original unique allocation exactly once
             drop(unsafe { Box::from_raw(pointer) });
@@ -328,7 +381,9 @@ pub unsafe extern "C" fn kr_engine_free(pointer: *mut Engine) {
     }
 }
 
-/// Clear native lifecycle-dependent state; poisoning is permanent.
+/// Drop the word, its receipt, pending plans and history, and clear an invalidated session, as
+/// the adapter does on each generation change. Configuration and the selected backend survive;
+/// poisoning is permanent.
 ///
 /// # Safety
 /// `pointer` must meet the live unique serialized handle contract, or be null.
@@ -414,7 +469,9 @@ pub unsafe extern "C" fn kr_set_dictionary_utf8(
                 if bytes.is_null() {
                     return NULL;
                 }
-                // SAFETY: nonzero len is bounded; caller guarantees readable nonaliasing bytes
+                // SAFETY: `bytes` is non-null and `len` nonzero and at most MAX_SOURCE_BYTES (both
+                // checked above); the caller guarantees `len` readable bytes that do not alias the
+                // handle and stay valid for this call, and the slice does not outlive it
                 std::slice::from_raw_parts(bytes, len as usize)
             };
             engine.dictionaries[index]
@@ -462,7 +519,8 @@ pub unsafe extern "C" fn kr_dictionary_skipped_lines(
     if out.is_null() {
         return NULL;
     }
-    // SAFETY: forwarded handle contract; `out` is written once after validation
+    // SAFETY: forwarded handle contract; `out` is non-null (checked above) and, by contract,
+    // aligned, writable and distinct from the handle; it is written once after validation
     unsafe {
         with_engine(pointer, |engine| {
             let index = match language {
@@ -473,13 +531,15 @@ pub unsafe extern "C" fn kr_dictionary_skipped_lines(
             let Some(source) = engine.dictionaries[index].current() else {
                 return STATE;
             };
+            // A source of at most 1 MiB has far fewer than u32::MAX lines
             out.write(source.skipped() as u32);
             OK
         })
     }
 }
 
-/// Copy a proposal without installing its portable state.
+/// Copy a proposal out without installing its state; it becomes the only plan
+/// [`kr_commit`] accepts, replacing an earlier unacknowledged one.
 ///
 /// # Safety
 /// Handle, event and output must be live, aligned, nonaliasing C objects with their declared sizes.
@@ -492,7 +552,9 @@ pub unsafe extern "C" fn kr_plan_event(
     if event.is_null() || out.is_null() {
         return NULL;
     }
-    // SAFETY: forwarded handle and object contracts; all native data is copied
+    // SAFETY: forwarded handle contract. `event` and `out` are non-null (checked above) and, by
+    // contract, aligned, valid for their whole C object and distinct from the handle. The event
+    // is borrowed only while decode_event copies it, and `out` is written once with a whole plan.
     unsafe {
         with_engine(pointer, |engine| {
             let event = &*event;
@@ -508,6 +570,7 @@ pub unsafe extern "C" fn kr_plan_event(
                 Ok(plan) => plan,
                 Err(error) => return status(error),
             };
+            // Only a successful plan binds the handle to a backend
             engine.backend = Backend::Composition;
             let mut copied = NativePlan {
                 plan_id: plan.id,
@@ -527,6 +590,7 @@ pub unsafe extern "C" fn kr_plan_event(
                 expected: [0; 128],
                 mark: [0; 128],
             };
+            // Conversion maps unit for unit, so both texts are at most a MAX_WORD word plus Space
             copied.expected[..plan.expected.len()].copy_from_slice(&plan.expected);
             copied.mark[..plan.text.len()].copy_from_slice(&plan.text);
             out.write(copied);
@@ -535,7 +599,8 @@ pub unsafe extern "C" fn kr_plan_event(
     }
 }
 
-/// Acknowledge only the latest token; refused and unknown outcomes invalidate the session.
+/// Acknowledge the latest plan; refused and unknown outcomes invalidate the session until
+/// [`kr_reset`]. A stale token changes nothing.
 ///
 /// # Safety
 /// `pointer` must meet the live unique serialized handle contract, or be null.
@@ -565,6 +630,8 @@ pub unsafe extern "C" fn kr_commit(pointer: *mut Engine, token: u64, outcome: u3
 mod tests {
     use super::*;
 
+    // Plan one event and acknowledge it as verified, following at most one REPLAN the way an
+    // adapter does
     pub(super) unsafe fn apply_event(engine: *mut Engine, event: &NativeEvent) -> NativePlan {
         // SAFETY: the test retains the unique live handle and distinct local C objects
         unsafe {
@@ -582,6 +649,7 @@ mod tests {
         }
     }
 
+    // Type each UTF-16 unit as a KR_TEXT event at a boundary and return the last plan
     pub(super) unsafe fn type_text(engine: *mut Engine, mode: u32, text: &str) -> NativePlan {
         // SAFETY: the handle remains live and serialized; every event is a distinct local object
         unsafe {
@@ -605,6 +673,10 @@ mod tests {
         }
     }
 
+    // Every refused call leaves the published snapshot, the pending plan and the policy as they
+    // were. Publishing a partly parsed list, keeping a pointer to the caller's buffer
+    // (overwritten below after publication) or falling back to FIXTURE after a model failure
+    // would each change what a later lookup or plan sees.
     #[test]
     fn dictionary_buffers_configuration_and_failed_asset_are_transactional() {
         use keyrill_core::vocabulary::Membership;
@@ -718,6 +790,10 @@ mod tests {
         }
     }
 
+    // The keyboard decides only how the ё key converts, changes only while Idle and survives
+    // reset; the skipped-line count follows the current source and survives a refused
+    // publication. Escape with a receipt restores the typed word and is consumed; without one
+    // it finishes the word and passes.
     #[test]
     fn keyboard_selection_and_skipped_lines_follow_the_configuration_contract() {
         let units = |s: &str| s.encode_utf16().collect::<Vec<_>>();
@@ -824,6 +900,10 @@ mod tests {
         }
     }
 
+    // MODEL corrects automatically only with both dictionaries but converts manually without
+    // them. Publishing a dictionary while a boundary mark is owned keeps its receipt. Setting the
+    // same policy again keeps the English history that protects `yfv`, and a real change clears
+    // it, so `yfv` then becomes `нам`.
     #[test]
     fn model_policy_bridge_preserves_configuration_context_and_receipts() {
         // SAFETY: the test exclusively retains the opaque allocation; all text buffers and event
@@ -933,6 +1013,8 @@ mod tests {
         }
     }
 
+    // Reset makes an outstanding plan STALE, so a late acknowledgement cannot advance a session
+    // the adapter has already invalidated
     #[test]
     fn abi_null_version_bounds_stale_and_poison_contracts() {
         // SAFETY: all non-null pointers refer to live distinct local objects; the
@@ -968,6 +1050,8 @@ mod tests {
         }
     }
 
+    // An unknown outcome on a reversal and a refusal on the Backspace that empties a word both
+    // stop planning until reset; continuing would act on a composition the engine cannot know
     #[test]
     fn copied_plans_manual_boundary_reverse_and_unknown_effect() {
         // SAFETY: local C objects are live, aligned and distinct; the opaque
@@ -1025,6 +1109,7 @@ mod tests {
         }
     }
 
+    // Every malformed field is rejected before planning, so no token exists to acknowledge
     #[test]
     fn invalid_native_tags_never_produce_a_usable_plan() {
         // SAFETY: all pointers are either explicitly null or live local objects;

@@ -1,5 +1,13 @@
 //! Portable engine for correcting English/Russian keyboard-layout mistakes.
 //!
+//! A layout mistake is a word typed with the wrong input mode active: the keys of `привет`
+//! pressed in English mode give `ghbdtn`, and the keys of `hello` pressed in Russian mode give
+//! `руддщ`. The keys are right and only their reading is wrong, so the fix is to read the same
+//! key sequence in the other layout, and the hard part is deciding when to do it. While a word
+//! is typed, the native adapter keeps it in the host as an owned composition, marked text that
+//! Keyrill inserted and can still replace; at Space the engine decides whether the word reads
+//! better in the other layout.
+//!
 //! The engine decides and proposes; it never reads or edits a document. A native input-method
 //! adapter owns the text, performs at most one write per [`session::Plan`], verifies the result
 //! and acknowledges it. `ARCHITECTURE.md` at the repository root describes that contract and the

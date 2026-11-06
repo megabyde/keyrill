@@ -1,11 +1,21 @@
-//! EN/RU maps over the defined key positions; unsupported UTF-16 units pass through unchanged.
+//! Key-position maps between US QWERTY and Russian ЙЦУКЕН.
+//!
+//! A layout mistake changes which character a key types, not which key was pressed, so
+//! correction is a lookup per key rather than a transliteration: `g` and `п` share a key, and so
+//! do `[` and `х`. The map covers the 33 keys that type a Russian letter, unshifted and shifted:
+//! 32 keys that both Russian layout variants share, and the ё key, which the variants put in
+//! different places (see [`Keyboard`]).
+//!
+//! Every conversion works one UTF-16 unit at a time and passes a unit outside the map unchanged,
+//! so the output has the length of the input. Digits, the remaining punctuation, other scripts
+//! and unpaired surrogates come through as they were; nothing is normalized or decoded.
 
 const EN: &str = "qwertyuiop[]asdfghjkl;'zxcvbnm,.";
 const RU: &str = "йцукенгшщзхъфывапролджэячсмитьбю";
 const EN_SHIFT: &str = "QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>";
 const RU_SHIFT: &str = "ЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ";
 
-/// Physical Russian keyboard variant for the defined partial map.
+/// Russian layout variant. In this map the two variants differ only in the key that types ё.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Keyboard {
     /// Apple's Russian layout, with ё at the US backslash key.
@@ -15,23 +25,28 @@ pub enum Keyboard {
     Pc,
 }
 
-/// Mapping intent. Manual mapping preserves source punctuation.
+/// Direction of a conversion.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mapping {
-    /// Convert each supported letter independently.
+    /// Convert every EN/RU letter to the character on the same key in the other layout, in
+    /// either direction, and leave every other unit unchanged. A Russian letter can map to
+    /// punctuation (`х` to `[`), which a second pass then leaves alone, so `Manual` is not an
+    /// involution.
     Manual,
-    /// Convert the defined US physical positions to Russian.
+    /// Read each US character in the map as the Russian character on the same key.
     EnToRu,
-    /// Convert the defined Russian physical positions to US.
+    /// Read each Russian character in the map as the US character on the same key.
     RuToEn,
 }
 
-/// Whether a unit is one of the initial supported EN/RU letters.
+/// Whether a unit is an EN/RU letter: `A`-`Z`, `a`-`z`, `А`-`я`, `Ё` or `ё`. [`Mapping::Manual`],
+/// the word session and language context detection all use this letter set.
 pub fn is_letter(unit: u16) -> bool {
     matches!(unit, 0x41..=0x5a | 0x61..=0x7a | 0x410..=0x44f | 0x401 | 0x451)
 }
 
-/// Convert without normalizing, decoding, or replacing unsupported units.
+/// Convert `text` unit by unit. The result has the same length, and a unit the map does not
+/// cover is copied unchanged.
 ///
 /// ```
 /// use keyrill_core::mapping::{convert, Keyboard, Mapping};

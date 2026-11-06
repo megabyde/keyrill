@@ -5,6 +5,14 @@ NS_ASSUME_NONNULL_BEGIN
 @class KRCompatibilitySession;
 @class KRRuntime;
 
+/// The IMK input controller; IMK creates one for each client input session. At activation it
+/// routes the application to a tier by its bundle identifier, the only fact it reads before
+/// the tier allows more, then sends each key to the owned-composition session or the
+/// compatibility session. Lifecycle callbacks (deactivation, commit requests, mode changes) and
+/// a left mouse-down finish an owned mark through the verified path, except a mark kept across
+/// the echo of Keyrill's own mode request. Lifecycle callbacks and keys also advance a selection
+/// generation, which cancels deferred work such as a pending input-mode request. Main thread
+/// only.
 @interface KeyrillAlphaController : IMKInputController
 /// Main thread, outside input callbacks. Stops the old observer without waiting for its queue.
 /// Controllers apply the replacement at their next activation; poisoned sessions stay stopped.
@@ -17,6 +25,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property(class, nonatomic, copy, nullable) BOOL (^preferencesUpdater)(NSDictionary *changes);
 /// The input-source identifier IMK uses for a Keyrill mode, derived from the bundle identifier.
 + (NSString *)inputModeForMode:(uint32_t)mode;
+/// Finishes an owned mark through the verified path and drops compatibility tracking; called
+/// when the application terminates.
 - (void)finishForShutdown;
 
 /// Replaceable for controlled tests. Secure Input defaults to `IsSecureEventInputEnabled` and
