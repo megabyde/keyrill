@@ -111,6 +111,8 @@ To uninstall, remove both modes from Input Sources, quit the server, delete
 
 ## Documentation
 
+The same documents, with the Rust API, are published at <https://megabyde.github.io/keyrill/>.
+
 - [How Keyrill works](docs/how-it-works.md): one word from key press to verified edit; start here
 - [Architecture](ARCHITECTURE.md): components, state ownership and safety invariants
 - [Engine](docs/engine.md): mapping, inference, personal vocabulary and the model

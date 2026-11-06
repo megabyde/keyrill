@@ -30,6 +30,7 @@ the controlled native tests.
 | `sanitize` | macOS | Native tests under ASan/UBSan; the Rust library is not instrumented |
 | `browser-fixture` | Node 18+ | Deterministic JavaScript checks of the browser fixture |
 | `markdown` | uv | mdformat and pymarkdown over the docs, at pinned versions; `markdown fix` reformats |
+| `site` | mdbook 0.5.4, mdbook-mermaid 0.17.1 | Builds the site that `pages.yml` publishes into `target/site/book`; stops on a broken link |
 | `audit` | cargo-deny 0.20.2 | Advisories, sources, licenses and bans for the app and fuzz graphs |
 | `coverage` | cargo-llvm-cov 0.6.21, `llvm-tools-preview` | Rust line and region coverage, 95% floor |
 | `evaluate` | Python 3 | Offline model evaluation, see [engine](engine.md#evaluation) |

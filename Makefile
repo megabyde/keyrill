@@ -10,7 +10,7 @@ INPUT_METHODS := $(HOME)/Library/Input Methods
 NATIVE_SOURCES = $(wildcard native/macos/src/*.h native/macos/src/*.mm native/macos/tests/*.mm \
 	native/macos/tools/*.mm)
 C_SOURCES := include/keyrill.h crates/keyrill-ffi/tests/abi_smoke.c
-VERIFY_MODES := sanitize browser-fixture markdown audit coverage evaluate fuzz miri
+VERIFY_MODES := sanitize browser-fixture markdown site audit coverage evaluate fuzz miri
 
 .DEFAULT_GOAL := help
 
@@ -34,6 +34,9 @@ browser-fixture: ## Run the browser fixture checks (Node 18+)
 
 .PHONY: markdown
 markdown: ## Check Markdown formatting and lint it (uv)
+
+.PHONY: site
+site: ## Build the documentation site into target/site/book (mdBook)
 
 .PHONY: audit
 audit: ## Check advisories, sources, licenses and bans (cargo-deny)
