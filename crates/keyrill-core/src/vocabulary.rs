@@ -1,9 +1,31 @@
 //! Read-only Vim word-list parsing and immutable last-good vocabulary snapshots.
+//!
+//! A vocabulary source is the user's own word list. It marks a word as correct, recognized or
+//! rare, which protects the word when it is typed, or as wrong (forbidden): a forbidden typed
+//! word loses its protection, and a forbidden candidate is never written automatically. A source
+//! carries no frequency, so membership can stop a correction but never justify one.
+//!
+//! [`Vocabulary::parse`] reads a Vim `.add` list line by line, as Vim reads its `spellfile`;
+//! [`Vocabulary::parse_words`] reads the words a user taught the OS spell checker, one per line.
+//! An entry's form decides which cases of the word it matches:
+//!
+//! ```text
+//! entry         rule              matches              does not match
+//! hello         lowercase         hello Hello HELLO    hElLo
+//! iPhone        cased             iPhone IPHONE        iphone Iphone
+//! Exact/=       exact (`=`)       Exact                exact EXACT
+//! ```
+//!
+//! Across the entries that match a word, forbidden (`!`) wins, then recognized, then rare (`?`).
+//! A source is parsed whole before anything sees it: a bad line is skipped and counted, and a
+//! file that cannot be a word list is rejected with a [`ParseError`]. A [`Snapshot`] publishes
+//! only a successful parse, as one immutable [`Arc`], so a reader keeps the vocabulary it
+//! started with and a failed candidate leaves the last good one in place.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
-/// Maximum UTF-8 source size per personal word list.
+/// Largest source, in bytes, that either parser accepts.
 pub const MAX_SOURCE_BYTES: usize = 1024 * 1024;
 
 /// Personal vocabulary membership, without invented corpus frequency.
@@ -11,18 +33,18 @@ pub const MAX_SOURCE_BYTES: usize = 1024 * 1024;
 pub enum Membership {
     /// No matching case-aware entry.
     Absent,
-    /// Legitimate word.
+    /// Correct word; protects the typed word.
     Recognized,
-    /// Rare but legitimate word.
+    /// Correct but rare word (`?` in Vim); protects the typed word like [`Self::Recognized`].
     Rare,
-    /// Forbidden word; overrides other matching entries.
+    /// Wrong word (`!` in Vim); overrides other matching entries.
     Forbidden,
 }
 
 /// Content-free whole-candidate rejection; a failed parse never publishes a partial list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ParseError {
-    /// Source exceeds the bounded read contract.
+    /// The source is larger than [`MAX_SOURCE_BYTES`].
     TooLarge,
     /// NUL is not a word-list character; it marks a binary, UTF-16 or partly written file.
     Nul,
@@ -43,10 +65,14 @@ impl std::fmt::Display for ParseError {
 
 impl std::error::Error for ParseError {}
 
+/// Which cases of an entry match, from the entry's own form.
 #[derive(Clone, Copy)]
 enum CaseRule {
+    /// A lowercase entry: lowercase, initial capital or all capitals.
     Lower,
+    /// An entry with a capital: exactly as written or all capitals.
     ExactOrUpper,
+    /// An entry with `=`: exactly as written.
     Exact,
 }
 
@@ -58,7 +84,8 @@ struct Entry {
 }
 
 /// Parsed personal entries. Region declarations and flags are validated but not kept, so lookup
-/// is locale-neutral.
+/// is locale-neutral. Entries are grouped by lowercase form, so a lookup compares case rules
+/// within one group.
 #[derive(Default)]
 pub struct Vocabulary {
     entries: HashMap<Vec<u16>, Vec<Entry>>,
@@ -66,7 +93,8 @@ pub struct Vocabulary {
     skipped: usize,
 }
 
-/// Lowercase only the initial EN/RU alphabets, preserving every other UTF-16 unit.
+/// Lowercase the EN/RU letters and keep every other UTF-16 unit; no locale or Unicode case
+/// mapping is applied.
 pub fn lowercase(units: &[u16]) -> Vec<u16> {
     units
         .iter()
@@ -78,7 +106,8 @@ pub fn lowercase(units: &[u16]) -> Vec<u16> {
         .collect()
 }
 
-/// Uppercase only the initial EN/RU alphabets, preserving every other UTF-16 unit.
+/// Uppercase the EN/RU letters and keep every other UTF-16 unit; no locale or Unicode case
+/// mapping is applied.
 pub fn uppercase(units: &[u16]) -> Vec<u16> {
     units
         .iter()
@@ -126,6 +155,8 @@ impl Vocabulary {
         let source = source.strip_prefix("\u{feff}".as_bytes()).unwrap_or(source);
         let mut result = Self::default();
         'lines: for line in source.split(|&byte| byte == b'\n') {
+            // Checked before decoding: a Vim comment-out overwrites the first byte of the line,
+            // which leaves a Cyrillic word that follows invalid UTF-8
             if line.first() == Some(&b'#') {
                 continue;
             }
@@ -133,6 +164,7 @@ impl Vocabulary {
                 result.skipped += 1;
                 continue;
             };
+            // Also drops the CR of CRLF and Unicode whitespace such as NBSP at the edges
             let line = line.trim();
             if line.is_empty() || line.starts_with('#') {
                 continue;
@@ -146,6 +178,7 @@ impl Vocabulary {
                 }
                 continue;
             }
+            // Up to nine distinct two-letter region names; validated, then dropped
             if let Some(regions) = line.strip_prefix("/regions=") {
                 if regions.is_empty()
                     || regions.len() > 18
@@ -172,6 +205,7 @@ impl Vocabulary {
             }
             let mut membership = Membership::Recognized;
             let mut exact = false;
+            // `?` never weakens an earlier `!`; region digits are accepted and dropped
             for flag in flags.chars() {
                 match flag {
                     '=' => exact = true,
@@ -223,6 +257,8 @@ impl Vocabulary {
             return Err(ParseError::Encoding);
         }
         let mut result = Self::default();
+        // In either encoding a NUL rejects the whole source, while a line that does not decode,
+        // such as one with a lone surrogate, is skipped alone
         if let Some(utf16) = source.strip_prefix(&[0xff, 0xfe]) {
             let (units, rest) = utf16.as_chunks::<2>();
             if !rest.is_empty() {
@@ -285,7 +321,7 @@ impl Vocabulary {
         self.count += 1;
     }
 
-    /// Number of parsed entry lines, retaining duplicate declarations for provenance.
+    /// Number of accepted entries; a word declared twice counts twice.
     pub fn len(&self) -> usize {
         self.count
     }
@@ -300,7 +336,8 @@ impl Vocabulary {
         self.skipped
     }
 
-    /// Match exact, lowercase/initial-capital/uppercase or mixed-case rules as declared.
+    /// Membership of `word` under the case rule of each entry that matches it; across matching
+    /// entries, forbidden wins, then recognized, then rare.
     pub fn lookup(&self, word: &[u16]) -> Membership {
         let lower = lowercase(word);
         let Some(entries) = self.entries.get(&lower) else {
@@ -352,8 +389,8 @@ impl Snapshot {
         self.current.clone()
     }
 
-    /// Publish a parsed candidate, skipped lines included. Existing readers retain their prior
-    /// snapshot.
+    /// Parse `source` as a Vim word list and publish it whole; a candidate with skipped lines is
+    /// still published. Readers that cloned the previous snapshot keep it unchanged.
     ///
     /// # Errors
     ///

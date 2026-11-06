@@ -3,6 +3,13 @@
 #include <cstring>
 #include <initializer_list>
 
+// Menu bar and palette icons for the input method (KR) and its two modes (EN, RU). `--check`
+// confirms that Info.plist names each file and that each file has 16 and 32 pixel
+// representations of a 16-point image with transparent edges and the expected ink: black or
+// white for menu bar masters, gray levels with both black and white for the two modes' palette
+// badges.
+// `--write` and `--write-palette` regenerate them
+
 static NSString *const names[] = {@"Keyrill", @"KeyrillEnglish", @"KeyrillRussian"};
 static NSString *const labels[] = {@"KR", @"EN", @"RU"};
 

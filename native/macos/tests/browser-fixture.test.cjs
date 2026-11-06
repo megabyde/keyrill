@@ -1,4 +1,9 @@
 'use strict';
+// Checks the browser fixture's oracle in Node, without a browser or an input method. The page's
+// one inline script is cut at two markers: the part before `const field` is the pure oracle,
+// evaluated on canned field values; the part before the comment above reset() adds the event
+// observers, run against a fake field and document. Passing shows that the oracle accepts each
+// scenario's exact checkpoints and rejects damaged ones; it is not evidence about any input path.
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -14,6 +19,7 @@ assert.ok(boundary > 0, 'pure-oracle boundary missing');
 const {PREFIX, SUFFIX, SCENARIOS, advance, evaluate, newRun} = vm.runInNewContext(
   script.slice(0, boundary) + '\n({PREFIX, SUFFIX, SCENARIOS, advance, evaluate, newRun})');
 
+// One astral character in the prefix, so a code-point offset is one less than the UTF-16 one
 assert.equal(PREFIX.length, [...PREFIX].length + 1);
 assert.equal(Array.from(SCENARIOS, s => s.id).sort().join('|'), 'auto|auto-ru|manual|reverse');
 
@@ -33,7 +39,9 @@ for (const scenario of SCENARIOS) {
   const result = evaluate(scenario, run, value, caret, caret);
   assert.equal(result.pass, true);
 
-  // Equal lengths and a valid caret cannot hide damage elsewhere in the field
+  // Equal lengths and a valid caret cannot hide damage elsewhere in the field; neither can a
+  // caret one unit off, missing checkpoints, an open or unbalanced composition, an untrusted
+  // event or a final value reached without the checkpoints
   assert.equal(evaluate(scenario, run, 'X' + value.slice(1), caret, caret).pass, false);
   assert.equal(evaluate(scenario, run, value.slice(0, -1) + '!', caret, caret).pass, false);
   assert.equal(evaluate(scenario, run, value, caret - 1, caret - 1).pass, false);
@@ -51,6 +59,7 @@ for (const scenario of SCENARIOS) {
   skipped.counts = run.counts;
   skipped.reached = advance(scenario, 0, value, caret, caret);
   assert.equal(evaluate(scenario, skipped, value, caret, caret).pass, false);
+  // The report carries flags, positions and counts, never the field's text (S8)
   const report = JSON.stringify(result);
   for (const checkpoint of scenario.checkpoints)
     assert.equal(report.includes(checkpoint.trim()), false, 'report contains field text');
@@ -73,6 +82,9 @@ for (const scenario of SCENARIOS) {
     '\n({setScenario(id) {scenario = SCENARIOS.find(s => s.id === id); run = newRun();}})',
     {document});
   observed.setScenario(scenario.id);
+  // A browser may report the selection over the active composition at input time and collapse
+  // it to the caret only at the next selectionchange. In the automatic scenarios the composition
+  // starts after the previous checkpoint once a word has been finished.
   const event = (type, inputType) => listeners[type]({type, inputType, isTrusted: true});
   const report = () => JSON.parse(nodes.report.textContent);
   event('selectionchange');
@@ -107,6 +119,8 @@ for (const scenario of SCENARIOS) {
   assert.equal(report().checks.caret, false);
   assert.equal(report().pass, false, 'later selection must not leave a stale pass');
 
+  // A browser that collapses the caret at input time advances there, and the selectionchange
+  // that follows must not count the same checkpoint again
   observed.setScenario(scenario.id);
   field.value = PREFIX + SUFFIX;
   field.selectionStart = field.selectionEnd = PREFIX.length;

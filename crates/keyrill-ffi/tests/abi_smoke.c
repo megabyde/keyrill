@@ -1,6 +1,8 @@
 // Drives the C ABI the way a native adapter does, against an in-memory document.
 // The document is a run of committed text followed by the owned composition, with the caret
-// at the end. Every write is checked against the plan's expected text before it is made.
+// at the end. Every write is checked against the plan's expected text before it is made. A write
+// here cannot fail or be changed by a host, so the readback a real adapter needs is the written
+// text itself; this test exercises the protocol, not a host.
 #include "keyrill.h"
 
 #include <stdio.h>
@@ -47,6 +49,8 @@ static void key(kr_engine *engine, document *doc, uint32_t role, uint32_t mode, 
       fail("kr_plan_event refused an event");
       return;
     }
+    // PASS and UNAVAILABLE write nothing and are acknowledged as verified; an action the header
+    // does not define is refused before any write
     uint32_t outcome = KR_APPLIED_VERIFIED;
     if (plan.action == KR_MARK || plan.action == KR_FINISH)
       outcome = apply(doc, &plan);
@@ -93,6 +97,8 @@ static void expect(const document *doc, const char *utf8, int committed, const c
     fail(scenario);
 }
 
+// Types `typed`, expects the document to show `shown`, sends the `last` key, finishes a mark
+// that is still owned and expects `result` committed with no composition left
 static void scenario(uint32_t keyboard, uint32_t mode, const char *typed, const char *shown,
                      uint32_t last, const char *result, const char *name) {
   kr_engine *engine = NULL;
@@ -113,7 +119,8 @@ static void scenario(uint32_t keyboard, uint32_t mode, const char *typed, const 
   kr_engine_free(engine);
 }
 
-// The default dictionary and a learned list under a home that doesn't exist count as empty
+// With KR_SOURCE_MISSING_IS_EMPTY, the default dictionary under a home that doesn't exist and a
+// learned list at that missing path each publish an empty source on the first observation
 static void default_dictionary(void) {
 #ifdef _WIN32
   static const char home[] = "C:\\keyrill-absent-home";

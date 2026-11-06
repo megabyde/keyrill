@@ -1,3 +1,17 @@
+//! Model loader against bounded corruptions of the real asset.
+//!
+//! Random bytes almost never pass the magic and header checks, so the input is a list of
+//! patches to the shipped `model.bin` and every case reaches the deeper validation:
+//!
+//! ```text
+//!   byte 0        flags: bit 0 truncates, bit 1 appends one zero byte
+//!   bytes 1..5    truncation length, u32 LE, taken modulo the asset length plus one
+//!   then          up to 64 patches of 5 bytes: offset u32 LE (modulo the length), new byte
+//! ```
+//!
+//! Patches apply before truncation and the appended byte. The property: `Model::parse` never
+//! panics, and any model it accepts answers finite frequency and log-likelihood values, so a
+//! corrupted table cannot feed NaN or infinity into the ranking.
 #![no_main]
 
 use keyrill_core::{model::Model, session::Mode};
@@ -28,6 +42,7 @@ fuzz_target!(|bytes: &[u8]| {
     }
     if let Ok(model) = Model::parse(&image) {
         for mode in [Mode::En, Mode::Ru] {
+            // A Latin letter, ё, a lone surrogate and a 33-unit word
             let words: [&[u16]; 4] = [&[97], &[0x451], &[0xd800], &[97; 33]];
             for word in words {
                 let language = model.language(mode);

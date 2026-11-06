@@ -1,4 +1,22 @@
-//! Bounded synthetic evaluation protocol. No native text service or private vocabulary is read.
+//! Stdin probe that `model/tools/evaluate.py` drives during offline evaluation.
+//!
+//! The probe reads one request per line and writes one response line, so the evaluator can
+//! stream a corpus through the real engine without a native input method. It uses the embedded
+//! model, the Apple keyboard and empty dictionaries for both languages; no native text service
+//! or private vocabulary is read.
+//!
+//! ```text
+//!   inference-probe word [NAME=VALUE...]
+//!     request    MODE WORD PREFIX            one isolated word and the text before it
+//!     response   REASON <tab> SCORE <tab> REPLACEMENT
+//!   inference-probe session [NAME=VALUE...]
+//!     request    MODE:TEXT [MODE:TEXT...]     segments typed in order into one document
+//!     response   TEXT                         the document after the last segment
+//! ```
+//!
+//! MODE is `en` or `ru`. Text fields are UTF-16 units, four hex digits each, with `-` for empty.
+//! Each NAME=VALUE overrides one ranking policy field. A malformed line ends the run with exit
+//! status 2.
 
 use keyrill_core::inference::{self, Dictionaries, Policy, Request};
 use keyrill_core::mapping::Keyboard;
@@ -7,9 +25,11 @@ use keyrill_core::session::{Action, Context, Disposition, Event, Mode, Outcome, 
 use keyrill_core::vocabulary::Vocabulary;
 use std::io::{self, BufRead, Read, Write};
 
+// A longer request line is a protocol error rather than a reason to buffer without bound
 const MAX_LINE_BYTES: usize = 65_536;
 const USAGE: &str = "usage: inference-probe word|session [NAME=VALUE...]";
 
+// Hex rather than UTF-8 so unpaired surrogates survive the protocol
 fn decode(hex: &str) -> Result<Vec<u16>, &'static str> {
     if hex == "-" {
         return Ok(Vec::new());
@@ -53,6 +73,7 @@ fn policy(overrides: &[String]) -> Result<Policy, Box<dyn std::error::Error>> {
     Ok(policy)
 }
 
+// Tab, line feed, carriage return, Space and no-break space end a word in the replay
 fn is_whitespace(unit: u16) -> bool {
     matches!(unit, 9 | 10 | 13 | 32 | 0xa0)
 }
@@ -240,6 +261,8 @@ fn main() {
 mod tests {
     use super::*;
 
+    // The replay must refuse a write whose expected text is not the composition, as an adapter
+    // does; applying it anyway would score corrections no adapter could make
     #[test]
     fn replay_refuses_a_write_that_does_not_find_the_expected_mark() {
         let units = |s: &str| s.encode_utf16().collect::<Vec<u16>>();

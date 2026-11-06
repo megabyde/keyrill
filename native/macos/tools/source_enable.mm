@@ -3,6 +3,18 @@
 
 #include <cstring>
 
+// Read-only plan for enabling Keyrill's input source; it changes no setting, with or without
+// `--plan`. It requires a live Aqua session, finds exactly one parent source with Keyrill's
+// identifier, checks the parent's type and its two modes, and reports enable capability and
+// the enabled and selected states before and after the run as JSON.
+//
+// Exit status:
+//   0  identity matches, the parent is enable-capable, and the selection didn't change
+//   2  unknown arguments
+//   3  TIS query failed, identity or capability not confirmed, or JSON encoding failed
+//   6  the selected input source changed during the run or couldn't be read afterwards
+//   9  not a live Aqua session
+
 static id property(TISInputSourceRef source, CFStringRef key) {
   id value = (__bridge id)TISGetInputSourceProperty(source, key);
   return value ? value : NSNull.null;

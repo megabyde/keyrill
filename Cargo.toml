@@ -18,5 +18,6 @@ missing_errors_doc = "warn"
 missing_panics_doc = "warn"
 
 [profile.release]
+# The C ABI catches a panic and poisons the handle; with abort the panic would end the input server
 panic = "unwind"
 lto = "thin"

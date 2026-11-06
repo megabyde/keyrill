@@ -44,7 +44,7 @@ fn utf16(value: &serde_json::Value) -> Vec<u16> {
 #[test]
 fn negative_words_are_not_changed() {
     let model = Model::embedded().unwrap();
-    // Empty but present overlays: protection comes from the frozen model alone
+    // Empty but ready vocabulary sources: protection comes from the frozen model alone
     let empty = Vocabulary::parse(b"").unwrap();
     let dictionaries = Dictionaries {
         en: Some(&empty),

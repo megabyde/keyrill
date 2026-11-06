@@ -29,12 +29,15 @@ static NSString *const kSwitching = @"AutomaticInputSourceSwitchingEnabled";
 
 namespace {
 
+// Records each dictionary the window hands to apply, answers with `result`, and notes any call
+// made off the main thread
 struct Applied {
   NSMutableArray<NSDictionary *> *calls = [NSMutableArray array];
   BOOL result = YES;
   BOOL offMain = NO;
 };
 
+// The file chooser fails the test unless a test replaces it, so no open panel can appear
 KRPreferencesController *makeController(NSDictionary *preferences, Applied &applied) {
   Applied *record = &applied;
   KRPreferencesController *controller = [[KRPreferencesController alloc]
@@ -51,9 +54,14 @@ KRPreferencesController *makeController(NSDictionary *preferences, Applied &appl
   return controller;
 }
 
+// Identity with the boolean singletons: a saved flag must be a property-list boolean, not an
+// integer NSNumber
 bool isTrue(id value) { return value == (id)kCFBooleanTrue; }
 bool isFalse(id value) { return value == (id)kCFBooleanFalse; }
 
+// Save writes back the whole snapshot with only the window's keys changed, on main. A key the
+// window doesn't own survives unchanged; dropping it would erase settings such as the
+// per-application tiers the input menu stores in the same domain.
 void testSnapshotPreservation() {
   currentTest = "snapshot_preservation";
   Applied applied;
@@ -166,6 +174,8 @@ void testChosenClearedAndUntouchedPaths() {
   CHECK([cleared.calls[0][kRussian] isEqualToString:@"/ru.add"]);
 }
 
+// Cancel after a refused Save applies nothing, restores every control from the snapshot and
+// clears the error
 void testCancelDiscardsEdits() {
   currentTest = "cancel_discards_edits";
   Applied applied;
@@ -275,6 +285,11 @@ void testDefaultCheckboxes() {
     CHECK(restored[i].state == (defaults[i] ? NSControlStateValueOn : NSControlStateValueOff));
 }
 
+// The scope text and the compatibility note are display only. The scope names the composition
+// applications, compatibility mode, both shortcuts, the per-app menu and the Secure Input pause;
+// Save passes ApplicationTiers through and adds no key for either text. The note mentions
+// Backspace, says the result isn't checked and names both permissions, in plain type and color;
+// neither text says experimental, unqualified, trial or TextEdit-only.
 void testScopeDisclosureDoesNotBecomeAPreference() {
   currentTest = "scope_disclosure";
   Applied applied;

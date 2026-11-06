@@ -31,6 +31,9 @@ field. Reset places the caret. The result updates as you type.</p>
 <p id="selftest"></p>
 <script>
 'use strict';
+// browser-fixture.test.cjs runs two prefixes of this script in Node: up to the `const field`
+// line (the pure oracle) and up to the comment above reset() (the event observers). Keep both
+// markers as they are.
 
 const FIXTURE = 'keyrill-browser-fixture-2';
 // The astral character makes UTF-16 offsets differ from code-point offsets
@@ -82,6 +85,9 @@ function advance(scenario, reached, value, start, end) {
                                                                                 : reached;
 }
 
+// Pass needs the exact final field and a collapsed caret at its UTF-16 end, every checkpoint in
+// order, a composition seen, balanced and closed, and trusted events only. The report holds
+// flags, positions and counts, never field text.
 function evaluate(scenario, run, value, start, end) {
   const final = scenario.checkpoints[scenario.checkpoints.length - 1];
   const caret = PREFIX.length + final.length;

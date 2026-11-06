@@ -1,11 +1,36 @@
-//! Committed-input tracking for the explicitly weaker synthetic backend.
+//! Observed-input tracking for the macOS compatibility backend.
+//!
+//! Where a client cannot keep an owned composition, the adapter lets every key reach the host
+//! and reports it here as an observation. The tracker reuses the core session as a record of the
+//! word those keys most likely formed, a virtual word with no mark in any document. A rewrite
+//! plan asks the adapter to delete that many UTF-16 units before the caret and type the
+//! replacement as synthetic key events. Acknowledgements mean observed or dispatched, never
+//! verified: nothing here learns what the host did with the keys, which is why this backend is
+//! chosen before any edit and never used to repair a failed composition write
+//! (`docs/adr/006-compatibility-backend.md`).
+//!
+//! Which observed runs count as words is decided by flags on the engine, updated only when a
+//! plan is acknowledged:
+//!
+//! ```text
+//!   last input     collect   boundary   a letter that follows, with no word in progress
+//!   reset          true      false      starts a word; manual conversion only
+//!   Space          true      true       starts a word that may be corrected automatically
+//!   other input    false     false      starts no word (identifier, punctuation, ...)
+//!   MANUAL/REVERSE unchanged unchanged  -- commands are not typed input
+//! ```
+//!
+//! A word keeps the boundary it started with (`word_boundary`), so automatic correction at its
+//! Space depends on what preceded the word, not on its own letters.
 
 use super::*;
 
 /// Plan against bounded observed keystrokes, never a document snapshot.
 ///
 /// # Safety
-/// The handle, event and output obey the aligned, live, nonaliasing C object contract.
+/// The handle must be null or live and uniquely borrowed for this serialized call. Non-null
+/// `event` and `out` must be aligned, valid for their whole C object and must not alias the
+/// handle or each other.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn kr_plan_compatibility_event(
     pointer: *mut Engine,
@@ -16,7 +41,9 @@ pub unsafe extern "C" fn kr_plan_compatibility_event(
     if event.is_null() || out.is_null() {
         return NULL;
     }
-    // SAFETY: the caller supplies complete input/output objects; all data is copied
+    // SAFETY: forwarded handle contract. `event` and `out` are non-null (checked above) and, by
+    // contract, aligned, valid for their whole C object and distinct from the handle. The event
+    // is borrowed only while decode_event copies it, and `out` is written once with a whole plan.
     unsafe {
         with_engine(pointer, |engine| {
             if automatic > 1 {
@@ -33,6 +60,8 @@ pub unsafe extern "C" fn kr_plan_compatibility_event(
             if input == Event::Escape {
                 input = Event::Finish;
             }
+            // A word in progress keeps the boundary it started at; a new word takes the last
+            // observation's
             let mut word_boundary = if engine.session.has_word() {
                 engine.compatibility_word_boundary
             } else {
@@ -56,7 +85,8 @@ pub unsafe extern "C" fn kr_plan_compatibility_event(
                 Err(error) => return status(error),
             };
             if plan.disposition == Disposition::Replan {
-                // Finishing this virtual word dispatches nothing: its input already passed
+                // Finishing this virtual word dispatches nothing: its input already passed.
+                // REPLAN follows only a word and its Space, so the letter is at a boundary.
                 if let Err(error) = engine.session.acknowledge(plan.id, Outcome::Verified) {
                     return status(error);
                 }
@@ -72,6 +102,8 @@ pub unsafe extern "C" fn kr_plan_compatibility_event(
                     Err(error) => return status(error),
                 };
             }
+            // A Space plan that only appends the Space, or a command that changes nothing, is
+            // an observation, not a rewrite
             let space = matches!(&input, Event::Text(units) if units == &[32]);
             let mut unchanged = plan.expected.clone();
             if space {
@@ -102,6 +134,7 @@ pub unsafe extern "C" fn kr_plan_compatibility_event(
             if rewrite {
                 copied.replacement[..plan.text.len()].copy_from_slice(&plan.text);
             }
+            // Commands are not typed input, so they leave the last observation as it was
             let boundary = if matches!(input, Event::Manual | Event::Reverse) {
                 engine.compatibility_boundary
             } else {
@@ -151,9 +184,12 @@ pub unsafe extern "C" fn kr_commit_compatibility(
             if token != pending.id {
                 return STALE;
             }
+            // OBSERVED fits only a plan with nothing to dispatch, DISPATCHED only a rewrite
             if (outcome == 0 && pending.rewrite) || (outcome == 1 && !pending.rewrite) {
                 return STATE;
             }
+            // A partial dispatch has an unknown effect; it and a refusal both invalidate the
+            // session until reset
             let local_outcome = match outcome {
                 0 | 1 => Outcome::Verified,
                 2 => Outcome::Refused,
@@ -178,6 +214,7 @@ pub unsafe extern "C" fn kr_commit_compatibility(
 mod tests {
     use super::*;
 
+    // Plan `text` as one event of `role` in English mode and require OK
     unsafe fn plan(
         engine: *mut Engine,
         text: &str,
@@ -206,6 +243,9 @@ mod tests {
         }
     }
 
+    // OBSERVED and DISPATCHED cannot be swapped, a mismatched acknowledgement leaves the plan
+    // pending, and once a handle is bound here the composition family stays refused, even after
+    // reset. Mixing the two would let an unverified rewrite advance composition state.
     #[test]
     fn observation_dispatch_receipt_and_backend_separation() {
         // SAFETY: one unique handle; stack buffers live through every call and are freed once
@@ -266,6 +306,8 @@ mod tests {
         }
     }
 
+    // Space rewrites only when the caller opts in, and passes the Space. A reversal after the
+    // next letter rewrites nothing: its receipt belonged to the previous word.
     #[test]
     fn automatic_opt_in_and_late_reversal_expiry() {
         // SAFETY: isolated handles; no pointer or borrowed input escapes any call
@@ -301,6 +343,8 @@ mod tests {
         }
     }
 
+    // After reset the first word is not corrected, since nothing shows where it began; the word
+    // after an observed Space is. A refused or partial dispatch then stops planning until reset.
     #[test]
     fn reset_is_not_an_automatic_boundary_and_refused_dispatch_invalidates() {
         // SAFETY: isolated unique handle and complete stack input/output buffers
@@ -376,6 +420,8 @@ mod tests {
                 );
                 assert_eq!(kr_commit_compatibility(engine, p.plan_id, 1), OK);
             }
+            // A run glued to an identifier or punctuation is no word, so manual conversion
+            // rewrites nothing; the next word after a Space is tracked and rewritten again
             for token in ["word_count", "x2ghbdtn", "(ghbdtn", "ghbdtn!"] {
                 assert_eq!(kr_reset(engine), OK);
                 for unit in token.chars() {

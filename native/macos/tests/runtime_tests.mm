@@ -27,6 +27,9 @@ static NSString *const kEnglishPath = @"EnglishDictionaryPath";
 static NSString *const kRussianPath = @"RussianDictionaryPath";
 
 /// Runs the runtime's work queue and main-thread blocks only when drained, on the main thread.
+/// The home resolver returns `home` (nil for an unresolved home) and records how often it ran
+/// and whether it ever ran on main; `posts` counts blocks posted to main, so a test can show
+/// that a round woke nothing.
 @interface Harness : NSObject
 @property(nonatomic, readonly) dispatch_queue_t queue;
 @property(nonatomic, copy) NSString *home;
@@ -156,6 +159,8 @@ NSString *afterManual(kr_engine *engine, NSString *word) {
   return finalMark(engine, word, KR_MANUAL, 0);
 }
 
+// Only an NSNumber true selects the model; a missing domain, a string "YES" or any other type
+// leaves automatic correction off, so a malformed defaults value fails closed
 void testPolicyResolution() {
   currentTest = "policy_resolution";
   struct Case {
@@ -199,7 +204,7 @@ void testOffDoesNoSourceWork() {
 }
 
 // Two equal reads of explicit paths publish; an unchanged read wakes nothing; the
-// requested session adopts the publication and its next decision uses both sources.
+// requested session adopts the publication and its next decision uses both sources
 void testExplicitSourcesPublishAndAdopt() {
   currentTest = "explicit_sources_publish_and_adopt";
   NSString *root = directory(@"explicit");
@@ -349,6 +354,9 @@ void testUnusablePathSettingsDoNotDiscover() {
   [runtime stop];
 }
 
+// Without a home both default paths are missing, and a configured path to an absent file leaves
+// that language missing. Automatic correction then abstains, since it needs both sources, and
+// manual conversion still works.
 void testUnresolvedHomeAndMissingFile() {
   currentTest = "unresolved_home_and_missing_file";
   Harness *harness = [Harness new];
@@ -497,6 +505,9 @@ void testRefusedAdoptionRetries() {
   [runtime stop];
 }
 
+// The runtime keeps one adoption target, the session that asked last; the controller asks each
+// time it routes a client. A later request replaces an earlier one, and a new publication reaches
+// only the current target; another session picks it up when it asks again.
 void testLatestTargetOwnsDeferredAdoption() {
   currentTest = "latest_target_owns_deferred_adoption";
   Published published = publishedRuntime(@"latest-target");
@@ -596,6 +607,9 @@ void testStopSuppressesLateWork() {
   CHECK([afterSpace(engine, @"ghbdtn") isEqualToString:@"ghbdtn "]);
 }
 
+// Compatibility and source switching are on when absent, automatic correction in unlisted
+// applications is off. Each follows an NSNumber's value, any other type turns it off, and each
+// key changes only its own setting. None of this resolves a home or queues work.
 void testCompatibilityDefaultsAndExplicitFlags() {
   currentTest = "compatibility_defaults_and_flags";
   Harness *h = [Harness new];
@@ -618,7 +632,8 @@ void testCompatibilityDefaultsAndExplicitFlags() {
     CHECK(switching.compatibilityEnabled && !switching.unlistedAutomaticCorrection);
     CHECK(enabled.automaticInputSourceSwitching && automatic.automaticInputSourceSwitching);
   }
-  // The retired key no longer turns on automatic compatibility
+  // A key with a plausible name that the runtime doesn't read changes nothing: unlisted
+  // applications stay Manual only
   KRRuntime *retired = [h runtimeWithPreferences:@{
     @"CompatibilityAutomaticCorrectionEnabled" : @YES
   }];
@@ -627,6 +642,12 @@ void testCompatibilityDefaultsAndExplicitFlags() {
   CHECK(h.homeCalls == 0 && h.posts == 0);
 }
 
+// The tier table from docs/macos.md: exact composition entries, case-insensitive compatibility
+// and Off entries, a prefix entry that needs its dot, Off for a missing or non-string identifier
+// and for Keyrill itself. Compatibility switched off turns Manual only and Automatic into Off,
+// never into composition. Overrides apply exactly, ignore malformed entries and can't admit
+// Keyrill's own identifier. A routing error here admits an untested application to composition
+// or exposes a password manager to the input method's tracking.
 void testTierTable() {
   currentTest = "tier_table";
   Harness *h = [Harness new];

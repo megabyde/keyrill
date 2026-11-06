@@ -1,4 +1,22 @@
-//! Host dictionary sources and immutable adoption, without scheduling or native editing authority.
+//! `kr_vocabulary`: dictionary sources that engines adopt, without scheduling or native editing
+//! authority.
+//!
+//! A vocabulary handle holds six vocabulary sources, the English and Russian Vim spell files and
+//! four learned-word slots, each with a configured path, flags, a generation and a current
+//! snapshot. Two locks keep the slow path away from the controller thread:
+//!
+//! ```text
+//!   acquisition  one Source per slot; held across file I/O by kr_vocabulary_observe
+//!   published    path, flags, generation and snapshot per slot; held briefly by configure,
+//!                adopt, and the start and end of observe
+//! ```
+//!
+//! Observe takes `acquisition` before `published` and nothing takes them in the other order, so
+//! configure and adopt never wait for a file read. A configuration change advances the slot's
+//! generation; an observation that began under the old generation finds the change when it
+//! locks `published` again and publishes nothing (`STALE_CONFIGURATION`). Adoption clones every
+//! snapshot under one lock, so an engine never pairs a language from before a change with one
+//! from after it.
 
 use crate::vocabulary_source::{Observation, Parser, Source, SourceError};
 use crate::{
@@ -14,6 +32,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+// KR_MAX_PATH_BYTES and the status codes and flags of include/keyrill.h that lib.rs lacks
 const MAX_PATH: usize = 1024;
 const SOURCE_IO: u32 = 10;
 const SOURCE_CHANGED: u32 = 11;
@@ -33,6 +52,7 @@ const DEFAULT_DIRECTORY: &str = ".vim";
 #[cfg(windows)]
 const DEFAULT_DIRECTORY: &str = "vimfiles";
 
+// One source's configuration and published snapshot; learned slots use it too
 #[derive(Default)]
 struct Language {
     generation: u64,
@@ -42,13 +62,15 @@ struct Language {
     current: Option<Arc<Vocabulary>>,
 }
 
+// A reader per source, with the generation it was created for
 #[derive(Default)]
 struct Acquisition {
     generation: [u64; SOURCES],
     sources: [Source; SOURCES],
 }
 
-/// Opaque shared host handle. Free only after every operation has completed.
+/// `kr_vocabulary`: six vocabulary sources behind two locks, shared by the acquisition queue and
+/// the controller thread. Free only after every operation has completed.
 #[derive(Default)]
 pub struct VocabularyHandle {
     poisoned: AtomicBool,
@@ -67,6 +89,8 @@ fn source_index(source: u32) -> Result<usize, u32> {
     }
 }
 
+// Languages are Vim word lists; a learned slot is a plain list whose words are all recognized
+// or, when excluded, all forbidden
 fn parser(index: usize, excluded: bool) -> Parser {
     match (index, excluded) {
         (0 | 1, _) => Vocabulary::parse,
@@ -75,7 +99,8 @@ fn parser(index: usize, excluded: bool) -> Parser {
     }
 }
 
-// Unix paths are raw bytes; Windows paths cross the ABI as UTF-8
+// Unix paths are raw bytes; Windows paths cross the ABI as UTF-8 and are absolute only with a
+// drive or UNC prefix
 fn host_path(bytes: &[u8]) -> Option<&Path> {
     if bytes.contains(&0) {
         return None;
@@ -128,6 +153,7 @@ impl VocabularyHandle {
                 current: None,
             },
         );
+        // Free the old snapshot after unlocking, so a large vocabulary never holds the lock
         drop(languages);
         drop(retired);
         OK
@@ -142,10 +168,13 @@ impl VocabularyHandle {
             (language.generation, path, missing_is_empty, excluded)
         };
         let mut acquisition = self.acquisition.lock().map_err(|_| POISONED)?;
+        // A fresh reader for a new configuration, so a candidate staged for the old path or
+        // parser never publishes under the new one
         if acquisition.generation[index] != generation {
             acquisition.sources[index] = Source::new(parser(index, excluded));
             acquisition.generation[index] = generation;
         }
+        // Lets a test reconfigure the source while this observation holds no `published` lock
         checkpoint();
         let result = acquisition.sources[index].observe(&path);
         let mut languages = self.published.lock().map_err(|_| POISONED)?;
@@ -180,7 +209,8 @@ impl VocabularyHandle {
     }
 }
 
-// Shared references are synchronized internally; no native calls occur under either lock
+// Shared references are synchronized internally; no native calls occur under either lock.
+// Any POISONED result, a caught panic or a lock poisoned by one, poisons the handle for good.
 unsafe fn with_vocabulary(
     pointer: *const VocabularyHandle,
     operation: impl FnOnce(&VocabularyHandle) -> u32,
@@ -188,7 +218,10 @@ unsafe fn with_vocabulary(
     if pointer.is_null() {
         return NULL;
     }
-    // SAFETY: the caller keeps this aligned allocation alive throughout concurrent operations
+    // SAFETY: non-null was checked above; the caller contract requires the live aligned
+    // allocation from kr_vocabulary_new, not yet freed and kept alive for this call. Only shared
+    // references are made, and every mutation goes through a Mutex or the atomic flag, so
+    // concurrent calls on the handle are allowed.
     let vocabulary = unsafe { &*pointer };
     if vocabulary.poisoned.load(Ordering::Acquire) {
         return POISONED;
@@ -209,7 +242,8 @@ pub unsafe extern "C" fn kr_vocabulary_new(abi: u32, out: *mut *mut VocabularyHa
     if out.is_null() {
         return NULL;
     }
-    // SAFETY: the caller provides a distinct writable pointer-sized object
+    // SAFETY: `out` is non-null (checked above), and the caller guarantees it is aligned,
+    // writable for one pointer and distinct from any handle
     unsafe { out.write(std::ptr::null_mut()) };
     if !compatible_abi(abi) {
         return VERSION;
@@ -282,7 +316,9 @@ pub unsafe extern "C" fn kr_vocabulary_configure(
                 if path.is_null() {
                     return NULL;
                 }
-                // SAFETY: bounded nonzero length; caller supplies distinct readable bytes
+                // SAFETY: `path` is non-null and `len` nonzero and at most MAX_PATH (checked
+                // above); the caller guarantees `len` readable bytes that do not alias the handle
+                // and stay valid for this call, and they are copied into a PathBuf before it ends
                 let path = std::slice::from_raw_parts(path, len as usize);
                 let Some(path) = host_path(path) else {
                     return PATH;
@@ -328,7 +364,9 @@ pub unsafe extern "C" fn kr_vocabulary_configure_default(
             if home.is_null() {
                 return NULL;
             }
-            // SAFETY: bounded nonzero length; caller supplies distinct readable bytes
+            // SAFETY: `home` is non-null and `len` nonzero and at most MAX_PATH (checked above);
+            // the caller guarantees `len` readable bytes that do not alias the handle and stay
+            // valid for this call, and they are copied into a PathBuf before it ends
             let home = std::slice::from_raw_parts(home, len as usize);
             let Some(home) = host_path(home) else {
                 return PATH;
@@ -357,7 +395,8 @@ pub unsafe extern "C" fn kr_vocabulary_observe(
     source: u32,
     observation_out: *mut u32,
 ) -> u32 {
-    // SAFETY: the caller keeps the handle and distinct output alive until this call completes
+    // SAFETY: the caller keeps the handle and the distinct, aligned output alive until this call
+    // completes; `observation_out` is checked for null before the only write
     unsafe {
         with_vocabulary(pointer, |vocabulary| {
             let index = match source_index(source) {
@@ -403,6 +442,7 @@ pub unsafe extern "C" fn kr_adopt_vocabulary(
             if engine.session.has_pending() {
                 return STATE;
             }
+            // Only `published` is locked, so adoption never waits for an observation's file read
             let mut current = [None, None];
             let mut learned = Vec::new();
             let status = with_vocabulary(pointer, |vocabulary| {
@@ -530,6 +570,9 @@ mod tests {
         plan.mark[..plan.mark_len as usize].to_vec()
     }
 
+    // A rejected argument changes nothing; the path is copied (the caller's buffer is overwritten
+    // below); generation exhaustion refuses rather than wrapping; and a poisoned vocabulary
+    // refuses adoption without poisoning the engine
     #[test]
     fn path_buffers_versions_generation_exhaustion_and_poison_are_transactional() {
         // SAFETY: all accepted pointers refer to distinct live local objects/allocations; every
@@ -652,6 +695,9 @@ mod tests {
         }
     }
 
+    // Last good after a failed reload, missing after a path change and published after two
+    // observations are different states, and automatic correction follows each. Adoption never
+    // revives a session invalidated by an unknown outcome.
     #[test]
     fn source_configuration_identity_missing_empty_and_last_good_are_distinct() {
         let directory = Directory::new();
@@ -753,6 +799,9 @@ mod tests {
         }
     }
 
+    // Adoption is refused while a plan is pending, keeps the history and receipt of the session
+    // it updates, and changes only the engine it is called on; engines keep their snapshots after
+    // the vocabulary handle is freed
     #[test]
     fn source_adoption_preserves_pending_history_receipts_and_independent_engines() {
         let directory = Directory::new();
@@ -860,6 +909,9 @@ mod tests {
         }
     }
 
+    // The worker stops inside an observation while holding the acquisition lock. Configure and
+    // adopt still complete on this thread, and the worker's read, left under an old generation,
+    // publishes nothing.
     #[test]
     fn source_observation_cannot_publish_across_configuration_or_block_adoption_on_io() {
         let directory = Directory::new();
