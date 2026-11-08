@@ -118,8 +118,10 @@ The same documents, with the Rust API, are published at <https://megabyde.github
 - [Engine](docs/engine.md): mapping, inference, personal vocabulary and the model
 - [macOS adapter](docs/macos.md): InputMethodKit integration, settings and build variants
 - [Porting](docs/porting.md): what a Windows or Linux adapter must implement
+- [Learning Rust and Objective-C++](docs/learn/README.md): the languages taught on this code, with
+  exercises
 - [Development](docs/development.md) and [testing](docs/testing.md)
-- [Decisions](docs/adr/)
+- [Decisions](docs/adr/) and the [glossary](docs/glossary.md)
 
 ## License
 

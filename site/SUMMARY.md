@@ -22,6 +22,16 @@
 - [Testing](docs/testing.md)
 - [Assets](assets/README.md)
 
+# Learning
+
+- [Rust and Objective-C++](docs/learn/README.md)
+  - [Rust in the core](docs/learn/rust.md)
+  - [The C boundary](docs/learn/boundary.md)
+  - [Objective-C](docs/learn/objective-c.md)
+  - [Objective-C++](docs/learn/objective-cpp.md)
+  - [Reentrancy and tests](docs/learn/reentrancy-and-tests.md)
+  - [Exercises](docs/learn/exercises.md)
+
 # Reference
 
 - [Decisions](docs/adr/README.md)
@@ -32,4 +42,5 @@
   - [005 No committed-text rewrite](docs/adr/005-no-committed-text-rewrite.md)
   - [006 Compatibility backend](docs/adr/006-compatibility-backend.md)
   - [007 Windows TSF](docs/adr/007-windows-tsf.md)
+- [Glossary](docs/glossary.md)
 - [Rust API](api.md)
