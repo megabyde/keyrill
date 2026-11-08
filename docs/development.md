@@ -19,11 +19,12 @@ $ ./tools/verify
 `make check` runs the same thing, and each mode below is also a make target (`make sanitize`).
 `make help` lists the rest: `format`, `bundle`, `status` and `install`.
 
-The default check runs `pack-model.py --check`, rustfmt, Clippy with warnings as errors, all tests
-including doctests, rustdoc with warnings as errors, a release build and a C syntax check of the
-header, and it links and runs the C ABI smoke test. On macOS it also checks native formatting, lints
-the plists, runs Clang static analysis with findings as errors, builds the app and tools, and runs
-the controlled native tests.
+The default check runs `pack-model.py --check`, `check-excerpts.py` (the walkthrough's code excerpts
+against their sources), rustfmt, Clippy with warnings as errors, all tests including doctests,
+rustdoc with warnings as errors, a release build and a C syntax check of the header, and it links
+and runs the C ABI smoke test. On macOS it also checks native formatting, lints the plists, runs
+Clang static analysis with findings as errors, builds the app and tools, and runs the controlled
+native tests.
 
 | Mode | Requires | What it does |
 | -- | -- | -- |

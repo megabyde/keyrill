@@ -249,6 +249,8 @@ through untouched.
 
 ## Terms
 
+The [glossary](glossary.md) has the full list, with the abbreviations.
+
 | Term | Meaning |
 | -- | -- |
 | Mark, owned composition | The underlined text Keyrill placed with `setMarkedText` and still owns; the only text it may change |
