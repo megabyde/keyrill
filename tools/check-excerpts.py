@@ -11,8 +11,8 @@ path and lines. A Rust, Objective-C, Objective-C++ or C block without a caption 
 walkthrough holds no copy of the source that this check doesn't see.
 """
 
-import os
 from pathlib import Path
+import posixpath
 import re
 import sys
 
@@ -26,7 +26,7 @@ CAPTION = re.compile(r"\[`([^`:]+):(\d+)(?:-(\d+))?`\]\(([^)#]+)#L(\d+)(?:-L(\d+
 
 def check(chapter):
     text = chapter.read_text(encoding="utf-8")
-    name = chapter.relative_to(ROOT)
+    name = chapter.relative_to(ROOT).as_posix()
     errors, count = [], 0
     for fence in FENCE.finditer(text):
         language, body = fence.group(2), fence.group(3)
@@ -38,7 +38,8 @@ def check(chapter):
             continue
         path, first, last, href, href_first, href_last = caption.groups()
         last, href_last = last or first, href_last or href_first
-        target = os.path.normpath(chapter.parent.relative_to(ROOT) / href)
+        # Links use forward slashes on every OS, so the target is normalized as a POSIX path
+        target = posixpath.normpath(posixpath.join(posixpath.dirname(name), href))
         if target != path or (first, last) != (href_first, href_last):
             errors.append(f"{name}:{line}: caption {path}:{first}-{last} links elsewhere")
             continue
