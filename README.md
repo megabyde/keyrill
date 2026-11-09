@@ -1,5 +1,7 @@
 # Keyrill
 
+[Русская версия](README.ru.md)
+
 Keyrill fixes English/Russian keyboard-layout mistakes as you type: `ghbdtn` becomes `привет`,
 `руддщ` becomes `hello`. It is a local input method with a Rust engine, a versioned C ABI and a
 native macOS InputMethodKit adapter. Inference runs offline against a frozen frequency model and

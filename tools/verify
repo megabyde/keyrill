@@ -45,6 +45,7 @@ case "${1:-check}" in
     mdformat="uvx --from mdformat==1.0.0 --with mdformat-gfm==1.0.0 --with mdformat-gfm-alerts==2.1.0 mdformat"
     if [ "${2:-}" = fix ]; then $mdformat $files; else $mdformat --check $files; fi
     uvx --from pymarkdownlnt==0.9.40 pymarkdown scan $files
+    python3 tools/check-translations.py
     ;;
   site)
     test "$(mdbook --version)" = "mdbook v0.5.4"

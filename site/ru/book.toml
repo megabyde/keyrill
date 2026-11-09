@@ -1,0 +1,15 @@
+# tools/build-site.py copies this file next to the staged sources and runs mdBook there
+[book]
+title = "Keyrill"
+description = "Исправляет ошибки раскладки английского и русского текста при наборе"
+language = "ru"
+src = "src"
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
+[output.html]
+site-url = "/keyrill/ru/"
+git-repository-url = "https://github.com/megabyde/keyrill"
+mathjax-support = true
+additional-js = ["mermaid.min.js", "mermaid-init.js"]

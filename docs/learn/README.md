@@ -71,7 +71,7 @@ typed into. Nothing can be proven there, because the other side is someone else'
 answer it gives is checked.
 
 ```mermaid
-flowchart LR
+flowchart TD
     App["Host application<br/>IMKTextInput client"] -->|key| Controller
     subgraph Native["Objective-C++, owns the text"]
         Controller["KeyrillAlphaController<br/>routes the key"] --> Session["KRSession<br/>checks, writes, reads back"]

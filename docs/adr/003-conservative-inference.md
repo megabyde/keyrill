@@ -1,6 +1,7 @@
 # ADR 003: precision before recall
 
-Status: accepted principle; scoring parameters are provisional.
+> [!IMPORTANT]
+> **Status:** accepted principle; scoring parameters are provisional.
 
 Mapping is deterministic; the decision to change a word automatically is probabilistic and must be
 conservative. The engine protects general and personal vocabulary and abstains on technical,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that every code excerpt in docs/learn still matches its source.
+"""Check that every code excerpt in docs/learn, English and Russian, still matches its source.
 
 An excerpt is a fenced block whose caption, on the line before a blank line and the fence, links
 to the lines it copies:

@@ -1,6 +1,7 @@
 # ADR 006: compatibility backend on macOS
 
-Status: accepted for the alpha.
+> [!IMPORTANT]
+> **Status:** accepted for the alpha.
 
 Owned composition only works where the client reflects and reads back marked text, which leaves most
 applications without correction. Every identified application outside the composition list gets a

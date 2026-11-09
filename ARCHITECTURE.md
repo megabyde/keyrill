@@ -8,7 +8,7 @@ A Rust plan is a proposal, never editing authority. [How Keyrill works](docs/how
 follows one word through all of this; this page is the reference it leads to.
 
 ```mermaid
-flowchart LR
+flowchart TD
     K[Physical input and host lifecycle] --> M[macOS IMK, Objective-C++]
     K --> W[Windows / Linux adapter]
     M -->|bounded UTF-16 facts| F[C ABI, keyrill-ffi]
