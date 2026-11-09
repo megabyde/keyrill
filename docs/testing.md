@@ -46,6 +46,29 @@ composition, manual boundaries, rapid continuation, focus reuse, source selectio
 dictionary reload, key disposition, TSF grants, and secure fields and shutdown. Use deterministic
 barriers and callbacks, not shorter sleeps.
 
+## Invariants and evidence
+
+Each [safety invariant](../ARCHITECTURE.md#safety-invariants) guards against one hazard. The table
+ties it to the regression schedules above, the tests that would catch a violation today, the
+strongest evidence obtained so far and what is still missing. *Controlled* means the native tests'
+scripted IMK clients with whole-document oracles; *physical* means the maintainer typing in a real
+application, as recorded under [Status](#status). The compatibility backend gives up S1, S4 and S6
+by design ([ADR 006](adr/006-compatibility-backend.md)); its `compatibility_*` tests record that,
+and it has no physical result yet.
+
+| ID | Hazard | Schedules | Tests | Strongest evidence | Open gap |
+| -- | -- | -- | -- | -- | -- |
+| S1 | A correction deletes, doubles or reorders text outside the word | R03, R08, R10, R13 | `model_whole_document_en`, `model_whole_document_ru`, `empty_composition`, `reenter_*`, `throw_*`; session property tests | Physical, v0.1.0: TextEdit, Safari, Firefox | Nothing physical after v0.1.0; rapid typing across a boundary (V06) and two fields (V08) not recorded; Safari's fixture once came out one unit short |
+| S2 | Keyrill edits a mark it doesn't own: another input method's, a reused proxy's, or one a focus change left behind | R06, R07, R11 | `foreign_mark`, `foreign_mark_after_context`, `moved_caret`, `caret_moved_after_context`, `client_change` | Controlled | A foreign mark in a reused client (V09) not run physically |
+| S3 | A write lands after a callback moved focus or changed the generation mid-call | R05, R15 | `reenter_*`, `throw_*`, `owner_release_during_callback`, `secure_input_during_client_calls`; [exercise 9](learn/exercises.md) | Controlled, also under ASan and UBSan | Nested commands and source changes during a request (V10) not run physically; Windows (R15) has no adapter |
+| S4 | A key is lost, doubled, sent elsewhere or reordered | R10, R14 | `unknown_finish_then_letter`, `unknown_finish_then_shortcut`, `unknown_escape_consumed`, `ignored_write`, `readback_commit_after_failed_check` | Controlled; ordinary typing physically at v0.1.0 | Navigation, shortcuts, Tab and Enter (V12) not recorded physically |
+| S5 | An API's success return is taken as a document edit | R07, R12 | `ignored_write`, `finish_altered_text`, `lifecycle_commit_unreadable_text`, `typed_finish_unreadable_text`; the C ABI smoke test; [exercise 8](learn/exercises.md) | Controlled | A physical test shows only the result, so this stays a controlled-test property |
+| S6 | Committed text is rewritten on the composition path | R01–R04 | No code path exists; R01 to R04 are the negative controls for the rejected transports | Source review | None while those transports stay absent |
+| S7 | A late reversal edits a word Keyrill no longer owns | R09 | `manual_reversal_expiry`, `escape_restores_original`, `kept_mark_across_mode_change`, `model_reversal_dictionary_change`, `runtime_reload_whole_document_and_receipt` | Physical, v0.1.0: Control+Option+Z in all three applications | Reversal after continued typing (V05) not recorded physically |
+| S8 | Typed text reaches disk, a log or the network | R16 | `input_status`, `controller_status_line`; error messages carry no user data; there is no network code | Source review and controlled | A crash dump can still hold text; compatibility mode holds typing in memory while Secure Input is off |
+| S9 | A native or FFI object is used after it is freed, or across a panic | None | Miri, fuzzing, the C ABI smoke test, ASan and UBSan runs of the native tests, `owner_release_during_callback` | Sanitizers and Miri | Quitting the application and server termination (V13) not recorded physically |
+| S10 | A refusal changes the document or switches transport silently | R16 | `secure_input`, `unlisted_client`, `controller_secure_input_before_characters`, `lifecycle_interruption_status`, `compatibility_refusal_interruption_secure` | Controlled | Read-only, password and custom controls (V14) not run physically |
+
 ## Physical scenarios
 
 Observe whole synthetic documents or fields, prefix and suffix, and the UTF-16 caret; for two-field
