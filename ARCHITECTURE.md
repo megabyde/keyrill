@@ -70,18 +70,12 @@ other than the owned word's. `Invalidated` refuses every plan until the adapter 
 | Composing, Backspace | Remove only owned text; empty composition is its own native operation |
 | Escape | With a receipt, restore the original, finish and consume the key; otherwise finish the word as typed and pass Escape |
 | Focus, source or client change | Invalidate stale plans; finish only a still-valid old mark; never carry a word to a new field. The echo of a mode switch Keyrill requested keeps the boundary mark and its receipt |
-| Foreign mark, mismatch, exception, unknown outcome | Stop correction for that word; no speculative repair. After a failed readback check, commit the client's own marked text once so the next key can't replace it. A second unknown outcome in an activation, or one before any verified write, stops the session until reactivation |
+| Foreign mark, mismatch, exception, unknown outcome | Stop correction for that word, with no speculative repair; the [edit contract](#edit-contract) says what may still be written and when correction resumes |
 
 `propose` copies a latest-only token, expected text, desired text, operation and key disposition
 without changing confirmed state. `acknowledge` advances state only on a verified result. A refused
 or unknown outcome invalidates the session; reset expires tokens and receipts; a panic poisons the
 handle permanently. A plan permits at most one native write.
-
-When a write was attempted and its result is unknown, the key that carried it is consumed and not
-replayed, because it may already be in the document. An unknown finish passes the next ordinary key
-once, since the finish did not include it. Reserved commands stay consumed. This contains ambiguity;
-it does not prove the host preserved input, and a client that produces unknown outcomes cannot be
-admitted for automatic correction.
 
 Callbacks are not a document lock. Every native client call can reenter or invalidate state:
 snapshot the generation before a query, recheck it after each call and before any effect.
@@ -99,6 +93,51 @@ sequenceDiagram
 
 Never hold a Rust borrow or dictionary lock across a native callback. Retained native objects keep
 memory alive, not focus or document identity.
+
+## Edit contract
+
+A plan permits at most one native write, and this section is what an adapter must check around it.
+The mark is *owned* when the client, the start offset and the exact text match the adapter's local
+authority, the mark it verified last. *Exact text* is a readback over the expected range that
+returns the expected UTF-16 units and reports that same range. The generation and Secure Input are
+rechecked after every client call: a change before the write refuses the plan, and a change after it
+makes the outcome unknown.
+
+| Write | Checked before | Checked after, for a verified outcome | Key |
+| -- | -- | -- | -- |
+| Start a word: the first letter sets the mark | Nothing owned, marked or selected; caret where the context was read | Mark at that offset, caret at its end, exact text | Consumed |
+| Update the word: letter, Space, Backspace, manual conversion, reversal | Owned mark, caret at its end, exact text | Mark at the same offset, caret at its end, exact text | Consumed |
+| Empty the word: Backspace on the last letter | Owned mark, caret at its end, exact text | No mark, caret at the start | Consumed |
+| Finish with new text: Escape restores the original | Owned mark, caret at its end, exact text | No mark, caret after the text, exact text | Consumed |
+| Finish unchanged before a typed key | Owned mark and exact text; caret not checked | No mark, exact text over the same range | Passes to the host, or is planned again when it starts the next word |
+| Finish unchanged on a lifecycle request: commit, deactivation, mode change, click | Owned mark range; text not read | No mark; text not read | None |
+
+Each write ends in one of three acknowledgements, and only the first advances Rust:
+
+- **Verified.** Every check in the row passed. Rust advances, and after a mark write the adapter
+  takes local authority over the new mark. If Rust then refuses the acknowledgement, the contract is
+  broken and correction stops until reactivation.
+- **Refused before the write.** A check before the write failed. Nothing is written, the key goes to
+  the host as typed, Rust drops the word and the next word starts fresh.
+- **Unknown.** The write may have happened and nothing confirms what it did. Rust drops the word,
+  correction stops and nothing is retried. A key the write carried is consumed, not replayed; a
+  finish carried only the previous mark, so the key after it passes once. Reserved commands stay
+  consumed.
+
+After an unknown outcome the adapter makes at most one more write, and only when the failed check
+came after the write, on the client's own answer, with the generation unchanged and Secure Input
+off: it reads the marked text back and, if the readback covers exactly the marked range, commits it
+unchanged so that the next key can't replace it. This keeps what the user sees and repairs nothing.
+Correction resumes at the next text key only if a write in this activation was already verified and
+this was the first unknown outcome; otherwise it stays off until the input source is activated
+again. These rules contain the ambiguity without proving that the host kept the input, so a client
+that produces unknown outcomes is not admitted for automatic correction.
+
+The [macOS adapter](docs/macos.md#composition) maps each row to IMK calls and explains why the two
+unchanged finishes relax their checks. The compatibility backend is outside this contract: it
+submits a bounded batch of synthetic events whose outcome is dispatched, never verified, and it
+never runs to repair an unknown composition outcome
+([ADR 006](docs/adr/006-compatibility-backend.md)).
 
 ## Safety invariants
 

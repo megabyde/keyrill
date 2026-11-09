@@ -59,9 +59,9 @@ is a proposal, never editing authority.
 > Rust state advances only on a *verified acknowledgement*: every check the write requires passed,
 > and for a write a key causes that includes reading the document back and finding the expected
 > text. A commit the platform requests on focus loss writes back the text last verified in the mark
-> without reading it again; see [the macOS adapter](macos.md). A write that was attempted but can't
-> be confirmed is reported as unknown, and correction stops. Nothing is guessed, repaired or
-> replayed.
+> without reading it again. The [edit contract](../ARCHITECTURE.md#edit-contract) lists the checks
+> for every write. A write that was attempted but can't be confirmed is reported as unknown, and
+> correction stops. Nothing is guessed, repaired or replayed.
 
 ## Typing the word
 

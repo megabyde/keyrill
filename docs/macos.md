@@ -104,19 +104,19 @@ verified.
 
 Before starting, the session requires an admitted client, a known mode, a collapsed valid caret, no
 foreign mark and a complete token context. After that, every write is bracketed by checks of the
-same client and generation, and the generation is rechecked after every client call. What else is
-checked depends on the write (`KRSession apply:client:generation:`):
+same client and generation, and the generation is rechecked after every client call. The
+[edit contract](../ARCHITECTURE.md#edit-contract) lists every check, key disposition and outcome;
+`KRSession apply:client:generation:` implements it with these IMK calls:
 
-| Write | Checked before | Checked after |
-| -- | -- | -- |
-| First letter, `setMarkedText` | No mark; collapsed caret where the context was read | Mark range, caret at its end, exact text |
-| Letter or Space, `setMarkedText` | Mark range, caret at its end, exact text | Mark range, caret at its end, exact text |
-| Finish that changes the text (Escape restoring the typed word) | Mark range, caret, exact text | Mark gone, caret after the text, readback |
-| Finish unchanged, on a typed key | Mark range, exact text | Mark gone, readback over the exact range |
-| Finish unchanged, requested by IMK or the controller | Mark range | Mark gone |
+| Write | IMK call |
+| -- | -- |
+| Start, update or empty the word | `setMarkedText:selectionRange:replacementRange:` over the current selection |
+| Finish with new text | `insertText:replacementRange:` over the current selection |
+| Finish unchanged | `insertText:replacementRange:` over the exact marked range |
 
-"Exact text" is a readback through `stringFromRange:actualRange:` that must return the expected
-UTF-16 units over the expected range, and the range IMK actually returned must be that range.
+The mark and caret checks read `markedRange` and `selectedRange`. "Exact text" is a readback through
+`stringFromRange:actualRange:` that must return the expected UTF-16 units over the expected range,
+and the range IMK actually returned must be that range.
 
 The two unchanged finishes relax checks for a reason Firefox supplies. It moves the caret on focus
 loss before IMK asks for the commit, so an unchanged commit, which replaces the exact marked range
