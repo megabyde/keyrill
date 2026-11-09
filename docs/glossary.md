@@ -200,7 +200,8 @@ Russian typed in the wrong layout.
 **Readback.** Reading the composition back from the client after a write, over exactly the range
 written. It is the only evidence of a write's effect that the adapter accepts; an API's success
 return is not. The one write verified without it is an unchanged commit that IMK or the controller
-requests, which writes back the text last verified in the mark; see [the macOS adapter](macos.md).
+requests, which writes back the text last verified in the mark; see the
+[edit contract](../ARCHITECTURE.md#edit-contract).
 
 **Receipt.** The text a word had before Keyrill first converted it, kept while the same word is
 owned so that Control-Option-Z or Escape can restore it. An edit or finishing the word expires it.
@@ -224,4 +225,6 @@ avoids it where its answers are unreliable inside the input method's own process
 ([Input-source switching](macos.md#input-source-switching)).
 
 **Unknown outcome.** The acknowledgement for a write that was attempted but whose effect couldn't be
-verified. It invalidates the session and stops correction; nothing is repaired or replayed.
+verified. It invalidates the session and stops correction; nothing is repaired or replayed. The
+[edit contract](../ARCHITECTURE.md#edit-contract) lists the one write still allowed afterwards and
+when correction resumes.

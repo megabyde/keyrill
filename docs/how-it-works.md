@@ -59,9 +59,9 @@ is a proposal, never editing authority.
 > Rust state advances only on a *verified acknowledgement*: every check the write requires passed,
 > and for a write a key causes that includes reading the document back and finding the expected
 > text. A commit the platform requests on focus loss writes back the text last verified in the mark
-> without reading it again; see [the macOS adapter](macos.md). A write that was attempted but can't
-> be confirmed is reported as unknown, and correction stops. Nothing is guessed, repaired or
-> replayed.
+> without reading it again. The [edit contract](../ARCHITECTURE.md#edit-contract) lists the checks
+> for every write. A write that was attempted but can't be confirmed is reported as unknown, and
+> correction stops. Nothing is guessed, repaired or replayed.
 
 ## Typing the word
 
@@ -207,12 +207,12 @@ stateDiagram-v2
     [*] --> Planned: kr_plan_event
     Planned --> Refused: check before the write fails
     Planned --> Written: write performed
-    Written --> Verified: readback matches
+    Written --> Verified: checks after the write pass,<br/>readback included for a typed key
     Written --> Unknown: readback differs, is missing,<br/>or a callback intervened
     Refused --> [*]: REFUSED_BEFORE_WRITE,<br/>key passes, document untouched
     Verified --> [*]: APPLIED_VERIFIED,<br/>Rust state advances
     Unknown --> Stopped: ATTEMPTED_UNKNOWN
-    Stopped --> [*]: after a failed check, commit the<br/>app's own readback once
+    Stopped --> [*]: after a failed check on the app's answer,<br/>commit its own readback once
 ```
 
 *Unknown* is the case that needs care. The write happened, but what the document contains is not
