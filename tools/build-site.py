@@ -8,7 +8,8 @@ which drop the .ru suffix, so both books publish the same page paths. Four thing
 mdBook: a link between two Russian chapters loses the suffix, a link to a chapter of the other book
 points at its published page, a link to a file outside both books becomes a GitHub URL, and a
 `math` fence, which only GitHub renders, becomes a MathJax display block. The script stops on a link to a path that does not exist.
-mdBook titles the GitHub alert boxes in English, so the Russian pages get the titles translated.
+mdBook titles the GitHub alert boxes in English, so the Russian pages get the titles translated,
+and each page's header gets a link to the same page in the other book.
 """
 
 import os
@@ -34,6 +35,9 @@ MATH = re.compile(r"^```math\n(.*?)^```$", re.DOTALL | re.MULTILINE)
 ALERT_TITLES = {"ru": {"Note": "Примечание", "Tip": "Совет", "Important": "Важно",
                        "Warning": "Внимание", "Caution": "Осторожно"}}
 ALERT_TITLE = re.compile(r'(<p class="blockquote-tag-title">.*?</svg>)(\w+)(</p>)', re.DOTALL)
+# Header link to the other book: label, title and language of the page it opens
+SWITCH = {"": ("RU", "Русская версия", "ru"), "ru": ("EN", "English version", "en")}
+HEADER = '<div class="right-buttons">'
 
 
 def chapters(config):
@@ -100,6 +104,28 @@ def stage(book, pages):
     return staging
 
 
+def finish(root, other, switch, titles):
+    """Translate a book's alert titles and link each page to its counterpart in the other book."""
+    label, title, language = switch
+    # The English book's directory also holds the API docs and the Russian book
+    skip = {"api", *(book[2] for book in BOOKS if book[2])} if root == BOOK else set()
+    for html in root.rglob("*.html"):
+        page_path = html.relative_to(root)
+        # mdBook serves 404.html at any missing path, so a relative link from it would be wrong
+        if page_path.parts[0] in skip or html.name == "404.html":
+            continue
+        text = html.read_text(encoding="utf-8")
+        text = ALERT_TITLE.sub(lambda m: m[1] + titles.get(m[2], m[2]) + m[3], text)
+        if HEADER in text:
+            if not (other / page_path).is_file():
+                sys.exit(f"{html.relative_to(BOOK)}: no counterpart in {other.relative_to(BOOK)}")
+            href = os.path.relpath(other / page_path, html.parent)
+            text = text.replace(HEADER, f'{HEADER}\n<a href="{href}" title="{title}" '
+                                f'aria-label="{title}" hreflang="{language}" lang="{language}" '
+                                f'class="language-switch">{label}</a>', 1)
+        html.write_text(text, encoding="utf-8")
+
+
 def main():
     shutil.rmtree(SITE, ignore_errors=True)
     pages = {}
@@ -110,12 +136,8 @@ def main():
         staging = stage(book, pages)
         subprocess.run(["mdbook-mermaid", "install", staging], check=True)
         subprocess.run(["mdbook", "build", staging, "--dest-dir", BOOK / book[2]], check=True)
-        if titles := ALERT_TITLES.get(book[2]):
-            for html in (BOOK / book[2]).rglob("*.html"):
-                text = html.read_text(encoding="utf-8")
-                localized = ALERT_TITLE.sub(lambda m: m[1] + titles.get(m[2], m[2]) + m[3], text)
-                if localized != text:
-                    html.write_text(localized, encoding="utf-8")
+    for book, other in zip(BOOKS, reversed(BOOKS)):
+        finish(BOOK / book[2], BOOK / other[2], SWITCH[book[2]], ALERT_TITLES.get(book[2], {}))
     subprocess.run(["cargo", "doc", "--no-deps", "--locked", "-p", "keyrill-core", "-p",
                     "keyrill-ffi"], cwd=ROOT, check=True)
     shutil.copytree(ROOT / "target/doc", BOOK / "api", ignore=shutil.ignore_patterns(".lock"))
