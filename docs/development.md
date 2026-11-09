@@ -30,7 +30,7 @@ native tests.
 | -- | -- | -- |
 | `sanitize` | macOS | Native tests under ASan/UBSan; the Rust library is not instrumented |
 | `browser-fixture` | Node 18+ | Deterministic JavaScript checks of the browser fixture |
-| `markdown` | uv | mdformat and pymarkdown over the docs, at pinned versions; `markdown fix` reformats |
+| `markdown` | uv | mdformat and pymarkdown over the docs, at pinned versions, and the Russian translations against their sources; `markdown fix` reformats |
 | `site` | mdbook 0.5.4, mdbook-mermaid 0.17.1 | Builds the site that `pages.yml` publishes into `target/site/book`; stops on a broken link |
 | `audit` | cargo-deny 0.20.2 | Advisories, sources, licenses and bans for the app and fuzz graphs |
 | `coverage` | cargo-llvm-cov 0.6.21, `llvm-tools-preview` | Rust line and region coverage, 95% floor |
@@ -76,6 +76,11 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) with a scope wh
 (`feat(macos):`, `fix(core):`), stage exact paths, and update docs in the same change as the
 behavior. Native and ABI changes also need `./tools/verify sanitize` and a review of the actual diff
 and its negative schedules. A policy or model change needs the evaluation rerun.
+
+Every page the site lists has a Russian translation beside it, named with `.ru.md`
+(`docs/engine.ru.md` translates `docs/engine.md`); the site's own pages have theirs in `site/ru/`.
+Change a Russian page in the same commit as its English source and copy the new `git hash-object` of
+the source into the Russian page's first line; `./tools/verify markdown` fails until the two agree.
 
 CI (`.github/workflows/verify.yml`) runs the default check on `macos-15`, `windows-2025` and
 `ubuntu-24.04`, sanitizers on macOS, the Markdown check on Linux, and separate audit, coverage,

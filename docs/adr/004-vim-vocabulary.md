@@ -1,6 +1,7 @@
 # ADR 004: read existing Vim spelling files
 
-Status: accepted.
+> [!TIP]
+> **Status:** accepted.
 
 Personal vocabulary comes from the user's existing UTF-8 Vim `.add` files, read in place, read-only,
 with last-good snapshots on reload. They are parsed the way Vim reads them: a line whose first byte

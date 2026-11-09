@@ -124,9 +124,10 @@ then recognized, then rare (`?`).
 | `iPhone/=` | `iPhone` only | Recognized |
 | `colour/?` | as for `hello` | Rare: still protected |
 | `ghbdtn/!` | as for `hello` | Forbidden: overrides any protection and is never a correction's result |
-| A `/regions=` line and the region flags 1 through 9 are validated |  |  |
-| and then dropped, so lookup doesn't depend on locale; the flags are accepted even without a |  |  |
-| declared region name. A malformed `/regions=` line is skipped like any other bad line. |  |  |
+
+A `/regions=` line and the region flags 1 through 9 are validated and then dropped, so lookup
+doesn't depend on locale; the flags are accepted even without a declared region name. A malformed
+`/regions=` line is skipped like any other bad line.
 
 `vocabulary::Snapshot::replace` parses the whole candidate before publishing it. Readers keep the
 old immutable `Arc` and a failed candidate never partially replaces it. `keyrill-ffi` reads the
@@ -143,7 +144,7 @@ that is missing or unreadable never holds correction back.
 ## Model
 
 ```mermaid
-flowchart LR
+flowchart TD
     W["wordfreq 3.1.1"] -->|"model/tools/build_model.py"| I["model/data/model.inc.gz<br/>pinned by hash"]
     I -->|"tools/pack-model.py"| B["assets/model.bin"]
     B -->|"include_bytes!"| C["keyrill-core"]

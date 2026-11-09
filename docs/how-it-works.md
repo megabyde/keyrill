@@ -37,7 +37,7 @@ current word and an input source to select.
 ## Who does what
 
 ```mermaid
-flowchart LR
+flowchart TD
     App["Application<br/>(TextEdit)"] <-->|"IMK client calls:<br/>read, setMarkedText, insertText"| Adapter
     subgraph Adapter["macOS adapter, Objective-C++"]
         Controller[KRController] --> Session[KRSession]

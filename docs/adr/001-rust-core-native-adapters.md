@@ -1,6 +1,7 @@
 # ADR 001: Rust core, native adapters
 
-Status: accepted.
+> [!TIP]
+> **Status:** accepted.
 
 Conversion, segmentation, vocabulary, scoring, policy and the word/reversal state live in one Rust
 2024 crate that forbids `unsafe` and has no OS dependency. Each platform gets its own native

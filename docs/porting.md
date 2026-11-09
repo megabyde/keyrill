@@ -109,7 +109,7 @@ flowchart TD
 Dictionaries cross threads the one way that keeps file I/O out of key handling:
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph Worker["Serial worker queue"]
         O["kr_vocabulary_observe:<br/>read, settle, parse"]
     end

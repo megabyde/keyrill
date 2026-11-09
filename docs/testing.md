@@ -5,7 +5,7 @@ system IMK, and a generated event in a real editor is not physical input. Record
 result is. Results belong to the binary that produced them, not to later builds.
 
 ```mermaid
-flowchart LR
+flowchart TD
     A["API call<br/>returned success"] --> B["Controlled client:<br/>scripted IMK, whole document"]
     B --> C["Generated events<br/>in a real editor"]
     C --> D["Physical keys<br/>in a real editor"]

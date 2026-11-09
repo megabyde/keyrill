@@ -1,7 +1,8 @@
 # ADR 002: a selected input method that owns its composition
 
-Status: accepted. The default build admits composition only in TextEdit, Safari and Firefox, the
-clients whose composition behavior has been tested.
+> [!TIP]
+> **Status:** accepted. The default build admits composition only in TextEdit, Safari and Firefox,
+> the clients whose composition behavior has been tested.
 
 The user selects Keyrill's EN or RU mode instead of the stock layouts. Keyrill composes the current
 word as marked text it owns and changes only that mark, after checking client, generation, exact

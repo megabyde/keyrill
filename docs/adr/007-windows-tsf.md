@@ -1,6 +1,7 @@
 # ADR 007: Windows Text Services Framework
 
-Status: proposed; needs a runtime proof.
+> [!WARNING]
+> **Status:** proposed; needs a runtime proof.
 
 A native TSF text service is the leading Windows design: granted edit sessions, explicit contexts
 and owned compositions fit the [architecture](../../ARCHITECTURE.md) better than UI Automation reads

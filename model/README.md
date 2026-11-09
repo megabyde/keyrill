@@ -38,7 +38,7 @@ the manifest even when the model bytes agree. Then update the pinned hashes in t
 `tools/pack-model.py` and rerun the evaluation.
 
 ```mermaid
-flowchart LR
+flowchart TD
     G["tools/evaluate-model.py<br/>gates"] --> E["model/tools/evaluate.py<br/>replays, negative set"]
     E <-->|"stdin, one line<br/>per request"| P["tools/inference-probe<br/>real Session and infer"]
     C[("corpora/<br/>pinned by hash")] --> E

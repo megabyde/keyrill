@@ -1,6 +1,8 @@
 # ADR 005: no committed-text rewrite on the composition path
 
-Status: accepted. [ADR 006](006-compatibility-backend.md) makes one explicit, separate exception.
+> [!TIP]
+> **Status:** accepted. [ADR 006](006-compatibility-backend.md) makes one explicit, separate
+> exception.
 
 The composition path never falls back to a temporary Accessibility selection, a whole-value write
 from a snapshot, counted Backspaces and retyping, clipboard paste, or a remembered absolute range.
