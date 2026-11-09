@@ -62,7 +62,7 @@ flowchart TD
     A -->|"MARK, FINISH"| V{"Composition holds<br/>expected exactly?"}
     V -->|no| R["kr_commit REFUSED_BEFORE_WRITE;<br/>the key passes"]
     V -->|yes| W[One native write]
-    W --> RB{Readback matches mark?}
+    W --> RB{"Checks after the write pass?<br/>Readback, except an unchanged lifecycle commit"}
     RB -->|yes| OK["kr_commit APPLIED_VERIFIED"]
     RB -->|"no, or can't tell"| U["kr_commit ATTEMPTED_UNKNOWN;<br/>stop, never replay"]
     OK --> D{disposition}

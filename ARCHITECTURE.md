@@ -10,17 +10,21 @@ follows one word through all of this; this page is the reference it leads to.
 ```mermaid
 flowchart TD
     K[Physical input and host lifecycle] --> M[macOS IMK, Objective-C++]
-    K --> W[Windows / Linux adapter]
+    K -.-> W[Windows / Linux adapter, planned]
     M -->|bounded UTF-16 facts| F[C ABI, keyrill-ffi]
-    W -->|bounded UTF-16 facts| F
+    W -.->|bounded UTF-16 facts| F
     F --> R[Rust session and policy, keyrill-core]
     R --> D[Immutable model and vocabulary snapshots]
     R -->|plan| F
     F -->|copied plan| M
-    F -->|copied plan| W
-    M -->|owned composition only| H[Host text client]
-    W -->|owned composition only| H
+    F -.->|copied plan| W
+    M -->|owned composition| H[Host text client]
+    M -->|"compatibility backend:<br/>synthetic keys, ADR 006"| H
+    W -.->|owned composition only| H
 ```
+
+Dashed parts are planned: only the macOS adapter exists. Its compatibility backend is the one path
+that edits committed text, under the terms of [ADR 006](docs/adr/006-compatibility-backend.md).
 
 | Path | Contents |
 | -- | -- |
@@ -52,12 +56,16 @@ stateDiagram-v2
     BoundaryRetained --> BoundaryRetained: reversal
     Composing --> Idle: other key, Escape,<br/>Backspace to empty
     BoundaryRetained --> Idle: next key finishes the mark
+    Idle --> Invalidated: refused or unknown outcome
+    Composing --> Invalidated: refused or unknown outcome,<br/>key in another mode
+    BoundaryRetained --> Invalidated: refused or unknown outcome,<br/>key in another mode
     Invalidated --> Idle: reset
 ```
 
-Every arrow is a plan that takes effect only when the adapter acknowledges it as verified. Any other
-outcome, from any state, moves the session to `Invalidated`, and so does a key planned in a mode
-other than the owned word's. `Invalidated` refuses every plan until the adapter resets it.
+Every arrow among the first three states is a plan that takes effect only when the adapter
+acknowledges it as verified. Any other outcome, from any of them, moves the session to
+`Invalidated`, and so does a key planned in a mode other than the owned word's. `Invalidated`
+refuses every plan until the adapter resets it.
 
 | State and event | Effect |
 | -- | -- |
