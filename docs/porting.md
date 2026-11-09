@@ -199,8 +199,9 @@ surrounding-text API. Questions to answer with real clients before choosing:
 - Is IBus or Fcitx 5 the right first target for the desktops that matter?
 
 The acknowledgement contract is the open decision. On macOS Keyrill reads the client's marked text
-back after every write. On Linux the client draws the preedit the engine sends, and GTK's
-surrounding text explicitly leaves the preedit out
+back after every write a key causes; only an unchanged commit that IMK requests is written without
+that read. On Linux the client draws the preedit the engine sends, and GTK's surrounding text
+explicitly leaves the preedit out
 ([`set_surrounding_with_selection`](https://docs.gtk.org/gtk4/method.IMContext.set_surrounding_with_selection.html)),
 so there's nothing to read back.
 

@@ -11,8 +11,8 @@ applying a stale range; verification can detect some of that damage but can't un
 worker queues, focus rechecks and pacing don't make a host atomic, and read access through UI
 Automation or Accessibility is not write authority.
 
-So converting committed words and selections remains unsupported. A failed or unknown composition
-write stops correction; it never triggers another transport.
+So on the composition path converting committed words and selections remains unsupported. A failed
+or unknown composition write stops correction; it never triggers another transport.
 
 Revisit only for a specific control and native API with a serialized or conditional editing contract
 and adversarial whole-document evidence, not because ordinary positive tests pass.

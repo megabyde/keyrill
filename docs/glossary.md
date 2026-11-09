@@ -50,7 +50,7 @@ The terms the [walkthrough](learn/README.md) sets in bold, with the section that
 | [Attribute](learn/rust.md#types-that-carry-their-meaning) | An annotation for the Rust compiler, written `#[...]`, or `#![...]` for a whole crate |
 | [Block](learn/objective-c.md#blocks) | Objective-C's closure, written `^{ ... }` |
 | [Borrow checker](learn/rust.md#ownership-and-borrowing) | The part of the Rust compiler that enforces the rules for references |
-| [Callback](learn/rust.md#a-type-without-a-lifetime-cant-hold-a-borrow) | A function handed to other code for it to call later |
+| [Callback](learn/rust.md#a-type-without-a-lifetime-cant-hold-a-short-lived-borrow) | A function handed to other code for it to call later |
 | [Calling convention](learn/boundary.md#why-c-and-what-an-abi-is) | Which registers and stack slots carry a function's arguments and result |
 | [Capture](learn/objective-c.md#blocks) | A closure or block keeping a variable from the code around it |
 | [Class method](learn/objective-c.md#messages) | An Objective-C method called on the class itself, declared with `+` |
@@ -161,6 +161,15 @@ operation remembers the generation it started under and compares after each nati
 difference means a callback ran in between, and the operation stops. See
 [Reentrancy and tests](learn/reentrancy-and-tests.md#generation-and-busy).
 
+**Guard.** The compatibility backend's listen-only event tap. It observes mouse, navigation,
+shortcut and source changes without reading characters; each one ends tracking and advances the
+process-wide guard generation, which every rewrite rechecks before it posts. See
+[macOS](macos.md#compatibility).
+
+**Inference.** The engine's decision, at a word boundary, whether a finished word was typed in the
+wrong layout. It uses the frozen model, the user's dictionaries and recent context, and leaves the
+word alone whenever it is unsure. See [Engine](engine.md#inference).
+
 **Input mode.** Keyrill English or Keyrill Russian, the two input sources Keyrill installs; the mode
 decides which layout the keys type in.
 
@@ -169,11 +178,12 @@ the Vim dictionaries, but automatic correction never waits for them.
 
 **Local authority.** The adapter's record of the mark it verified last: the client, the start offset
 and the exact text. A write needs it, and the adapter drops it before every write and regains it
-only from a matching readback.
+only when the write's checks pass, which for a mark update means a matching readback.
 
 **Mark, owned composition.** Marked text, the underlined composition of an input method, that
-Keyrill itself placed with `setMarkedText` and still owns. It is the only text Keyrill may change.
-See [How Keyrill works](how-it-works.md#why-an-input-method).
+Keyrill itself placed with `setMarkedText` and still owns. It is the only text the composition path
+may change; the compatibility backend is the one exception. See
+[How Keyrill works](how-it-works.md#why-an-input-method).
 
 **Plan.** Rust's answer to one key: an id, one permitted action (pass, mark, finish or unavailable),
 the text the mark must hold before the write, the text to write, and what to do with the key
@@ -189,7 +199,8 @@ Russian typed in the wrong layout.
 
 **Readback.** Reading the composition back from the client after a write, over exactly the range
 written. It is the only evidence of a write's effect that the adapter accepts; an API's success
-return is not.
+return is not. The one write verified without it is an unchanged commit that IMK or the controller
+requests, which writes back the text last verified in the mark; see [the macOS adapter](macos.md).
 
 **Receipt.** The text a word had before Keyrill first converted it, kept while the same word is
 owned so that Control-Option-Z or Escape can restore it. An edit or finishing the word expires it.

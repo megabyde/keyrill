@@ -100,9 +100,11 @@ measured end to end yet.
 
 ## Status
 
-CI runs every gate on each change: the default check on macOS, Windows and Linux, the others on
-macOS. The run page has the results and the line-level coverage report, so this page doesn't repeat
-numbers that go stale.
+CI runs on each change: the default check on macOS, Windows and Linux, the sanitizers, audit,
+coverage, Miri, fuzzing and evaluation on macOS, and the Markdown check and the site build on Linux.
+The browser fixture's self-check runs only locally (`./tools/verify browser-fixture`). The run page
+has the results and the line-level coverage report, so this page doesn't repeat numbers that go
+stale.
 
 Physical results, for the build that produced them: on the v0.1.0 source the maintainer typed by
 hand with the model policy in TextEdit, in a Safari text field and address bar, and in a Firefox

@@ -9,9 +9,9 @@ that keep this design honest.
 
 *Goal: explain how a single-threaded program can be interrupted by itself.*
 
-A single-threaded program feels safe: nothing else runs while your function runs. Keyrill's adapter
-is single-threaded, all input work happens on the main thread, and it is still not safe in that
-sense.
+A single-threaded program feels safe: nothing else runs while your function runs. In Keyrill's
+adapter all input handling runs on the main thread, with only dictionary loading on a background
+queue, and that path is still not safe in this sense.
 
 A message such as `[client markedRange]` is IPC to the application, and while the main thread waits
 for the answer, it may run a **nested run loop**: the event loop is entered again from inside the
@@ -257,8 +257,8 @@ application's own answer, the session commits exactly what the application repor
 text, once, so that the next key the user types can't replace it.
 
 > [!TIP]
-> **Remember.** Plan, apply, acknowledge, once per key. An unknown outcome stops correction and is
-> never retried.
+> **Remember.** Plan, apply, acknowledge, once per plan: one plan per key, two when a finished word
+> must be acknowledged first. An unknown outcome stops correction and is never retried.
 
 ## One word, end to end
 
@@ -297,7 +297,7 @@ With layout switching on, the default, a converted word also makes the controlle
 input mode, Russian here. `-[KeyrillAlphaController requestInputMode:client:]` sends the request
 from a block queued with `dispatch_async`, after the key has returned to the application; the block
 holds the controller weakly, as in the [Objective-C chapter](objective-c.md#blocks), and gives up if
-the selection generation moved in the meantime.
+the input-mode request generation (`_selectionGeneration`) changed in the meantime.
 
 > [!TIP]
 > **Remember.** The word stays Keyrill's own mark after Space, which is why undo is an ordinary edit

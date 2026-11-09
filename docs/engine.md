@@ -55,10 +55,11 @@ the false-change cost, and π a length penalty of 4, 2 and 1 for one, two and th
 A typed string that is a word in its own layout's lexicon (Known, reason 3) yields to the other
 reading only when it is rare and the other reading is far more frequent: its Zipf score must be
 below 3 and the candidate's must exceed it by at least 2.5, or 3.5 for a word of two UTF-16 units
-without context in the target language. A yielding word is corrected on that frequency ratio alone,
-with the ratio as its score; the character chain adds nothing for a string the lexicon already has.
-So `yf` (Zipf 2.37) becomes `на` (7.25) and `ghb` becomes `при`, while `lf` (3.40) stays `lf`. A
-word of one unit never yields; the rule counts the whole word, so `e.` is two units.
+without context in the target language. A yielding word is corrected on the frequencies alone,
+scored by the difference of the two Zipf values, which is the base-10 logarithm of their frequency
+ratio; the character chain adds nothing for a string the lexicon already has. So `yf` (Zipf 2.37)
+becomes `на` (7.25) and `ghb` becomes `при`, while `lf` (3.40) stays `lf`. A word of one unit never
+yields; the rule counts the whole word, so `e.` is two units.
 
 For a provisional word the candidate is the whole key sequence read in Russian. Case is judged on
 that reading. The English reading is the letters alone: the character chain scores them, and each

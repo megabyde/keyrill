@@ -19,6 +19,11 @@ git checkout .                     # after each exercise
 cd - && git worktree remove ../keyrill-lesson   # when finished
 ```
 
+Each exercise starts from a clean checkout. Run `git checkout .` after each one and confirm that
+`git status --short` prints nothing before you start the next; the one exception is exercise 4,
+which keeps the change from exercise 3. When you are done, remove the worktree with the last line
+above.
+
 | # | Change | Run | Question |
 | -- | -- | -- | -- |
 | 1 | Add `self.serial += 1;` as the first line of `transition` in `crates/keyrill-core/src/session.rs` | `cargo check -p keyrill-core` | Can a method that takes `&self` be made to write? |

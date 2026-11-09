@@ -17,7 +17,8 @@ needs a safe way to rewrite committed text, and none of the others supplied one
 The costs are visible: installing and selecting an input method, explaining source switching, and a
 marked word that changes underline and Undo behavior per host. Ownership checks are mandatory; a
 mark is not a document lock, and a client that ignores or rewrites a marked update can't be
-admitted. Committed-text and selection conversion are not supported.
+admitted. On this path, committed-text and selection conversion are not supported;
+[ADR 006](006-compatibility-backend.md) adds a separate backend that rewrites the tracked word.
 
 Revisit if ordinary bilingual typing, completion or Undo proves unacceptable in applications that
 matter, or if a platform offers a stronger editing transaction with adversarial evidence.

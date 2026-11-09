@@ -247,7 +247,7 @@ reference, choosing a field by number would need a pointer, or a `switch` at eve
 An Objective-C class may have instance variables of C++ class type. The compiler generates hidden
 methods that run their constructors when the object is allocated and their destructors before its
 memory is freed, so a `std::string` field starts empty and is destroyed with its object, like a
-member of a C++ class. The dictionary loader's fields show the range:
+member of a C++ class. The dictionary loader's fields show several kinds:
 
 [`native/macos/src/KRRuntime.mm:117-139`](../../native/macos/src/KRRuntime.mm#L117-L139)
 
@@ -364,8 +364,9 @@ runs and has no other owner; the array holds it, strongly, until the function re
 
 *Goal: read the places where C++'s standard library meets C and Objective-C.*
 
-A C function that fills a buffer the caller provides meets `std::vector`, C++'s growable array,
-naturally. The home directory comes from the account database, with a buffer sized by `sysconf`:
+A C function that fills a buffer the caller provides takes the buffer of a `std::vector`, C++'s
+growable array, directly. The home directory comes from the account database, with a buffer sized by
+`sysconf`:
 
 [`native/macos/src/main.mm:13-24`](../../native/macos/src/main.mm#L13-L24)
 
@@ -445,11 +446,11 @@ stack.
 
 *Goal: know why the code never compares with `YES`.*
 
-The adapter uses both, and they are not the same type. `BOOL` is Objective-C's: a real `bool` on
-Apple silicon, but a `signed char` on Intel Macs, where any nonzero byte counts as true and
-comparing a `BOOL` with `YES` can fail. The code follows one rule: `BOOL` where an Objective-C API
-says `BOOL`, in method signatures and properties, and C++ `bool` in C++ helpers and local variables.
-It never compares with `YES`.
+The adapter uses both, and whether they are the same type depends on the target. `BOOL` is
+Objective-C's: a real `bool` on Apple silicon, but a `signed char` on Intel Macs, where any nonzero
+byte counts as true and comparing a `BOOL` with `YES` can fail. The code follows one rule: `BOOL`
+where an Objective-C API says `BOOL`, in method signatures and properties, and C++ `bool` in C++
+helpers and local variables. It never compares with `YES`.
 
 > [!TIP]
 > **Remember.** Use `BOOL` at Objective-C interfaces and `bool` inside C++, and test a `BOOL` for

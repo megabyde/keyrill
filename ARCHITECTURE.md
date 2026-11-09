@@ -144,7 +144,10 @@ must not make Keyrill reproduce the unsafe edit.
 
 Automatic correction requires an enabled policy, an admitted control, no Secure Input, a known input
 mode, a complete whitespace-delimited token and no foreign composition. Exclusion is checked before
-any text is read or composition starts. Secure, read-only and uncertain controls get neither.
+any text is read or composition starts. Secure, read-only and uncertain controls must get neither,
+but the macOS adapter can't tell them apart within an application: admission is per application by
+bundle identifier, and Secure Input is one global flag, so it detects neither per-field passwords
+nor read-only or sensitive fields ([macOS](docs/macos.md)).
 
 A key is consumed only under a reviewed handling contract. A plan rejected before any write passes
 the key unchanged. Punctuation, Tab and Enter are not correction triggers: a still-owned word is
@@ -164,10 +167,10 @@ error; safety settings are never partially applied.
 An input method sees everything typed in a client that selects it. Safe Rust doesn't change that:
 native code, dependencies, the model, installation and updates are all inside the trust boundary.
 Keyrill keeps at most one word, one reversal receipt and 256 UTF-16 units of its own finished words
-in memory, clears them on invalidation, and writes none of it anywhere. Diagnostics are content-free
-counters and status. Private text can still exist in a crash dump; Keyrill doesn't claim secure
-erasure. Personal dictionaries stay user-owned, read-only and out of release assets. No telemetry,
-remote configuration, automatic update or privileged helper.
+in memory, clears them when the session is invalidated or reset, and writes none of it anywhere.
+Diagnostics are content-free counters and status. Private text can still exist in a crash dump;
+Keyrill doesn't claim secure erasure. Personal dictionaries stay user-owned, read-only and out of
+release assets. No telemetry, remote configuration, automatic update or privileged helper.
 
 ## Lifetime
 
