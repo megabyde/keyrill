@@ -1,4 +1,4 @@
-<!-- translation of docs/porting.md at 035bf26409b7eca5568d1f6495931d800f47464f -->
+<!-- translation of docs/porting.md at a1f443e9e08278979d79b0db28b8f11cedd86c68 -->
 
 # Перенос на Windows и Linux
 
@@ -107,7 +107,7 @@ flowchart TD
   `KR_ATTEMPTED_UNKNOWN`.
 - **Политика и словари.** Функция `kr_set_automatic_policy` выбирает, пока движок простаивает, одну
   из политик: «выключено», тестовую или модель. Функция `kr_set_dictionary_utf8` публикует словарь
-  целиком (не более 1 МиБ; пара NULL и 0 задаёт допустимый пустой источник); `kr_clear_dictionary`
+  целиком (не более 1 МиБ; пара NULL и 0 задаёт допустимый пустой источник); `kr_clear_dictionary`
   помечает словарь языка как отсутствующий. Дескриптор `kr_vocabulary_*` сам читает файлы и
   дожидается, пока они перестанут изменяться, как описано в разделе о
   [macOS](macos.ru.md#%D1%81%D0%BB%D0%BE%D0%B2%D0%B0%D1%80%D0%B8); последовательная очередь, в
@@ -180,7 +180,7 @@ flowchart TD
 | -- | -- | -- |
 | [`ITfContext::RequestEditSession`](https://learn.microsoft.com/en-us/windows/win32/api/msctf/nf-msctf-itfcontext-requesteditsession) | HRESULT запроса и результат сеанса возвращаются раздельно; синхронная и асинхронная выдача различаются | Проверять оба значения; обрабатывать отказ или отсрочку без правки наугад и без ошибочно поглощённой клавиши |
 | [`ITfEditSession::DoEditSession`](https://learn.microsoft.com/en-us/windows/win32/tsf/edit-sessions) | Предоставляет cookie правки для данного сеанса | Использовать cookie только в этом сеансе и никогда его не кешировать |
-| [`StartComposition`](https://learn.microsoft.com/en-us/windows/win32/api/msctf/nf-msctf-itfcontextcomposition-startcomposition) | Требует cookie записи; владелец может отказать, вернув успех и пустую композицию | Перед обновлением требовать непустую композицию и точный контекст |
+| [`StartComposition`](https://learn.microsoft.com/en-us/windows/win32/api/msctf/nf-msctf-itfcontextcomposition-startcomposition) | Требует cookie записи; владелец может отказать, вернув успех и нулевой указатель на композицию | Перед обновлением проверить, что указатель на композицию не равен `NULL`, а контекст точно тот же |
 | [`ITfRange::SetText`](https://learn.microsoft.com/en-us/windows/win32/api/msctf/nf-msctf-itfrange-settext) | Изменяет текст при наличии доступа на правку | Использовать собственный диапазон; HRESULT не является проверкой документа |
 | [`OnKeyDown` / `pfEaten`](https://learn.microsoft.com/en-us/windows/win32/api/msctf/nf-msctf-itfkeyeventsink-onkeydown) | Поглощение клавиши указывается явно | Устанавливать по фактической обработке, а не по принятому запросу блокировки |
 | [`OnCompositionTerminated`](https://learn.microsoft.com/en-us/windows/win32/api/msctf/nf-msctf-itfcompositionsink-oncompositionterminated) | Сообщает, какая композиция завершена | Сравнивать с запомненной композицией; не завершать более новую |
@@ -234,9 +234,10 @@ flowchart TD
   macOS такой признак есть только глобальный.
 - Что следует выбрать первой целью для основных рабочих столов: IBus или Fcitx 5?
 
-Контракт подтверждения пока не определён. В macOS Keyrill после каждой записи читает размеченный
-текст клиента обратно. В Linux клиент отображает preedit, переданный движком, а окружающий текст GTK
-явно исключает preedit
+Контракт подтверждения пока не определён. В macOS Keyrill читает размеченный текст клиента обратно
+после каждой записи, вызванной клавишей; без такого чтения выполняется только неизменная фиксация,
+которую запрашивает IMK. В Linux клиент отображает preedit, переданный движком, а окружающий текст
+GTK явно исключает preedit
 ([`set_surrounding_with_selection`](https://docs.gtk.org/gtk4/method.IMContext.set_surrounding_with_selection.html)),
 так что читать обратно нечего.
 

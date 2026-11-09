@@ -1,7 +1,7 @@
 # How Keyrill works
 
 This page follows one word, `ghbdtn` typed with Space in TextEdit, from the key press to the
-verified edit, and stops at each place where Keyrill could do harm and doesn't. Read it before the
+verified edit, and stops at each check Keyrill makes before and after the edit. Read it before the
 reference pages; they assume the terms defined here. The numbers come from the shipped model and the
 real C ABI, not from an illustration.
 
@@ -27,12 +27,14 @@ is fewer than one false correction per 10,000 correctly typed words.
 Keyrill doesn't watch the screen and fix text afterwards. It is the layout: you select **Keyrill
 English** or **Keyrill Russian** in place of the stock US and Russian sources, so every key reaches
 Keyrill before the application. Keyrill holds the word being typed as *marked text*, the underlined
-composition an input method owns, and replaces only that mark. Text the application has already
-committed is never rewritten: each way of doing it (counted Backspaces, a temporary selection, the
-clipboard) fails under some schedule, by deleting a key typed meanwhile, overwriting a selection or
-leaving text in clipboard history; see [architecture](../ARCHITECTURE.md#safety-invariants) and
-[ADR 005](adr/005-no-committed-text-rewrite.md). The price is visible: an underline under the
-current word and an input source to select.
+composition an input method owns, and replaces only that mark. On the composition path, text the
+application has already committed is never rewritten: each way of doing it (counted Backspaces, a
+temporary selection, the clipboard) fails under some schedule, by deleting a key typed meanwhile,
+overwriting a selection or leaving text in clipboard history; see
+[architecture](../ARCHITECTURE.md#safety-invariants) and
+[ADR 005](adr/005-no-committed-text-rewrite.md). The compatibility backend described below is the
+one exception. The price is visible: an underline under the current word and an input source to
+select.
 
 ## Who does what
 
@@ -54,9 +56,12 @@ what the plan expects, performs the write, reads the result back and reports wha
 is a proposal, never editing authority.
 
 > [!IMPORTANT]
-> Rust state advances only on a *verified acknowledgement*: the adapter read the document back and
-> it matched. A write that was attempted but can't be confirmed is reported as unknown, and
-> correction stops. Nothing is guessed, repaired or replayed.
+> Rust state advances only on a *verified acknowledgement*: every check the write requires passed,
+> and for a write a key causes that includes reading the document back and finding the expected
+> text. A commit the platform requests on focus loss writes back the text last verified in the mark
+> without reading it again; see [the macOS adapter](macos.md). A write that was attempted but can't
+> be confirmed is reported as unknown, and correction stops. Nothing is guessed, repaired or
+> replayed.
 
 ## Typing the word
 
@@ -212,11 +217,13 @@ stateDiagram-v2
 
 *Unknown* is the case that needs care. The write happened, but what the document contains is not
 what Keyrill expected, and nothing Keyrill could write next is known to be safe. If the failed check
-was the readback, Keyrill does the one thing that keeps what the user sees: it reads the marked text
-as the application reports it and commits exactly that. Otherwise it writes nothing. Either way it
-stops correcting that word. The key that carried the write is consumed, not replayed, because it may
-already be in the document. Correction resumes with the next word; a second unknown outcome in the
-same activation stops it until you switch away and back. The input menu's first line says so.
+was the readback after the write, with no reentrant call in between, Keyrill does the one thing that
+keeps what the user sees: it reads the marked text as the application reports it and, if that text
+still covers exactly the marked range, commits it unchanged. Otherwise it writes nothing. Either way
+it stops correcting that word. The key that carried the write is consumed, not replayed, because it
+may already be in the document. Correction resumes with the next word only if an earlier write in
+this activation was verified; otherwise, or after a second unknown outcome, it stays off until you
+switch away and back. The input menu's first line says so.
 
 ## Applications that can't do this
 
@@ -253,7 +260,7 @@ The [glossary](glossary.md) has the full list, with the abbreviations.
 
 | Term | Meaning |
 | -- | -- |
-| Mark, owned composition | The underlined text Keyrill placed with `setMarkedText` and still owns; the only text it may change |
+| Mark, owned composition | The underlined text Keyrill placed with `setMarkedText` and still owns; the only text the composition path may change |
 | Boundary mark | The corrected word plus Space, kept marked until the next key so the correction can be undone |
 | Plan | Rust's proposal for one key: an action, the text the mark must hold, the new mark and what to do with the key |
 | Acknowledgement | The adapter's report of a plan's outcome: verified, refused before the write, or unknown |

@@ -168,11 +168,12 @@ commits that readback with `insertText(readback, markedRange)`, then stops.
 The compatibility session watches passed-through input in bounded memory and rewrites the observed
 run by posting Backspace and Unicode key events to the captured foreground process. Automatic
 correction also requires that run to start after a Space observed since reset. The original Space
-passes and is counted in the deletion; the replacement carries its own Space. Secure Input,
-foreground identity, guard generation and session generation are rechecked before each post. A
-listen-only event tap observes mouse, navigation, shortcut and source changes without reading
-characters and expires tracking on them. Synthetic events are tagged, and a bounded expected-key
-sequence suppresses replanning when a tag is stripped.
+passes and is counted in the deletion; the replacement carries its own Space. A listen-only event
+tap, the *guard*, observes mouse, navigation, shortcut and source changes without reading characters
+and expires tracking on them; each such event, and the tap being switched off by a timeout, advances
+the process-wide *guard generation*. Secure Input, foreground identity, the guard generation and the
+session generation are rechecked before each post. Synthetic events are tagged, and a bounded
+expected-key sequence suppresses replanning when a tag is stripped.
 
 It needs Accessibility (event posting) and Input Monitoring (the guard tap) already granted, and
 only for applications in the Manual only or Automatic tier. Keyrill preflights both without
@@ -221,7 +222,7 @@ on its next activation. Dictionary contents are never displayed or logged.
 After an automatic correction Keyrill asks IMK for the Keyrill mode of the corrected language;
 manual conversion doesn't switch. Composition requests the switch with the verified word and Space
 still marked. The request runs on main after the input callback, rechecks controller, runtime,
-generation, mode, guard epoch and Secure Input, and is cancelled by newer real input or any
+generation, mode, guard generation and Secure Input, and is cancelled by newer real input or any
 lifecycle callback. It doesn't consult TIS: in the input method's process
 `TISCopyCurrentKeyboardInputSource` reports the overridden keyboard layout, such as
 `com.apple.keylayout.US`, not the Keyrill mode. `selectInputMode:` reports nothing, so a mode that

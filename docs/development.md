@@ -61,8 +61,8 @@ Public Rust items follow the
 `# Errors` (and `# Panics` or `# Safety` where they apply), and a runnable example on entry points.
 Examples are doctests, so `cargo test` compiles and runs them; use `?` with hidden
 `# fn main() -> Result<...>` lines rather than `unwrap`. Error types implement `std::error::Error`
-with content-free messages. Intra-doc links to macOS-only items break the Windows docs build, so
-name those in plain code spans. See also the
+with messages that contain no user data. Intra-doc links to macOS-only items break the Windows docs
+build, so name those in plain code spans. See also the
 [Rust Style Guide](https://doc.rust-lang.org/stable/style-guide/) and the
 [Rustonomicon](https://doc.rust-lang.org/nomicon/ffi.html) for FFI.
 
@@ -81,6 +81,8 @@ Every page the site lists has a Russian translation beside it, named with `.ru.m
 (`docs/engine.ru.md` translates `docs/engine.md`); the site's own pages have theirs in `site/ru/`.
 Change a Russian page in the same commit as its English source and copy the new `git hash-object` of
 the source into the Russian page's first line; `./tools/verify markdown` fails until the two agree.
+The English page is authoritative: where a translation differs from it, the English text applies,
+and only the English text and the license and notice files carry legal effect.
 
 CI (`.github/workflows/verify.yml`) runs the default check on `macos-15`, `windows-2025` and
 `ubuntu-24.04`, sanitizers on macOS, the Markdown check on Linux, and separate audit, coverage,

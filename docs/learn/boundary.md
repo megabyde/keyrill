@@ -51,9 +51,9 @@ the [Rust reference](https://doc.rust-lang.org/reference/unsafety.html) and the
 [Book's chapter on unsafe Rust](https://doc.rust-lang.org/book/ch20-01-unsafe-rust.html) describe.
 
 An `unsafe fn` is a function with a **precondition**, a condition the caller must make true, that
-the compiler can't check; calling it requires an `unsafe` block. In the 2024 edition the body of an
-`unsafe fn` is ordinary safe code, so each unsafe operation inside needs its own block with its own
-justification
+the compiler can't check; calling it requires an `unsafe` block. Since the 2024 edition the compiler
+warns about an unsafe operation in the body of an `unsafe fn` that sits outside its own `unsafe`
+block, so each one gets its own block with its own justification
 ([`unsafe_op_in_unsafe_fn`](https://doc.rust-lang.org/edition-guide/rust-2024/unsafe-op-in-unsafe-fn.html)),
 and the workspace raises that lint from a warning to an error.
 
@@ -584,9 +584,9 @@ through them but locking and atomic operations. An **atomic** variable is one wh
 are indivisible even across threads, and the poison flag is one, with
 [`Acquire` and `Release`](https://doc.rust-lang.org/std/sync/atomic/enum.Ordering.html) ordering:
 the rules that decide which other writes a thread is guaranteed to see. They are the same as C++'s
-`std::memory_order`, and JavaScript exposes them through
-[`Atomics`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Atomics)
-for shared memory between workers.
+`std::memory_order`. JavaScript also has atomic operations on memory shared between workers,
+[`Atomics`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Atomics),
+but they are all sequentially consistent and expose no ordering to choose.
 
 A Rust **mutex**, short for *mutual exclusion* and the name of its lock type, has poisoning of its
 own: if a thread panics while it holds the guard, later calls to `lock()` return an error rather

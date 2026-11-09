@@ -37,7 +37,7 @@ itself, like a Python `@classmethod` or a C++ `static` member function.
 | `@property(nonatomic) uint32_t mode;` | getter, setter and a field | `@property` with a setter | `get mode()` and `set mode(v)` |
 | `^BOOL { return YES; }` | a lambda | a `lambda` or nested `def` | an arrow function |
 | `@"text"`, `@[a, b]`, `@{k : v}`, `@(n)` | library types | `"text"`, `[a, b]`, `{k: v}`, `n` | `"text"`, `[a, b]`, `{k: v}`, `n` |
-| `nil`, and `[nil anything]` gives zero | `nullptr`, but a call on it crashes | `None`, and a call on it raises | `null`, closest to `obj?.method()` |
+| `nil`, and `[nil anything]` does nothing and gives zero for objects and numbers | `nullptr`, but a call on it crashes | `None`, and a call on it raises | `null`, closest to `obj?.method()` |
 | `YES`, `NO`, `BOOL` | `true`, `false`, `bool` | `True`, `False` | `true`, `false` |
 
 > [!TIP]
@@ -237,9 +237,10 @@ the controller does that to pass a new Secure Input block on to the sessions it 
 ```
 
 The last line may run while `_compatibility` is `nil`, and that is fine: a message to `nil` does
-nothing and returns zero. The language guarantees it, and **Cocoa** code, written against Apple's
-Objective-C frameworks for macOS applications, relies on it constantly, much as JavaScript code
-relies on
+nothing, and a method returning an object, a number or a pointer gives `nil` or zero (a structure
+result is not always zeroed, so don't rely on it there). The language guarantees it, and **Cocoa**
+code, written against Apple's Objective-C frameworks for macOS applications, relies on it
+constantly, much as JavaScript code relies on
 [optional chaining](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Optional_chaining),
 `obj?.method()`, except that Objective-C does it for every message without being asked. It cuts both
 ways: a wrong assumption that an object exists produces no crash and no error, only zeros, which is
@@ -252,7 +253,7 @@ function pointer `BOOL (*f)(void)`, with `^` in place of `*`.
 
 > [!TIP]
 > **Remember.** A property is a getter and a setter, written by the compiler. A message to `nil` is
-> legal and returns zero.
+> legal and does nothing; an object or number result is `nil` or zero.
 
 ## Protocols and forward declarations
 
@@ -669,8 +670,8 @@ enable.
 
 *Goal: read `main` of a program that runs until the user logs out.*
 
-An input method is an ordinary application that never shows a window of its own. `main` sets up
-AppKit, registers the controller class, creates an
+An input method is an ordinary application without a document window; Keyrill opens a window only
+for its settings, on request. `main` sets up AppKit, registers the controller class, creates an
 [`IMKServer`](https://developer.apple.com/documentation/inputmethodkit/imkserver) and runs the **run
 loop**, the main thread's event loop, forever:
 

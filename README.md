@@ -3,10 +3,11 @@
 [Русская версия](README.ru.md)
 
 Keyrill fixes English/Russian keyboard-layout mistakes as you type: `ghbdtn` becomes `привет`,
-`руддщ` becomes `hello`. It is a local input method with a Rust engine, a versioned C ABI and a
-native macOS InputMethodKit adapter. Inference runs offline against a frozen frequency model and
-your own spelling lists: Vim `.add` files if you keep them and the words you taught macOS with Learn
-Spelling. Nothing is logged, persisted or sent over the network.
+`руддщ` becomes `hello`. It is a local input method with a Rust engine, a versioned C ABI (the
+binary interface native code calls it through) and a native macOS InputMethodKit adapter. Inference,
+the decision whether a typed word is in the wrong layout, runs offline against a frozen frequency
+model and your own spelling lists: Vim `.add` files if you keep them and the words you taught macOS
+with Learn Spelling. Nothing is logged, persisted or sent over the network.
 
 > [!NOTE]
 > This is an alpha. Only macOS has an adapter. The engine and ABI are platform-neutral, and Windows
@@ -37,8 +38,11 @@ Keyrill edits text in one of three ways, chosen per application when it gains fo
 
 - **Composition** (TextEdit, Safari, Firefox): the word stays marked (underlined) while you type,
   and Keyrill replaces only that mark after checking its exact text, range and caret. If a check
-  fails, Keyrill commits the marked text as the application reports it and leaves that word alone;
-  nothing is guessed or replayed. Correction resumes with the next word; after a second failure it
+  fails before the write, Keyrill writes nothing and leaves that word alone. If the application's
+  answer after the write doesn't match, the effect is unknown: Keyrill commits the marked text
+  exactly as the application reads it back, provided it still covers the marked range, and stops
+  correcting; nothing is guessed or replayed. Correction resumes with the next word only if an
+  earlier write in this activation was verified; otherwise, or after a second unknown outcome, it
   stays off in that field until you switch away and back.
 - **Compatibility** (terminals, code editors, Microsoft Office and every application not listed):
   Control+Option+K and Control+Option+Z rewrite the word by posting Backspaces and the replacement.
@@ -99,8 +103,8 @@ To uninstall, remove both modes from Input Sources, quit the server, delete
 
 - Secure Input stops correction, but Keyrill doesn't detect every password or hidden terminal
   prompt. With Secure Input off, compatibility mode can hold sensitive typing in memory.
-- Only the word being typed can be corrected. Already committed text and selections can't be
-  converted.
+- Only the word being typed can be corrected: the mark in composition, the word Keyrill tracks in
+  compatibility mode. An arbitrary committed range or a selection can't be converted.
 - In English mode, the keys that type `[ ] ; ' , .` and `\` count as letters, because they are х, ъ,
   ж, э, б, ю and ё in Russian: `[jhjij` becomes `хорошо`. While the word is marked, an editor's
   smart quotes and automatic bracket pairing may not apply to them.

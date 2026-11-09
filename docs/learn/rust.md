@@ -26,8 +26,8 @@ compile time, and this crate is built to take advantage of it: when a rule below
 program doesn't build.
 
 > [!TIP]
-> **Remember.** An edition is a per-crate dialect of Rust; Keyrill uses 2024. The checks in this
-> chapter happen at compile time, before anything runs.
+> **Remember.** An edition is a per-crate dialect of Rust; Keyrill uses 2024. The type and borrow
+> checks in this chapter happen at compile time, before anything runs.
 
 ## Types that carry their meaning
 
@@ -242,11 +242,13 @@ block that defines a type's methods:
 ```
 
 A method's first parameter, `self`, is the object it was called on, like Python's `self` and
-JavaScript's `this`. `transition` takes `&self`, a shared borrow of the session, so it **cannot**
-change the session. The doc comment says "changes nothing", and for once a comment needs no trust:
-the compiler enforces it, as exercise 1 shows. The whole transition table, more than 150 lines, is
-therefore a pure function of the confirmed state and the event. Its caller takes `&mut self`, and it
-stores the result as a proposal, leaving the confirmed `state` alone:
+JavaScript's `this`. `transition` takes `&self`, a shared borrow of the session, and since `Session`
+holds no `Cell`, `RefCell`, `Mutex` or other type with *interior mutability* (mutation through a
+shared reference), it **cannot** change the session. The doc comment says "changes nothing", and for
+once a comment needs no trust: the compiler enforces it, as exercise 1 shows. The whole transition
+table, more than 150 lines, is therefore a pure function of the confirmed state and the event. Its
+caller takes `&mut self`, and it stores the result as a proposal, leaving the confirmed `state`
+alone:
 
 [`crates/keyrill-core/src/session.rs:363`](../../crates/keyrill-core/src/session.rs#L363)
 
@@ -293,12 +295,15 @@ next state. It copies instead, and says so in the code:
                 let mut explicit = *explicit;
 ```
 
-`clone()` makes a deep copy, like Python's `copy.deepcopy` or JavaScript's `structuredClone`, and in
-Rust it is always written out; nothing is copied behind your back the way a C++ copy constructor
-can. `*boundary` reads the `bool` that `boundary` refers to. The copies make the next property
-possible: the `Plan` returned to the adapter owns its text and borrows nothing from the session. A
-borrowed plan would keep the session locked for as long as the adapter held it, and the adapter must
-stay free to reset the session in the middle of a call to the application.
+What `clone()` copies is up to each type. For the `Vec<u16>` here it copies the whole buffer, like
+Python's `copy.deepcopy` or JavaScript's `structuredClone`; for the `Arc` later in this chapter it
+copies only a pointer and shares the value. Rust writes it out every time, and only `Copy` types
+such as `bool` and integers, plain bits, are copied implicitly; nothing runs behind your back the
+way a C++ copy constructor can. `*boundary` reads the `bool` that `boundary` refers to. The copies
+make the next property possible: the `Plan` returned to the adapter owns its text and borrows
+nothing from the session. A borrowed plan would keep the session locked for as long as the adapter
+held it, and the adapter must stay free to reset the session in the middle of a call to the
+application.
 
 ### Taking a value out exactly once
 
@@ -341,8 +346,9 @@ acknowledgement of the same id finds `None` and returns `Stale`. Nothing in this
 been used" flag, because the value itself is gone.
 
 > [!TIP]
-> **Remember.** `&self` can read and can't write; `&mut self` can do both, and only one may exist at
-> a time. Assignment moves a value unless its type is `Copy`.
+> **Remember.** Through `&self` a type without interior mutability can be read but not changed;
+> `&mut self` can do both, and only one may exist at a time. Assignment moves a value unless its
+> type is `Copy`.
 
 ## Lifetimes
 
@@ -441,7 +447,7 @@ static EMBEDDED: &[u8] = include_bytes!("../../../assets/model.bin");
 `Result<..., ModelError>` is the return type of a function that can fail; the section on errors
 below covers it.
 
-### A type without a lifetime can't hold a borrow
+### A type without a lifetime can't hold a short-lived borrow
 
 *Goal: read a missing lifetime as a promise.*
 
@@ -481,7 +487,7 @@ dictionaries; nothing in the session can point at the old ones.
 
 > [!TIP]
 > **Remember.** A lifetime names how long a borrowed reference stays valid. A type without one can't
-> hold a borrowed reference, and the compiler holds it to that.
+> hold a reference that lives shorter than `'static`, and the compiler holds it to that.
 
 ## Shared data that never changes
 
@@ -495,7 +501,8 @@ pointer: it counts how many owners share the value, frees the value when the cou
 updates the count safely from several **threads**, the independent sequences of execution inside one
 running program. It is the counterpart of C++'s `std::shared_ptr<const T>`. CPython counts
 references to every object in the same way, and adds a collector for reference cycles that Rust
-doesn't have. The value inside an `Arc` is never changed:
+doesn't have. Keyrill never changes the value inside an `Arc`; that is its snapshot policy, not
+something `Arc` itself forbids, since a value with interior mutability can still change behind one:
 
 [`crates/keyrill-core/src/vocabulary.rs:374-403`](../../crates/keyrill-core/src/vocabulary.rs#L374-L403)
 
@@ -576,8 +583,8 @@ the end of that statement; the compiler rejects the dangling reference with
 `error[E0716]: temporary value dropped while borrowed`.
 
 > [!TIP]
-> **Remember.** An `Arc` shares one value that never changes. Updating means publishing a new `Arc`,
-> while readers keep the old one.
+> **Remember.** An `Arc` shares one value. Keyrill's snapshots never change it: updating means
+> publishing a new `Arc`, while code holding the old one keeps it.
 
 ## Errors as values
 
@@ -628,8 +635,9 @@ project's **fuzzer**, a tool that feeds a program generated and damaged inputs, 
 *Goal: handle an unlikely case that must not be skipped.*
 
 [`let ... else`](https://doc.rust-lang.org/reference/statements.html#let-statements) binds a pattern
-if it matches and otherwise runs the `else` block, which must leave the function. Read it as "take
-the happy path, or get out". Here it guards the counter that numbers plans:
+if it matches and otherwise runs the `else` block, which must not continue past the statement: it
+has to return, break, continue or panic. This one returns from the function. Read it as "take the
+happy path, or get out". Here it guards the counter that numbers plans:
 
 [`crates/keyrill-core/src/session.rs:350-357`](../../crates/keyrill-core/src/session.rs#L350-L357)
 
@@ -810,8 +818,9 @@ shows.
 most once, safely even when several threads ask at the same moment. Python's
 [`functools.cache`](https://docs.python.org/3/library/functools.html#functools.cache) on a function
 without arguments is the nearest relative, except that it may run the function twice under
-contention and `OnceLock` never does. Here it validates the 5.6 MB model once per process, however
-many engines ask for it.
+contention, while `OnceLock` runs a successful initializer only once (one that panics leaves the
+cell empty for the next caller). Here it validates the 5.6 MB model once per process, however many
+engines ask for it.
 
 > [!TIP]
 > **Remember.** Iterator chains are lazy and compile to loops. A closure parameter is how Rust code

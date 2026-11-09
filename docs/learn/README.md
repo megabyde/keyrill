@@ -2,10 +2,10 @@
 
 This is a guided reading of a real program, written for a programmer who knows C++, Python or
 JavaScript and wants to learn [Rust](https://www.rust-lang.org/) and
-[Objective-C++](https://en.wikipedia.org/wiki/Objective-C#Objective-C++) on code that does
-something. Keyrill is an **input method**, the kind of program that sits between the keyboard and
-every application and decides what text a key produces; this one fixes words typed in the wrong
-keyboard layout, such as `ghbdtn` typed on the US layout when `привет` was meant.
+[Objective-C++](https://en.wikipedia.org/wiki/Objective-C#Objective-C++) on working input-method
+code. Keyrill is an **input method**, the kind of program that sits between the keyboard and every
+application and decides what text a key produces; this one fixes words typed in the wrong keyboard
+layout, such as `ghbdtn` typed on the US layout when `привет` was meant.
 
 The walkthrough asks for work. Read every excerpt, not only the text around it; run the commands; do
 the exercises at the end before you look at the answers. A chapter read without the code teaches the
@@ -15,11 +15,13 @@ words and not the language.
 
 *Goal: know what the formatting means before you start.*
 
-Every section opens with a line like the one above: what you will be able to do once you have read
-it. A new term is set in **bold** where it first appears and is defined in the same sentence or the
-next; later chapters link back to it, and the [glossary](../glossary.md) lists them all. Where an
-idea has a counterpart in C++, Python or JavaScript, the text names it and says where the comparison
-stops being true. Each section ends with a box of one or two facts to keep.
+Every top-level section of this page and the five chapters opens with a line like the one above:
+what you will be able to do once you have read it. A subsection may add its own goal line, and the
+exercises chapter has one goal for the whole workbook. A new term is set in **bold** where it first
+appears and is defined in the same sentence or the next; later chapters link back to it, and the
+[glossary](../glossary.md) lists them all. Where an idea has a counterpart in C++, Python or
+JavaScript, the text names it and says where the comparison stops being true. Each of those sections
+ends with a box of one or two facts to keep.
 
 Every code **excerpt** is copied from this repository and captioned with its path and line numbers;
 the caption links to the same lines on GitHub. `tools/check-excerpts.py` compares each excerpt with
@@ -67,8 +69,8 @@ platform's own code, the part written against Apple's frameworks.
 Rust holds the decision and the state, because its compiler can prove things about them: that a
 function can't change what it only reads, that every case of a choice is handled, that no reference
 outlives its data. Objective-C++ holds the conversation with macOS and with the application being
-typed into. Nothing can be proven there, because the other side is someone else's program, so every
-answer it gives is checked.
+typed into. The Rust compiler can't prove anything about the host application, because it is someone
+else's program, so the adapter checks every answer it gives.
 
 ```mermaid
 flowchart TD
