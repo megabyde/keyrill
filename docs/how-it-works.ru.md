@@ -1,4 +1,4 @@
-<!-- translation of docs/how-it-works.md at e716986176763620c73a838edb2c9b12ff51ccc5 -->
+<!-- translation of docs/how-it-works.md at 5aa44572b106836831a577b99ebd2e98468ba3e2 -->
 
 # Как работает Keyrill
 
@@ -227,12 +227,12 @@ stateDiagram-v2
     [*] --> Planned: kr_plan_event
     Planned --> Refused: проверка до записи не прошла
     Planned --> Written: запись выполнена
-    Written --> Verified: обратное чтение совпало
+    Written --> Verified: проверки после записи пройдены,<br/>для набранной клавиши и обратное чтение
     Written --> Unknown: обратное чтение отличается, отсутствует<br/>или вмешался обратный вызов
     Refused --> [*]: REFUSED_BEFORE_WRITE,<br/>клавиша проходит, документ не тронут
     Verified --> [*]: APPLIED_VERIFIED,<br/>состояние Rust продвигается
     Unknown --> Stopped: ATTEMPTED_UNKNOWN
-    Stopped --> [*]: после неудачной проверки один раз<br/>зафиксировать прочитанное у приложения
+    Stopped --> [*]: после неудачной проверки ответа приложения<br/>один раз зафиксировать прочитанное у него
 ```
 
 Особой осторожности требует неизвестный исход. Запись произошла, но документ содержит не то, чего

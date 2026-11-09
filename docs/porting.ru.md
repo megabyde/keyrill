@@ -1,4 +1,4 @@
-<!-- translation of docs/porting.md at d6edda69f3cef0f4a4c4226ee81faaaca85f69fc -->
+<!-- translation of docs/porting.md at 97e9dce4554c7540fb3d16812922c55f8b9d38c6 -->
 
 # Перенос на Windows и Linux
 
@@ -76,7 +76,7 @@ flowchart TD
     A -->|"MARK, FINISH"| V{"Композиция содержит<br/>ровно expected?"}
     V -->|нет| R["kr_commit REFUSED_BEFORE_WRITE;<br/>клавиша проходит"]
     V -->|да| W[Одна нативная запись]
-    W --> RB{Обратное чтение совпадает с mark?}
+    W --> RB{"Проверки после записи пройдены?<br/>Обратное чтение, кроме неизменной фиксации по запросу"}
     RB -->|да| OK["kr_commit APPLIED_VERIFIED"]
     RB -->|"нет или нельзя сказать"| U["kr_commit ATTEMPTED_UNKNOWN;<br/>остановиться, никогда не повторять"]
     OK --> D{судьба клавиши}
