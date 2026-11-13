@@ -160,7 +160,7 @@ struct CallbackScope {
 };
 ```
 
-[`native/macos/src/KRController.mm:616-620`](../../native/macos/src/KRController.mm#L616-L620)
+[`native/macos/src/KRController.mm:614-618`](../../native/macos/src/KRController.mm#L614-L618)
 
 ```obj-c++
 - (BOOL)handleEvent:(NSEvent *)event client:(id)sender {
@@ -327,7 +327,7 @@ The reverse also works. A C++ struct may hold pointers to Objective-C objects, a
 releases them as the struct is created, copied and destroyed. The input menu describes its items as
 a local table:
 
-[`native/macos/src/KRController.mm:442-461`](../../native/macos/src/KRController.mm#L442-L461)
+[`native/macos/src/KRController.mm:450-469`](../../native/macos/src/KRController.mm#L450-L469)
 
 ```obj-c++
   struct Choice {

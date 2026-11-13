@@ -1,4 +1,4 @@
-<!-- translation of docs/learn/objective-cpp.md at e7bde69d3356bfc482d757917363bb626a5dd3bb -->
+<!-- translation of docs/learn/objective-cpp.md at 47d51c114f38a3bf9ba69baecd09c9f06c4d5545 -->
 
 # Objective-C++
 
@@ -172,7 +172,7 @@ struct CallbackScope {
 };
 ```
 
-[`native/macos/src/KRController.mm:616-620`](../../native/macos/src/KRController.mm#L616-L620)
+[`native/macos/src/KRController.mm:614-618`](../../native/macos/src/KRController.mm#L614-L618)
 
 ```obj-c++
 - (BOOL)handleEvent:(NSEvent *)event client:(id)sender {
@@ -347,7 +347,7 @@ C++, который этот массив содержит, — может.
 и освобождает их при создании, копировании и уничтожении структуры. Меню ввода описывает свои пункты
 локальной таблицей:
 
-[`native/macos/src/KRController.mm:442-461`](../../native/macos/src/KRController.mm#L442-L461)
+[`native/macos/src/KRController.mm:450-469`](../../native/macos/src/KRController.mm#L450-L469)
 
 ```obj-c++
   struct Choice {

@@ -15,9 +15,9 @@ with Learn Spelling. Nothing is logged, persisted or sent over the network.
 
 ## How it works
 
-You select **Keyrill English** or **Keyrill Russian** as the input source in place of the stock U.S.
-and Russian layouts. When you press Space, Keyrill decides whether the word you just typed was meant
-for the other layout and, if the evidence is strong enough, replaces it. Unknown, technical,
+You select **Keyrill EN** or **Keyrill RU** as the input source in place of the stock U.S. and
+Russian layouts. When you press Space, Keyrill decides whether the word you just typed was meant for
+the other layout and, if the evidence is strong enough, replaces it. Unknown, technical,
 mixed-script, mixed-case and personally protected words stay as typed: the engine prefers a missed
 correction to a wrong one.
 
@@ -27,8 +27,8 @@ correction to a wrong one.
 | Undo a correction, right after it and before the next key | Control+Option+Z |
 | Restore the original and keep it | Escape, while the word is still marked |
 
-The input menu lists both shortcuts and leads with one line saying whether automatic correction is
-ready in the current application, and if not, why.
+The input menu leads with one line saying whether automatic correction is ready in the current
+application, and if not, why; the lines below it appear only when something needs attention.
 
 After an automatic correction, Keyrill switches to the input mode that matches the corrected
 language, so the next word is typed in the right layout; undoing the correction switches back. Turn
@@ -53,8 +53,8 @@ Keyrill edits text in one of three ways, chosen per application when it gains fo
   for the trade-off.
 - **Off** (password managers, remote desktops, virtual machines): keys pass through untouched.
 
-The input menu shows the current application's mode; **Correction in This App** changes it. The
-built-in lists are in [macOS adapter](docs/macos.md#application-tiers).
+**Correction in This App** in the input menu shows the current application's mode and changes it.
+The built-in lists are in [macOS adapter](docs/macos.md#application-tiers).
 
 ## Install from source
 
@@ -73,9 +73,8 @@ from `rust-toolchain.toml` on first use).
    `make install SIGN_IDENTITY="Keyrill Local"`. `make bundle` builds and signs
    `target/alpha.noindex/KeyrillAlpha.app` without installing it.
 
-1. In System Settings > Keyboard > Input Sources, add **Keyrill English** and **Keyrill Russian**
-   and select one of them. A newly installed input method sometimes appears only after logging out
-   and back in.
+1. In System Settings > Keyboard > Input Sources, add **Keyrill EN** and **Keyrill RU** and select
+   one of them. A newly installed input method sometimes appears only after logging out and back in.
 
 1. Open **Settings…** from the Keyrill input menu, enable automatic correction, and check the
    English and Russian dictionary files. The defaults are `~/.vim/spell/en.utf-8.add` and

@@ -220,13 +220,13 @@ getter:
 When a class writes its own setter, it must say which field the property uses, with `@synthesize`;
 the controller does that to pass a new Secure Input block on to the sessions it owns:
 
-[`native/macos/src/KRController.mm:168`](../../native/macos/src/KRController.mm#L168)
+[`native/macos/src/KRController.mm:175`](../../native/macos/src/KRController.mm#L175)
 
 ```obj-c++
 @synthesize secureInputEnabled = _secureInputEnabled;
 ```
 
-[`native/macos/src/KRController.mm:197-201`](../../native/macos/src/KRController.mm#L197-L201)
+[`native/macos/src/KRController.mm:204-208`](../../native/macos/src/KRController.mm#L204-L208)
 
 ```obj-c++
 - (void)setSecureInputEnabled:(BOOL (^)(void))block {
@@ -385,7 +385,7 @@ Foundation, Apple's base library, has collections that hold objects only, and th
 [literal syntax](https://clang.llvm.org/docs/ObjectiveCLiterals.html) makes them short to write. A
 per-application setting is updated like this:
 
-[`native/macos/src/KRController.mm:522-527`](../../native/macos/src/KRController.mm#L522-L527)
+[`native/macos/src/KRController.mm:520-525`](../../native/macos/src/KRController.mm#L520-L525)
 
 ```obj-c++
   NSMutableDictionary *tiers = [runtime.tierOverrides mutableCopy];
@@ -490,7 +490,7 @@ A block keeps the objects it captures alive, which makes retain cycles easy: an 
 block that captures the object keeps itself alive. Work put off until later is where this matters
 most, and the adapter answers it with the *weak-strong* pattern:
 
-[`native/macos/src/KRController.mm:304-310`](../../native/macos/src/KRController.mm#L304-L310)
+[`native/macos/src/KRController.mm:311-317`](../../native/macos/src/KRController.mm#L311-L317)
 
 ```obj-c++
   // Permissions granted after launch take effect here; tap creation can't run in a callback
@@ -647,7 +647,7 @@ and events, use selectors for
 a menu item stores a selector and, when chosen, sends that message to its target. The input menu's
 "Correction in This App" items each name a one-line method:
 
-[`native/macos/src/KRController.mm:542-545`](../../native/macos/src/KRController.mm#L542-L545)
+[`native/macos/src/KRController.mm:540-543`](../../native/macos/src/KRController.mm#L540-L543)
 
 ```obj-c++
 - (void)useDefaultTier:(id)sender {

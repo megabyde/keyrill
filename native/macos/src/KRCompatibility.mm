@@ -5,6 +5,8 @@
 #include <array>
 #include <limits>
 
+NSString *const KRCompatibilityReady = @"Compatibility: ready";
+
 namespace {
 
 // "KEYRILLC" in ASCII, stored in kCGEventSourceUserData of every posted event
@@ -397,7 +399,7 @@ KRCompatibilityDispatch dispatch(pid_t pid, const kr_compatibility_plan *plan,
     return;
   [self invalidate];
   _stopped = _poisoned || !_engine;
-  _statusTitle = _stopped ? @"Compatibility: engine unavailable" : @"Compatibility: ready";
+  _statusTitle = _stopped ? @"Compatibility: engine unavailable" : KRCompatibilityReady;
 }
 
 - (void)keepAcrossAutomaticSwitchToMode:(uint32_t)mode {
@@ -513,7 +515,7 @@ KRCompatibilityDispatch dispatch(pid_t pid, const kr_compatibility_plan *plan,
         _statusTitle = @"Compatibility: observation refused";
         return reserved;
       }
-      _statusTitle = @"Compatibility: ready";
+      _statusTitle = KRCompatibilityReady;
       return plan.disposition == KR_KEY_CONSUMED;
     }
     // A stripped echo that reaches tracking must not start another rewrite by itself
@@ -575,7 +577,7 @@ KRCompatibilityDispatch dispatch(pid_t pid, const kr_compatibility_plan *plan,
       _statusTitle = _stopped ? @"Compatibility paused until reactivation; check your recent text"
                               : @"Compatibility: rewrite refused before dispatch";
     } else {
-      _statusTitle = @"Compatibility: ready";
+      _statusTitle = KRCompatibilityReady;
       if (!reserved && input->role == KR_TEXT && input->len == 1 && input->units[0] == 32)
         _automaticSwitchMode = _mode == KR_EN ? KR_RU : KR_EN;
       // Undoing a correction in the mode Keyrill switched to also undoes the switch

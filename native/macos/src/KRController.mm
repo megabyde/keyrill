@@ -77,6 +77,13 @@ NSString *sourceState(KRSourceStatus status) {
   return nil;
 }
 
+// A source line only for a state the user can act on; loading shows in the status line
+NSString *sourceProblem(NSString *name, KRSourceStatus status) {
+  if (status != KRSourceStatusMissing && status != KRSourceStatusRetained)
+    return nil;
+  return [NSString stringWithFormat:@"%@: %@", name, sourceState(status)];
+}
+
 void addStatusItem(NSMenu *menu, NSString *title) {
   if (title)
     [menu addItemWithTitle:title action:nil keyEquivalent:@""].enabled = NO;
@@ -437,8 +444,9 @@ static NSString *keyboardForMode(uint32_t mode) {
       (usesCompatibility(fallback) || [chosen isEqualToString:@"manual"] ||
        [chosen isEqualToString:@"automatic"]))
     origin = @" (compatibility mode is off)";
-  addStatusItem(menu, [NSString stringWithFormat:@"This app: %@%@", tierName(_tier), origin]);
   NSMenu *choices = [[NSMenu alloc] initWithTitle:@"Correction in This App"];
+  addStatusItem(choices, [NSString stringWithFormat:@"This app: %@%@", tierName(_tier), origin]);
+  [choices addItem:NSMenuItem.separatorItem];
   struct Choice {
     NSString *title;
     SEL action;
@@ -479,16 +487,9 @@ static NSString *keyboardForMode(uint32_t mode) {
   bool paused = (_tier == KRTierComposition && _session.stopped) ||
                 (usesCompatibility(_tier) && _compatibility.stopped);
   addStatusItem(menu, correctionTitle(status, _tier, compatibilityProblem, paused));
-  if (_tier != KRTierOff) {
-    addStatusItem(menu, @"Convert the current word: Control-Option-K");
-    addStatusItem(menu, @"Undo a correction before the next key: Control-Option-Z");
-  }
-  [self addTierItemsTo:menu];
+  // Below the status line, only what explains a failure; the rest is in Settings
   if (_tierStatus)
     addStatusItem(menu, _tierStatus);
-  addStatusItem(menu, _mode == KR_RU ? @"Typing mode: Russian" : @"Typing mode: English");
-  addStatusItem(menu, runtime.automaticInputSourceSwitching ? @"Layout switching: on"
-                                                            : @"Layout switching: off");
   if (_layoutSwitchStatus)
     addStatusItem(menu, _layoutSwitchStatus);
   if (usesCompatibility(_tier)) {
@@ -496,18 +497,15 @@ static NSString *keyboardForMode(uint32_t mode) {
       addStatusItem(menu, @"Permission needed: Device Control and Data Access (Accessibility)");
     if (!listening)
       addStatusItem(menu, @"Permission needed: Input Monitoring");
-    if (!compatibilityProblem)
+    if (!compatibilityProblem && ![_compatibility.statusTitle isEqualToString:KRCompatibilityReady])
       addStatusItem(menu, _compatibility.statusTitle);
   }
   if (_tier == KRTierComposition && _session)
     addStatusItem(menu, inputTitle(_session.inputStatus));
-  NSString *english = sourceState(status.english), *russian = sourceState(status.russian);
-  if (english)
-    addStatusItem(menu, [@"English dictionary: " stringByAppendingString:english]);
-  if (russian)
-    addStatusItem(menu, [@"Russian dictionary: " stringByAppendingString:russian]);
-  if (NSString *learned = sourceState(status.learned))
-    addStatusItem(menu, [@"Learned words: " stringByAppendingString:learned]);
+  addStatusItem(menu, sourceProblem(@"English dictionary", status.english));
+  addStatusItem(menu, sourceProblem(@"Russian dictionary", status.russian));
+  addStatusItem(menu, sourceProblem(@"Learned words", status.learned));
+  [self addTierItemsTo:menu];
   [menu addItem:NSMenuItem.separatorItem];
   [menu addItemWithTitle:@"Settings…" action:@selector(showPreferences:) keyEquivalent:@""];
   return menu;
