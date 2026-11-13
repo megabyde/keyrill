@@ -34,7 +34,7 @@ Russian mode these keys are letters and nothing else changes.
 At Space, `Session::propose_with_inference` evaluates the owned complete word against borrowed model
 and vocabulary snapshots and keeps no borrowed input in its pending plan. After the eligibility,
 personal-vocabulary and known-word checks below, a typed word *w* whose other-layout reading *c* is
-in the target lexicon with Zipf at least 3 is corrected when
+in the target lexicon with Zipf at least 2.5 is corrected when
 
 ```math
 \log_{10} f_{\text{target}}(c) - \log_{10} P_{\text{source}}(w) + \log_{10}\frac{p}{1-p} + \log_{10} k
@@ -49,8 +49,8 @@ the false-change cost, and π a length penalty of 4, 2 and 1 for one, two and th
 
 > [!NOTE]
 > These are uncalibrated ranking parameters, not probabilities; the numeric domain limits the Zipf
-> values and margins to 0..=9. The minimum candidate Zipf and the gate values were chosen on the dev
-> split of the [evaluation](#evaluation).
+> values and margins to 0..=9. The [evaluation](#evaluation) records their measured behavior and the
+> limits of the policy experiments.
 
 A typed string that is a word in its own layout's lexicon (Known, reason 3) yields to the other
 reading only when it is rare and the other reading is far more frequent: its Zipf score must be
@@ -67,6 +67,11 @@ provisional unit before, inside or after the letters adds log10 of how often suc
 appears there in English words (−2.3, −1.6 and −1.0, measured on the EWT dev split). Only
 punctuation at the end leaves an English core, and that core gets known-word protection, so `it.`
 doesn't become `шею` and `he,` doesn't become `руб`. A word without letters is ineligible.
+
+A three-unit word with a candidate Zipf of at least 4 gets another 3 log10 units of evidence per
+leading provisional unit, unless context supports the source language. This lets `[eq` become `хуй`
+and `,kz` become `бля` without preceding context. It can also convert an intentional literal
+fragment; personal-vocabulary and known-word protection still apply before scoring.
 
 The engine abstains on unknown modes, unsupported or mixed-script tokens, mixed case, multi-letter
 all-capital words and invalid policy values. A single initial capital is eligible (`Ghbdtn` becomes
@@ -168,8 +173,9 @@ the source itself, see [`model/README.md`](../model/README.md).
 `./tools/verify evaluate` runs `model/tools/evaluate.py` against `tools/inference-probe`, offline,
 over the pinned Universal Dependencies dev and test splits of English EWT and Russian Taiga, and
 fails if a gate below fails. Reports, including every false correction, go to
-`target/evaluation/docs/results/`. No personal dictionary is read. Parameters are chosen on the dev
-split; the test split is only reported and gated.
+`target/evaluation/docs/results/`. No personal dictionary is read. The current policy was selected
+on dev after inspecting earlier holdout and test failures; repeated test results are exploratory,
+not independent confirmation.
 
 The evaluation types text through the real `Session` the way the macOS adapter drives it: a word
 starts only after whitespace or at the start of the document, a write is applied only if the
@@ -198,31 +204,32 @@ Results with the default policy:
 
 | Split | RU token / first-error recall | EN token / first-error recall | Right-layout false | Typo false (per 10,000) | Other negatives false |
 | -- | -: | -: | -: | -: | -: |
-| dev | 49.7% / 50.4% | 61.1% / 47.4% | 0 of 35,031 | 20 EN (0.80), 24 RU (0.60) | 1 translit of 5,197 |
-| test | 46.1% / 47.7% | 60.5% / 47.0% | 0 of 33,899 | 17 EN (0.69), 21 RU (0.60) | 0 |
+| dev | 54.5% / 54.2% | 62.0% / 48.4% | 0 of 35,031 | 23 EN (0.92), 29 RU (0.73) | 1 translit of 5,197 |
+| test | 49.7% / 50.7% | 61.6% / 48.0% | 0 of 33,899 | 24 EN (0.97), 23 RU (0.66) | 0 |
 
-Correct corpus words, known or not, and names still never reach the scoring step, so they guard
-against regressions but can't choose a threshold. Typos and transliterations do: about 350 of the
-roughly 600,000 typos per split reach scoring, and they are what bounds the minimum candidate Zipf.
-The known-word gate can only open for lexicon words, so its whole exposure is the list of lexicon
-words whose other reading passes it, which the negative set below pins.
+Correct corpus words, known or not, never reach the scoring step; names reach it once on test and
+never on dev. These cases guard against regressions but supply little evidence for choosing a
+threshold. Typos and transliterations do: about 600 of the roughly 600,000 typos per split reach
+scoring, and they are what bounds the minimum candidate Zipf. The known-word gate can only open for
+lexicon words, so its whole exposure is the list of lexicon words whose other reading passes it,
+which the negative set below pins.
 
-Most remaining misses have one of three causes. A word followed by punctuation never sees Space, and
-only Space triggers inference (14% of Russian and 12% of English error tokens on dev). A typed
-string is a lexicon word that doesn't yield, such as `lf` for да (16% and 10%). And English
-candidates score below the length-adjusted threshold (10% of English).
+Remaining misses include words finished by punctuation rather than Space, protected lexicon words
+such as `lf` for да, candidates absent from the model or below the frequency floor, and candidates
+whose scores remain below the length-adjusted threshold. Return and Tab also finish the word without
+running inference.
 
 The gates, in `tools/evaluate-model.py`, apply to both splits:
 
 | Gate | Bound | Why |
 | -- | -: | -- |
-| Token recall, RU / EN | ≥ 44% / ≥ 58% | About two points under the lower split |
-| First-error recall, RU and EN | ≥ 45% | About two points under the lower split |
+| Token recall, RU / EN | ≥ 44% / ≥ 58% | About two points under the original policy's lower split |
+| First-error recall, RU and EN | ≥ 45% | About two points under the original policy's lower split |
 | Right-layout false corrections, both languages | ≤ 2 | Measured 0; 2 of about 34,000 tokens is under 1 per 10,000 |
 | Wrong-layout miscorrections | ≤ 2 | Measured 0 |
 | Known, OOV and name false corrections | ≤ 2 | Measured 0 |
 | Transliteration false corrections | ≤ 3 | Measured 1 on dev, 0 on test |
-| Typo false corrections, per language | ≤ 1 per 10,000 | Measured 0.60 to 0.80 |
+| Typo false corrections, per language | ≤ 1 per 10,000 | Measured 0.66 to 0.97 |
 
 > [!IMPORTANT]
 > Errors are synthetic, typos and transliterations are generated, every sentence is typed without
