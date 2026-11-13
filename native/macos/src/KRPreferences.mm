@@ -42,13 +42,15 @@ NSTextField *label(NSString *text) {
 
 - (instancetype)initWithPreferences:(NSDictionary *)preferences
                               apply:(BOOL (^)(NSDictionary *))apply {
-  NSWindow *window =
-      [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 520, 260)
-                                  styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
-                                    backing:NSBackingStoreBuffered
-                                      defer:YES];
+  NSPanel *window =
+      [[NSPanel alloc] initWithContentRect:NSMakeRect(0, 0, 520, 260)
+                                 styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
+                                           NSWindowStyleMaskNonactivatingPanel
+                                   backing:NSBackingStoreBuffered
+                                     defer:YES];
   window.title = @"Keyrill Settings";
   window.releasedWhenClosed = NO;
+  window.hidesOnDeactivate = NO;
   if ((self = [super initWithWindow:window])) {
     _snapshot = preferences ? [preferences copy] : @{};
     _apply = [apply copy];
@@ -157,8 +159,6 @@ NSTextField *label(NSString *text) {
 - (void)showWindow:(id)sender {
   [self.window center];
   [super showWindow:sender];
-  // The input method is a UI-element process, so its window does not come forward by itself
-  [NSApp activateIgnoringOtherApps:YES];
 }
 
 - (void)choose:(NSButton *)sender {
