@@ -1,4 +1,4 @@
-<!-- translation of docs/learn/objective-c.md at 19001764f0b914c2bc84c87f6dcb610503c5be70 -->
+<!-- translation of docs/learn/objective-c.md at e6aa5591ae3e9b85a73416271520d1473328d340 -->
 
 # Objective-C
 
@@ -230,13 +230,13 @@ ARC (он описан ниже, в разделе «Память: ARC») осв
 пользуется свойство; контроллер делает это, чтобы передавать новый блок Secure Input принадлежащим
 ему сеансам:
 
-[`native/macos/src/KRController.mm:168`](../../native/macos/src/KRController.mm#L168)
+[`native/macos/src/KRController.mm:175`](../../native/macos/src/KRController.mm#L175)
 
 ```obj-c++
 @synthesize secureInputEnabled = _secureInputEnabled;
 ```
 
-[`native/macos/src/KRController.mm:197-201`](../../native/macos/src/KRController.mm#L197-L201)
+[`native/macos/src/KRController.mm:204-208`](../../native/macos/src/KRController.mm#L204-L208)
 
 ```obj-c++
 - (void)setSecureInputEnabled:(BOOL (^)(void))block {
@@ -398,7 +398,7 @@ typedef NS_ENUM(uint8_t, KRInputStatus) {
 [синтаксис литералов](https://clang.llvm.org/docs/ObjectiveCLiterals.html) позволяет записывать их
 кратко. Настройка для отдельного приложения обновляется так:
 
-[`native/macos/src/KRController.mm:522-527`](../../native/macos/src/KRController.mm#L522-L527)
+[`native/macos/src/KRController.mm:520-525`](../../native/macos/src/KRController.mm#L520-L525)
 
 ```obj-c++
   NSMutableDictionary *tiers = [runtime.tierOverrides mutableCopy];
@@ -510,7 +510,7 @@ InputMethodKit отпускает последнюю ссылку на данн�
 проявляется при работе, отложенной на будущее, и адаптер решает эту задачу по схеме *«слабая
 ссылка — сильная ссылка»*:
 
-[`native/macos/src/KRController.mm:304-310`](../../native/macos/src/KRController.mm#L304-L310)
+[`native/macos/src/KRController.mm:311-317`](../../native/macos/src/KRController.mm#L311-L317)
 
 ```obj-c++
   // Permissions granted after launch take effect here; tap creation can't run in a callback
@@ -673,7 +673,7 @@ Objective-C++ различно; почему это важно для данно
 пункт меню хранит селектор и при выборе посылает это сообщение своей цели. Каждый пункт «Correction
 in This App» в меню ввода указывает на метод из одной строки:
 
-[`native/macos/src/KRController.mm:542-545`](../../native/macos/src/KRController.mm#L542-L545)
+[`native/macos/src/KRController.mm:540-543`](../../native/macos/src/KRController.mm#L540-L543)
 
 ```obj-c++
 - (void)useDefaultTier:(id)sender {

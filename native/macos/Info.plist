@@ -27,6 +27,7 @@
       <dict>
         <key>TISInputSourceID</key><string>org.keyrill.inputmethod.alpha.English</string>
         <key>TISIntendedLanguage</key><string>en</string>
+        <key>TISIconLabels</key><dict><key>Primary</key><string>EN</string></dict>
         <key>tsInputModeMenuIconFileKey</key><string>KeyrillEnglishTemplate.tif</string>
         <key>tsInputModeAlternateMenuIconFileKey</key><string>KeyrillEnglishSelected.tif</string>
         <key>tsInputModePaletteIconFileKey</key><string>KeyrillEnglishPalette.tif</string>
@@ -38,6 +39,7 @@
       <dict>
         <key>TISInputSourceID</key><string>org.keyrill.inputmethod.alpha.Russian</string>
         <key>TISIntendedLanguage</key><string>ru</string>
+        <key>TISIconLabels</key><dict><key>Primary</key><string>RU</string></dict>
         <key>tsInputModeMenuIconFileKey</key><string>KeyrillRussianTemplate.tif</string>
         <key>tsInputModeAlternateMenuIconFileKey</key><string>KeyrillRussianSelected.tif</string>
         <key>tsInputModePaletteIconFileKey</key><string>KeyrillRussianPalette.tif</string>

@@ -25,8 +25,8 @@ is fewer than one false correction per 10,000 correctly typed words.
 ## Why an input method
 
 Keyrill doesn't watch the screen and fix text afterwards. It is the layout: you select **Keyrill
-English** or **Keyrill Russian** in place of the stock US and Russian sources, so every key reaches
-Keyrill before the application. Keyrill holds the word being typed as *marked text*, the underlined
+EN** or **Keyrill RU** in place of the stock US and Russian sources, so every key reaches Keyrill
+before the application. Keyrill holds the word being typed as *marked text*, the underlined
 composition an input method owns, and replaces only that mark. On the composition path, text the
 application has already committed is never rewritten: each way of doing it (counted Backspaces, a
 temporary selection, the clipboard) fails under some schedule, by deleting a key typed meanwhile,
@@ -177,8 +177,8 @@ The plan for Space replaces the mark `ghbdtn` with `привет ` and consumes 
 inside the new mark. The word and its Space stay marked until the next key. Two things depend on
 that. The correction can still be undone exactly, because Keyrill still owns the text it would
 restore over; and the engine keeps a *receipt*, the original `ghbdtn`, valid only while that mark is
-owned. After the correction Keyrill also asks macOS to switch to **Keyrill Russian**, so the next
-word is typed in the layout the user evidently wanted.
+owned. After the correction Keyrill also asks macOS to switch to **Keyrill RU**, so the next word is
+typed in the layout the user evidently wanted.
 
 The next key first finishes the mark, then is planned as a new word:
 
