@@ -817,6 +817,40 @@ mod tests {
     }
 
     #[test]
+    fn colloquial_corrections_wait_for_space_and_keep_owned_reversal() {
+        let model = Model::embedded().unwrap();
+        let empty = crate::vocabulary::Vocabulary::parse(b"").unwrap();
+        let dictionaries = Dictionaries {
+            en: Some(&empty),
+            ru: Some(&empty),
+            learned: &[],
+        };
+        for (raw, target) in [("[eq", "хуй"), (",kz", "бля"), ("pft,bcm", "заебись")] {
+            let units = |text: &str| text.encode_utf16().collect::<Vec<_>>();
+            let mut session = Session::default();
+            type_model(&mut session, &model, dictionaries, Mode::En, raw);
+            assert_eq!(
+                model_apply(&mut session, &model, dictionaries, Mode::En, Event::Finish).text,
+                units(raw)
+            );
+            session.reset();
+            let corrected = type_model(
+                &mut session,
+                &model,
+                dictionaries,
+                Mode::En,
+                &format!("{raw} "),
+            );
+            assert_eq!(corrected.expected, units(raw));
+            assert_eq!(corrected.text, units(&format!("{target} ")));
+            assert_eq!(
+                model_apply(&mut session, &model, dictionaries, Mode::En, Event::Reverse).text,
+                units(&format!("{raw} "))
+            );
+        }
+    }
+
+    #[test]
     fn explicit_reverse_and_typo_edit_have_distinct_model_boundary_behavior() {
         let model = Model::embedded().unwrap();
         let empty = crate::vocabulary::Vocabulary::parse(b"").unwrap();

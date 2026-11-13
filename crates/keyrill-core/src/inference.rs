@@ -37,8 +37,8 @@
 //! session's recent words are in the target language, 1/19 when they are in the source language
 //! and 1 without context. The score must reach log10 of the false-correction cost, plus 4, 2 or
 //! 1 for a word of one, two or three units. The prior, the cost and the penalties are ranking
-//! parameters, not calibrated probabilities; the minimum Zipf and the known-word gate were
-//! chosen on the dev split of the evaluation (`docs/engine.md`).
+//! parameters, not calibrated probabilities; the policy is evaluated on pinned corpora
+//! (`docs/engine.md`).
 //!
 //! A typed string that is itself a word of the source lexicon is protected by that alone, and
 //! the chain is never consulted for it. It yields only when it is rare (Zipf below
@@ -53,6 +53,8 @@
 //! rarely English words carry that punctuation in that position. The core is the word up to its
 //! last letter. Only when every provisional unit trails, as in `it.`, is the core all letters,
 //! and only then can lexicon protection apply.
+//! A three-unit provisional word whose candidate has Zipf at least 4 gets another 3 log10 units
+//! of evidence per leading provisional unit, unless context supports the source language.
 
 use crate::mapping::{self, Keyboard, Mapping};
 use crate::model::{MAX_MODEL_WORD, Model};
@@ -83,7 +85,7 @@ impl Default for Policy {
         Self {
             error_prior: 0.001,
             false_correction_cost: 100.0,
-            minimum_zipf: 3.0,
+            minimum_zipf: 2.5,
             known_ceiling: 3.0,
             known_margin: 2.5,
             short_known_margin: 3.5,
@@ -394,13 +396,21 @@ pub fn infer(
             .position(|&unit| !is_provisional(unit, keyboard));
         for (at, &unit) in word.iter().enumerate() {
             if is_provisional(unit, keyboard) {
-                source_likelihood += PROVISIONAL_LOG10[if first.is_some_and(|first| at < first) {
+                let leading = first.is_some_and(|first| at < first);
+                source_likelihood += PROVISIONAL_LOG10[if leading {
                     0
                 } else if at < core.len() {
                     1
                 } else {
                     2
                 }];
+                if word.len() == 3
+                    && request.context != Some(active)
+                    && leading
+                    && frequency + 9.0 >= 4.0
+                {
+                    source_likelihood -= 3.0;
+                }
             }
         }
     }
@@ -687,6 +697,23 @@ mod tests {
             ("{jhjij", Mode::En, None, apple, corrected("Хорошо")),
             ("\"nj", Mode::En, None, apple, corrected("Это")),
             ("\\krf", Mode::En, None, apple, corrected("ёлка")),
+            ("[eq", Mode::En, None, apple, corrected("хуй")),
+            (",kz", Mode::En, None, apple, corrected("бля")),
+            ("'[j", Mode::En, None, apple, corrected("эхо")),
+            ("[eq", Mode::En, Some(Mode::Ru), apple, corrected("хуй")),
+            ("[eq", Mode::En, Some(Mode::En), apple, (Reason::Weak, None)),
+            ("'qh", Mode::En, None, apple, (Reason::Weak, None)),
+            ("e[j", Mode::En, None, apple, (Reason::Weak, None)),
+            (
+                "cerf",
+                Mode::En,
+                Some(Mode::Ru),
+                apple,
+                (Reason::Known, None),
+            ),
+            ("pft,bcm", Mode::En, None, apple, corrected("заебись")),
+            ("[eq", Mode::En, None, Keyboard::Pc, corrected("хуй")),
+            (",kz", Mode::En, None, Keyboard::Pc, corrected("бля")),
             ("`krf", Mode::En, None, Keyboard::Pc, corrected("ёлка")),
             ("`krf", Mode::En, None, apple, (Reason::Ineligible, None)),
             (
@@ -715,6 +742,64 @@ mod tests {
             ("[jhjij", Mode::Ru, None, apple, (Reason::Ineligible, None)),
         ] {
             assert_eq!(decide(raw, active, context, keyboard), expected, "{raw}");
+        }
+    }
+
+    #[test]
+    fn colloquial_candidates_keep_vocabulary_and_intent_guards() {
+        let model = Model::embedded().unwrap();
+        let empty = Vocabulary::parse(b"").unwrap();
+        for (raw, target) in [("[eq", "хуй"), (",kz", "бля"), ("pft,bcm", "заебись")] {
+            let word: Vec<_> = raw.encode_utf16().collect();
+            let request = Request {
+                word: &word,
+                active: Some(Mode::En),
+                context: None,
+                keyboard: Keyboard::Apple,
+                explicit_intent: false,
+            };
+            let ready = Dictionaries {
+                en: Some(&empty),
+                ru: Some(&empty),
+                learned: &[],
+            };
+            let protected = Vocabulary::parse(raw.as_bytes()).unwrap();
+            let forbidden = Vocabulary::parse(format!("{target}/!").as_bytes()).unwrap();
+            for (dictionaries, request, expected) in [
+                (
+                    Dictionaries {
+                        en: Some(&protected),
+                        ..ready
+                    },
+                    request,
+                    Reason::Personal,
+                ),
+                (
+                    Dictionaries {
+                        ru: Some(&forbidden),
+                        ..ready
+                    },
+                    request,
+                    Reason::Forbidden,
+                ),
+                (
+                    Dictionaries::default(),
+                    request,
+                    Reason::DictionariesMissing,
+                ),
+                (
+                    ready,
+                    Request {
+                        explicit_intent: true,
+                        ..request
+                    },
+                    Reason::ExplicitIntent,
+                ),
+            ] {
+                let decision = infer(&model, dictionaries, Policy::default(), request);
+                assert_eq!(decision.reason, expected, "{raw}");
+                assert!(decision.replacement.is_none(), "{raw}");
+            }
         }
     }
 

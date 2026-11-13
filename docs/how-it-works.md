@@ -126,7 +126,7 @@ flowchart TD
     K -->|"yes, otherwise"| A3[Leave: known word]
     K -->|no| F{"Other reading<br/>forbidden by you?"}
     F -->|yes| A4[Leave: forbidden]
-    F -->|no| Z{"Other reading in the lexicon,<br/>Zipf at least 3?"}
+    F -->|no| Z{"Other reading in the lexicon,<br/>Zipf at least 2.5?"}
     Z -->|no| A5[Leave: too weak]
     Z -->|yes| S{"A yielding known word,<br/>or score above the threshold?"}
     S -->|no| A5
@@ -154,9 +154,14 @@ for short words (4, 2 and 1 for one, two and three letters). `ghbdtn` clears it 
 
 > [!NOTE]
 > These are ranking scores with chosen parameters, not calibrated probabilities. The minimum Zipf
-> and the known-word rule below were chosen on the dev split of the
-> [evaluation](engine.md#evaluation), where the same sentences typed correctly get no false
-> corrections; that is a synthetic measurement, not precision on real typing.
+> and the known-word rule below are checked by the offline [evaluation](engine.md#evaluation), where
+> the same sentences typed correctly get no false corrections; that is a synthetic measurement, not
+> precision on real typing.
+
+Three-unit words with leading provisional punctuation get additional evidence when the Russian
+candidate has Zipf at least 4 and the context does not support English. This corrects `[eq` to `хуй`
+and `,kz` to `бля` after Space, even as a first word; [engine](engine.md#inference) gives the
+scoring rule and its limits.
 
 The harder case is a string that is a word in both layouts. `yf` is a rare English entry (Zipf 2.37)
 and the keys for `на`, one of the most frequent Russian words (Zipf 7.25). A known word yields only
