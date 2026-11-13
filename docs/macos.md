@@ -197,6 +197,7 @@ edits need a restart; the Settings window applies changes in-process.
 | -- | -- |
 | `AutomaticCorrectionEnabled` | `true` selects the model policy. Default off |
 | `AutomaticInputSourceSwitchingEnabled` | Switch modes after an automatic correction. Default on |
+| `LearnedWordsEnabled` | Read the Learn Spelling list. Default off |
 | `EnglishDictionaryPath` | Absolute path, at most 1,024 bytes. Default `~/.vim/spell/en.utf-8.add` |
 | `RussianDictionaryPath` | Same, default `~/.vim/spell/ru.utf-8.add` |
 | `CompatibilityEnabled` | Allow the Manual only and Automatic tiers. Default on; off makes them Off |
@@ -273,15 +274,45 @@ there has been published, a path that doesn't exist publishes an empty source. O
 published, its absence keeps the last good snapshot, since an editor that saves by rename can leave
 the path briefly absent.
 
-The same queue reads the list Learn Spelling writes,
-`~/Library/Group Containers/group.com.apple.AppleSpell/Library/Spelling/LocalDictionary`, into
-learned slot `KR_LEARNED`, with a missing file counted as empty. It is one list for all languages,
-and the path is undocumented; the older `~/Library/Spelling/LocalDictionary` isn't read. Because
-this file lives under the home, the home is resolved even when both language paths are set
-explicitly. The group container belongs to Apple's spell service, and macOS protects group
-containers from other apps; whether the input method's read raises an "access data from other apps"
-prompt hasn't been checked on a physical host. A denied read leaves the list missing, which the menu
-shows and correction ignores.
+The same queue reads the list Learn Spelling writes only when `LearnedWordsEnabled` is a true
+NSNumber, set by **Use words added with Learn Spelling** in Settings. It is off by default,
+including for existing installations without the key: the learned source stays unconfigured and its
+path is neither configured nor read. When enabled, the list at
+`~/Library/Group Containers/group.com.apple.AppleSpell/Library/Spelling/LocalDictionary` goes into
+slot `KR_LEARNED`, with a missing file counted as empty. It is one list for all languages, and the
+path is undocumented; the older `~/Library/Spelling/LocalDictionary` isn't read.
+
+The container belongs to Apple's spell service. On macOS 27 or later, access to another team's
+container is denied by default without an authorization prompt. A Files & Folders entry is not
+guaranteed, so it is not the setup route. See
+[Apple's macOS 27 release notes](https://developer.apple.com/documentation/macos-release-notes/macos-27-release-notes).
+
+**Choose…** beside the learned-words checkbox opens `NSOpenPanel` in AppleSpell's Spelling folder,
+with `LocalDictionary` named. The chooser and runtime derive the expected path from the same
+`KRRuntime` method and the account home. Selecting that exact file checks the opt-in; another path
+shows an error without changing the opt-in or either language path. Canceling the picker leaves the
+settings unchanged. macOS may grant access when the file is selected, before Save: Cancel in
+Settings discards its edits but does not revoke access already granted. The runtime read determines
+whether the source is usable. Save applies whether Keyrill uses the source. No selected path or
+bookmark is stored, and the picker neither imports nor copies the word list.
+
+Keyrill's periodic observations retry the read. Access after selection, across process restarts or
+signing changes is not guaranteed. Choose the file again if the source becomes unavailable. A denied
+read leaves the source missing, which the menu shows; correction continues without it.
+
+On earlier releases, macOS may request access to data from other apps. The bundle's
+`NSAppDataUsageDescription` explains that Keyrill reads learned words to leave them as typed, never
+changes the list or sends it over the network, and lets the user turn this off in Settings.
+`CFBundleDisplayName` explicitly names the application Keyrill Alpha; the displayed requester name
+and purpose message still need physical confirmation on a release that prompts.
+
+For a permission-recovery test, macOS 27's per-container decisions use
+`tccutil reset SystemPolicyAppDataDetailed org.keyrill.inputmethod.alpha`; older decisions use
+`SystemPolicyAppData` instead. Resetting does not grant access, create a Files & Folders entry or
+make macOS 27 show an authorization prompt. See
+[Apple's purpose-string documentation](https://developer.apple.com/documentation/bundleresources/information-property-list/nsappdatausagedescription),
+[permission reset instructions](https://developer.apple.com/documentation/xcode/resetting-access-to-protected-resources-in-macos)
+and [Mozilla's macOS 27 file-picker flow](https://bugzilla.mozilla.org/show_bug.cgi?id=2078922#c11).
 
 The input menu reports each source in one of these states:
 

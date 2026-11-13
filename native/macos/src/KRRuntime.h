@@ -22,16 +22,16 @@ typedef NS_ENUM(uint8_t, KRPolicyStatus) {
 /// Content-free state of one language's personal source in the shared vocabulary handle. Ready
 /// means published there, not yet adopted by any particular engine.
 typedef NS_ENUM(uint8_t, KRSourceStatus) {
-  /// No vocabulary is in use (policy OFF, or the model failed validation), so no source is
-  /// configured or read.
+  /// The source is disabled, policy is OFF, or the model failed validation; not configured or
+  /// read.
   KRSourceStatusUnconfigured,
   /// Configured, with no settled observation yet.
   KRSourceStatusPending,
   KRSourceStatusReady,
   /// A later read failed; the last good snapshot stays in force.
   KRSourceStatusRetained,
-  /// No valid snapshot was ever read, or the path setting is unusable. Automatic correction
-  /// abstains; manual conversion still works.
+  /// No valid snapshot was ever read, or the path setting is unusable. A missing English or
+  /// Russian source stops automatic correction; a missing learned source does not.
   KRSourceStatusMissing,
 };
 
@@ -69,12 +69,17 @@ typedef struct {
 /// count as false.
 + (uint32_t)policyFromPreferences:(nullable NSDictionary *)preferences;
 
+/// The canonical Learn Spelling path under the resolved account home, or nil without a home.
+/// The settings picker and source acquisition must name the same file.
++ (nullable NSString *)learnedWordsPathInHome:(nullable NSString *)home;
+
 /// `preferences` is the application's persistent domain. Under MODEL, EnglishDictionaryPath and
 /// RussianDictionaryPath must be absolute NSStrings of at most KR_MAX_PATH_BYTES file-system
 /// bytes; an absent key selects ~/.vim/spell/{en,ru}.utf-8.add, where a file that doesn't exist
 /// counts as empty, and any other value leaves that language missing, as does a configured
-/// file that doesn't exist. The Learn Spelling list in the AppleSpell group container under the
-/// home is read too, a missing file counting as empty. `homeResolver` runs once on `workQueue`.
+/// file that doesn't exist. Only when LearnedWordsEnabled is a true NSNumber is the Learn
+/// Spelling list in the AppleSpell group container under the home configured and read, a missing
+/// file counting as empty. `homeResolver` runs once on `workQueue`.
 /// `mainExecutor` must run each block later on the main thread. A nonzero `observationInterval`
 /// (nanoseconds) adds a periodic observation timer at start. Validates the model asset here.
 - (instancetype)initWithPreferences:(nullable NSDictionary *)preferences

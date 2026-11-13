@@ -75,13 +75,14 @@ static BOOL applyPreferences(NSDictionary *changes) {
     NSString *domain = NSBundle.mainBundle.bundleIdentifier;
     _preferences = [[KRPreferencesController alloc]
         initWithPreferences:[NSUserDefaults.standardUserDefaults persistentDomainForName:domain]
+           learnedWordsPath:[KRRuntime learnedWordsPathInHome:accountHome()]
                       apply:^BOOL(NSDictionary *preferences) {
                         NSMutableDictionary *changes = [NSMutableDictionary dictionary];
                         for (NSString *key in @[
                                @"AutomaticCorrectionEnabled", @"EnglishDictionaryPath",
                                @"RussianDictionaryPath", @"CompatibilityEnabled",
                                @"UnlistedAutomaticCorrectionEnabled",
-                               @"AutomaticInputSourceSwitchingEnabled"
+                               @"AutomaticInputSourceSwitchingEnabled", @"LearnedWordsEnabled"
                              ])
                           changes[key] = preferences[key] ? preferences[key] : NSNull.null;
                         return applyPreferences(changes);

@@ -25,16 +25,6 @@ KRSourceStatus &source(KRRuntimeStatus &status, int index) {
   return index == kLearned ? status.learned : index ? status.russian : status.english;
 }
 
-// Undocumented; where current macOS keeps Learn Spelling words, one list for all languages
-NSString *learnedPath(id home) {
-  if (![home isKindOfClass:NSString.class])
-    return nil;
-  return [NSString pathWithComponents:@[
-    home, @"Library", @"Group Containers", @"group.com.apple.AppleSpell", @"Library", @"Spelling",
-    @"LocalDictionary"
-  ]];
-}
-
 bool flag(id value) { return [value isKindOfClass:NSNumber.class] && [value boolValue]; }
 
 NSString *const kTierNames[] = {@"off", @"composition", @"manual", @"automatic"};
@@ -126,6 +116,7 @@ std::string pathBytes(id path) {
   uint64_t _interval;
   dispatch_source_t _timer;
   bool _configured[kSources];
+  bool _learnedWordsEnabled;
   bool _started;
   __weak id<KRVocabularyAdopting> _target;
   // Written on main; read by observation rounds to keep retrying a refused adoption
@@ -142,6 +133,15 @@ std::string pathBytes(id path) {
   return flag(preferences[@"AutomaticCorrectionEnabled"]) ? KR_POLICY_MODEL : KR_POLICY_OFF;
 }
 
++ (NSString *)learnedWordsPathInHome:(NSString *)home {
+  if (![home isKindOfClass:NSString.class])
+    return nil;
+  return [NSString pathWithComponents:@[
+    home, @"Library", @"Group Containers", @"group.com.apple.AppleSpell", @"Library", @"Spelling",
+    @"LocalDictionary"
+  ]];
+}
+
 - (instancetype)initWithPreferences:(NSDictionary *)preferences
                        homeResolver:(NSString *_Nullable (^)(void))homeResolver
                           workQueue:(dispatch_queue_t)workQueue
@@ -154,6 +154,7 @@ std::string pathBytes(id path) {
     _queue = workQueue;
     _mainExecutor = [mainExecutor copy];
     _interval = observationInterval;
+    _learnedWordsEnabled = flag(preferences[@"LearnedWordsEnabled"]);
     id compatibility = preferences[@"CompatibilityEnabled"];
     _compatibilityEnabled = !compatibility || flag(compatibility);
     _unlistedAutomaticCorrection = flag(preferences[@"UnlistedAutomaticCorrectionEnabled"]);
@@ -206,7 +207,7 @@ std::string pathBytes(id path) {
       source(_status, i) =
           _paths[i] == PathSetting::Unusable ? KRSourceStatusMissing : KRSourceStatusPending;
     }
-    if (_vocabulary)
+    if (_vocabulary && _learnedWordsEnabled)
       _status.learned = KRSourceStatusPending;
   }
   return self;
@@ -291,7 +292,7 @@ std::string pathBytes(id path) {
     if (_paths[i] == PathSetting::Explicit)
       [self configure:i path:_explicitPaths[i]];
   }
-  // The learned list lives under the home, so it is always resolved
+  // Resolve the home off main for default paths and the optional learned list
   dispatch_async(_queue, ^{
     if (self->_stopped)
       return;
@@ -309,7 +310,8 @@ std::string pathBytes(id path) {
     if (_paths[i] == PathSetting::Default)
       [self configure:i path:pathBytes(home)];
   }
-  [self configure:kLearned path:pathBytes(learnedPath(home))];
+  if (_learnedWordsEnabled)
+    [self configure:kLearned path:pathBytes([KRRuntime learnedWordsPathInHome:home])];
   [self beginObserving];
 }
 
