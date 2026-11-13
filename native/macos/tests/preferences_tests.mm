@@ -59,6 +59,19 @@ KRPreferencesController *makeController(NSDictionary *preferences, Applied &appl
 bool isTrue(id value) { return value == (id)kCFBooleanTrue; }
 bool isFalse(id value) { return value == (id)kCFBooleanFalse; }
 
+// The panel requests nonactivating key focus and remains available after focus moves away
+void testSettingsPanelConfiguration() {
+  currentTest = "nonactivating_settings_panel";
+  Applied applied;
+  KRPreferencesController *controller = makeController(@{}, applied);
+  CHECK([controller.window isKindOfClass:NSPanel.class]);
+  CHECK((controller.window.styleMask & NSWindowStyleMaskNonactivatingPanel) != 0);
+  CHECK(controller.window.canBecomeKeyWindow);
+  CHECK(!((NSPanel *)controller.window).hidesOnDeactivate);
+  CHECK(!((NSPanel *)controller.window).becomesKeyOnlyIfNeeded);
+  CHECK(controller.englishPath.editable && controller.russianPath.editable);
+}
+
 // Save writes back the whole snapshot with only the window's keys changed, on main. A key the
 // window doesn't own survives unchanged; dropping it would erase settings such as the
 // per-application tiers the input menu stores in the same domain.
@@ -327,6 +340,7 @@ int main() {
       std::fprintf(stderr, "preferences_tests: wrong thread\n");
       return 2;
     }
+    testSettingsPanelConfiguration();
     testSnapshotPreservation();
     testCheckboxValues();
     testUnusablePathsRefused();
