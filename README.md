@@ -7,7 +7,8 @@ Keyrill fixes English/Russian keyboard-layout mistakes as you type: `ghbdtn` bec
 binary interface native code calls it through) and a native macOS InputMethodKit adapter. Inference,
 the decision whether a typed word is in the wrong layout, runs offline against a frozen frequency
 model and your own spelling lists: Vim `.add` files if you keep them and the words you taught macOS
-with Learn Spelling. Nothing is logged, persisted or sent over the network.
+with Learn Spelling if you enable that source. Nothing is logged, persisted or sent over the
+network.
 
 > [!NOTE]
 > This is an alpha. Only macOS has an adapter. The engine and ABI are platform-neutral, and Windows
@@ -81,8 +82,12 @@ from `rust-toolchain.toml` on first use).
    English and Russian dictionary files. The defaults are `~/.vim/spell/en.utf-8.add` and
    `~/.vim/spell/ru.utf-8.add`, and a missing file at a default path counts as empty, so you can
    leave them if you don't use Vim. A missing file at a path you chose keeps automatic correction
-   off, so a typo there doesn't silently drop your protected words. Words you add with Learn
-   Spelling in any app are protected as well.
+   off, so a typo there doesn't silently drop your protected words. **Use words added with Learn
+   Spelling** is off by default. To protect those words too, click **Choose…** beside the checkbox,
+   select Apple's `LocalDictionary` in the folder the picker opens, then click **Save**. macOS may
+   grant access when the file is selected; Cancel in Settings does not revoke access already
+   granted. Check the input menu for read failures. If access is lost after a restart or update,
+   choose the file again. Without access, correction works without those words.
 
 1. For compatibility mode, grant Keyrill Alpha access under Privacy & Security > Accessibility and
    Input Monitoring. Keyrill checks both without prompting when a compatibility application is

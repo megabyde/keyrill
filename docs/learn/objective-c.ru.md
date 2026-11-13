@@ -1,4 +1,4 @@
-<!-- translation of docs/learn/objective-c.md at 19001764f0b914c2bc84c87f6dcb610503c5be70 -->
+<!-- translation of docs/learn/objective-c.md at 502346e93e64a2da1c6a4cb2f65f2c74d96799bb -->
 
 # Objective-C
 
@@ -532,7 +532,7 @@ InputMethodKit отпускает последнюю ссылку на данн�
 Противоположное решение также принято сознательно. Работа, которую загрузчик словарей ставит в свою
 очередь, захватывает `self` сильно и явно пишет `self->`, чтобы захват был виден при чтении:
 
-[`native/macos/src/KRRuntime.mm:295-302`](../../native/macos/src/KRRuntime.mm#L295-L302)
+[`native/macos/src/KRRuntime.mm:296-303`](../../native/macos/src/KRRuntime.mm#L296-L303)
 
 ```obj-c++
   dispatch_async(_queue, ^{
@@ -549,7 +549,7 @@ InputMethodKit отпускает последнюю ссылку на данн�
 очередь отпускает блок. Повторяющийся таймер — другое дело: таймер живёт столько же, сколько
 загрузчик, и удерживал бы его вечно, поэтому обработчик таймера захватывает `self` слабо:
 
-[`native/macos/src/KRRuntime.mm:329-336`](../../native/macos/src/KRRuntime.mm#L329-L336)
+[`native/macos/src/KRRuntime.mm:331-338`](../../native/macos/src/KRRuntime.mm#L331-L338)
 
 ```obj-c++
   _timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _queue);
@@ -703,7 +703,7 @@ in This App» в меню ввода указывает на метод из о�
 [`IMKServer`](https://developer.apple.com/documentation/inputmethodkit/imkserver) и бессрочно
 запускает **цикл выполнения** (англ. run loop) — цикл событий главного потока:
 
-[`native/macos/src/main.mm:99-127`](../../native/macos/src/main.mm#L99-L127)
+[`native/macos/src/main.mm:100-128`](../../native/macos/src/main.mm#L100-L128)
 
 ```obj-c++
 int main() {

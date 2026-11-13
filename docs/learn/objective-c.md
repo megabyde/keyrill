@@ -511,7 +511,7 @@ the private fields of an object it holds in a local variable.
 The opposite choice is also made on purpose. Work the dictionary loader puts on its own queue
 captures `self` strongly, and writes `self->` explicitly, so the capture is visible on the page:
 
-[`native/macos/src/KRRuntime.mm:295-302`](../../native/macos/src/KRRuntime.mm#L295-L302)
+[`native/macos/src/KRRuntime.mm:296-303`](../../native/macos/src/KRRuntime.mm#L296-L303)
 
 ```obj-c++
   dispatch_async(_queue, ^{
@@ -528,7 +528,7 @@ A one-shot block that keeps the loader alive until it has run is harmless: the c
 queue releases the block. A repeating timer is different, because the timer lives as long as the
 loader and would keep it alive forever, so its handler captures `self` weakly:
 
-[`native/macos/src/KRRuntime.mm:329-336`](../../native/macos/src/KRRuntime.mm#L329-L336)
+[`native/macos/src/KRRuntime.mm:331-338`](../../native/macos/src/KRRuntime.mm#L331-L338)
 
 ```obj-c++
   _timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, _queue);
@@ -675,7 +675,7 @@ for its settings, on request. `main` sets up AppKit, registers the controller cl
 [`IMKServer`](https://developer.apple.com/documentation/inputmethodkit/imkserver) and runs the **run
 loop**, the main thread's event loop, forever:
 
-[`native/macos/src/main.mm:99-127`](../../native/macos/src/main.mm#L99-L127)
+[`native/macos/src/main.mm:100-128`](../../native/macos/src/main.mm#L100-L128)
 
 ```obj-c++
 int main() {

@@ -6,6 +6,8 @@ namespace {
 
 NSString *const kModelKey = @"AutomaticCorrectionEnabled";
 NSString *const kSwitchingKey = @"AutomaticInputSourceSwitchingEnabled";
+NSString *const kLearnedKey = @"LearnedWordsEnabled";
+NSString *const kLearnedName = @"Learn Spelling";
 NSString *const kCompatibilityKey = @"CompatibilityEnabled";
 NSString *const kUnlistedModelKey = @"UnlistedAutomaticCorrectionEnabled";
 NSString *const kPathKeys[2] = {@"EnglishDictionaryPath", @"RussianDictionaryPath"};
@@ -38,9 +40,11 @@ NSTextField *label(NSString *text) {
   BOOL (^_apply)(NSDictionary *);
   // Path text shown for the snapshot; a field differing from it was edited
   NSString *_shown[2];
+  NSString *_learnedWordsPath;
 }
 
 - (instancetype)initWithPreferences:(NSDictionary *)preferences
+                   learnedWordsPath:(NSString *)learnedWordsPath
                               apply:(BOOL (^)(NSDictionary *))apply {
   NSWindow *window =
       [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 520, 260)
@@ -51,10 +55,19 @@ NSTextField *label(NSString *text) {
   window.releasedWhenClosed = NO;
   if ((self = [super initWithWindow:window])) {
     _snapshot = preferences ? [preferences copy] : @{};
+    _learnedWordsPath = [learnedWordsPath copy];
     _apply = [apply copy];
+    NSString *learnedPath = _learnedWordsPath;
     _chooseFile = ^NSURL *(NSString *language) {
       NSOpenPanel *panel = [NSOpenPanel openPanel];
-      panel.message = [NSString stringWithFormat:@"Choose the %@ personal dictionary", language];
+      if ([language isEqualToString:kLearnedName]) {
+        panel.message = @"Select Apple's LocalDictionary to request access to learned words.";
+        panel.directoryURL = [NSURL fileURLWithPath:learnedPath.stringByDeletingLastPathComponent
+                                        isDirectory:YES];
+        panel.nameFieldStringValue = learnedPath.lastPathComponent;
+      } else {
+        panel.message = [NSString stringWithFormat:@"Choose the %@ personal dictionary", language];
+      }
       panel.canChooseDirectories = NO;
       panel.allowsMultipleSelection = NO;
       return [panel runModal] == NSModalResponseOK ? panel.URL : nil;
@@ -78,12 +91,18 @@ NSTextField *label(NSString *text) {
       [NSButton checkboxWithTitle:@"Switch the input source to match corrected text"
                            target:nil
                            action:nil];
+  _learnedWordsEnabled = [NSButton checkboxWithTitle:@"Use words added with Learn Spelling"
+                                              target:nil
+                                              action:nil];
   _englishPath = [NSTextField textFieldWithString:@""];
   _russianPath = [NSTextField textFieldWithString:@""];
   _englishPath.placeholderString = kDefaultPaths[0];
   _russianPath.placeholderString = kDefaultPaths[1];
   _chooseEnglish = [self button:@"Choose…" action:@selector(choose:)];
   _chooseRussian = [self button:@"Choose…" action:@selector(choose:)];
+  _chooseLearnedWords = [self button:@"Choose…" action:@selector(chooseLearnedWords:)];
+  _chooseLearnedWords.enabled = _learnedWordsPath.length > 0;
+  [_chooseLearnedWords setAccessibilityLabel:@"Choose the Learn Spelling list to request access"];
   _cancelButton = [self button:@"Cancel" action:@selector(cancel:)];
   _cancelButton.keyEquivalent = @"\x1b";
   _saveButton = [self button:@"Save" action:@selector(save:)];
@@ -119,9 +138,13 @@ NSTextField *label(NSString *text) {
   NSStackView *buttons = [NSStackView stackViewWithViews:@[ _cancelButton, _saveButton ]];
   NSStackView *content = [NSStackView stackViewWithViews:@[
     _automaticCorrection, _inputSourceSwitching, paths,
-    label(@"An empty field uses the default file shown. Keyrill also reads the words you added "
-          @"with Learn Spelling, and never writes to either. After Save, return to your "
-          @"document to apply changes."),
+    label(@"An empty field uses the default file shown. Keyrill never writes to your dictionaries. "
+          @"After Save, return to your document to apply changes."),
+    [NSStackView stackViewWithViews:@[ _learnedWordsEnabled, _chooseLearnedWords ]],
+    label(@"Off by default. When enabled with automatic correction, Keyrill reads macOS learned "
+          @"words. Choose Apple's LocalDictionary to request access. macOS may grant access when "
+          @"you open the file. Save applies this setting; Cancel does not revoke access already "
+          @"granted. Without access, correction works without those words."),
     _scopeLabel, _compatibilityNote, _compatibilityEnabled, _unlistedAutomaticCorrection,
     _errorLabel, buttons
   ]];
@@ -144,6 +167,7 @@ NSTextField *label(NSString *text) {
 - (void)load {
   _automaticCorrection.state = state(isOn(_snapshot[kModelKey]));
   _inputSourceSwitching.state = state(isOnByDefault(_snapshot[kSwitchingKey]));
+  _learnedWordsEnabled.state = state(isOn(_snapshot[kLearnedKey]));
   _compatibilityEnabled.state = state(isOnByDefault(_snapshot[kCompatibilityKey]));
   _unlistedAutomaticCorrection.state = state(isOn(_snapshot[kUnlistedModelKey]));
   for (int i = 0; i < 2; ++i) {
@@ -168,6 +192,21 @@ NSTextField *label(NSString *text) {
     [self pathField:index].stringValue = url.path;
 }
 
+- (void)chooseLearnedWords:(id)sender {
+  (void)sender;
+  NSURL *url = _chooseFile(kLearnedName);
+  if (!url)
+    return;
+  if (!url.isFileURL || ![url.path.stringByStandardizingPath
+                            isEqualToString:_learnedWordsPath.stringByStandardizingPath]) {
+    _errorLabel.stringValue =
+        @"Choose LocalDictionary in Apple's AppleSpell/Library/Spelling folder.";
+    return;
+  }
+  _learnedWordsEnabled.state = NSControlStateValueOn;
+  _errorLabel.stringValue = @"";
+}
+
 - (void)save:(id)sender {
   (void)sender;
   if (!NSThread.isMainThread)
@@ -175,6 +214,7 @@ NSTextField *label(NSString *text) {
   NSMutableDictionary *next = [_snapshot mutableCopy];
   next[kModelKey] = @(_automaticCorrection.state == NSControlStateValueOn);
   next[kSwitchingKey] = @(_inputSourceSwitching.state == NSControlStateValueOn);
+  next[kLearnedKey] = @(_learnedWordsEnabled.state == NSControlStateValueOn);
   next[kCompatibilityKey] = @(_compatibilityEnabled.state == NSControlStateValueOn);
   next[kUnlistedModelKey] = @(_unlistedAutomaticCorrection.state == NSControlStateValueOn);
   for (int i = 0; i < 2; ++i) {

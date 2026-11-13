@@ -25,6 +25,7 @@ static const char *currentTest = "";
 static NSString *const kModel = @"AutomaticCorrectionEnabled";
 static NSString *const kEnglishPath = @"EnglishDictionaryPath";
 static NSString *const kRussianPath = @"RussianDictionaryPath";
+static NSString *const kLearned = @"LearnedWordsEnabled";
 
 /// Runs the runtime's work queue and main-thread blocks only when drained, on the main thread.
 /// The home resolver returns `home` (nil for an unresolved home) and records how often it ran
@@ -215,6 +216,7 @@ void testExplicitSourcesPublishAndAdopt() {
   Harness *harness = [Harness new];
   KRRuntime *runtime = [harness runtimeWithPreferences:@{
     kModel : @YES,
+    kLearned : @YES,
     kEnglishPath : english,
     kRussianPath : russian
   }];
@@ -265,6 +267,40 @@ void testDefaultPathsFromHome() {
   [runtime stop];
 }
 
+// Disabled learned words never protect input, even when a valid list exists under the home
+void testLearnedWordsDisabled() {
+  currentTest = "learned_words_disabled";
+  NSString *home = directory(@"learned-disabled");
+  NSString *spell = directory(@"learned-disabled/.vim/spell");
+  write([spell stringByAppendingPathComponent:@"en.utf-8.add"], "");
+  write([spell stringByAppendingPathComponent:@"ru.utf-8.add"], "");
+  NSString *learned =
+      [directory(@"learned-disabled/Library/Group Containers/group.com.apple.AppleSpell/"
+                 @"Library/Spelling") stringByAppendingPathComponent:@"LocalDictionary"];
+  write(learned, "ghbdtn\n");
+  for (id value in @[ NSNull.null, @NO, @"YES", @[ @YES ] ]) {
+    Harness *harness = [Harness new];
+    harness.home = home;
+    NSMutableDictionary *preferences = [@{kModel : @YES} mutableCopy];
+    if (value != NSNull.null)
+      preferences[kLearned] = value;
+    KRRuntime *runtime = [harness runtimeWithPreferences:preferences];
+    CHECK(runtime.status.learned == KRSourceStatusUnconfigured);
+    kr_engine *engine;
+    KRSession *session = makeSession(runtime, engine);
+    [runtime start];
+    [harness drain];
+    [runtime tick];
+    [runtime requestAdoptionForSession:session];
+    [harness drain];
+    CHECK(runtime.status.learned == KRSourceStatusUnconfigured);
+    CHECK(
+        sameStatus(runtime.status, KRPolicyStatusModel, KRSourceStatusReady, KRSourceStatusReady));
+    CHECK([afterSpace(engine, @"ghbdtn") isEqualToString:@"привет "]);
+    [runtime stop];
+  }
+}
+
 // The Learn Spelling list under the home protects its words beside the Vim files, and a
 // rewrite that drops a word lets correction through again
 void testLearnedWordsFromHome() {
@@ -279,7 +315,7 @@ void testLearnedWordsFromHome() {
   write(learned, "km/h\nghbdtn\n");
   Harness *harness = [Harness new];
   harness.home = home;
-  KRRuntime *runtime = [harness runtimeWithPreferences:@{kModel : @YES}];
+  KRRuntime *runtime = [harness runtimeWithPreferences:@{kModel : @YES, kLearned : @YES}];
   CHECK(runtime.status.learned == KRSourceStatusPending);
   kr_engine *engine;
   KRSession *session = makeSession(runtime, engine);
@@ -346,11 +382,11 @@ void testUnusablePathSettingsDoNotDiscover() {
   [runtime start];
   [runtime tick];
   [harness drain];
-  // The home is still resolved for the learned list, which is absent here and so empty
+  // Resolving the home does not configure the disabled learned list
   CHECK(harness.homeCalls == 1);
   CHECK(sameStatus(runtime.status, KRPolicyStatusModel, KRSourceStatusMissing,
                    KRSourceStatusMissing));
-  CHECK(runtime.status.learned == KRSourceStatusReady);
+  CHECK(runtime.status.learned == KRSourceStatusUnconfigured);
   [runtime stop];
 }
 
@@ -824,6 +860,7 @@ int main() {
     testOffDoesNoSourceWork();
     testExplicitSourcesPublishAndAdopt();
     testDefaultPathsFromHome();
+    testLearnedWordsDisabled();
     testLearnedWordsFromHome();
     testUnusablePathSettingsDoNotDiscover();
     testUnresolvedHomeAndMissingFile();

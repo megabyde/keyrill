@@ -26,6 +26,9 @@ static NSString *const kRussian = @"RussianDictionaryPath";
 static NSString *const kCompatibility = @"CompatibilityEnabled";
 static NSString *const kUnlistedModel = @"UnlistedAutomaticCorrectionEnabled";
 static NSString *const kSwitching = @"AutomaticInputSourceSwitchingEnabled";
+static NSString *const kLearned = @"LearnedWordsEnabled";
+static NSString *const kLearnedPath = @"/home/Library/Group Containers/group.com.apple.AppleSpell/"
+                                      @"Library/Spelling/LocalDictionary";
 
 namespace {
 
@@ -42,6 +45,7 @@ KRPreferencesController *makeController(NSDictionary *preferences, Applied &appl
   Applied *record = &applied;
   KRPreferencesController *controller = [[KRPreferencesController alloc]
       initWithPreferences:preferences
+         learnedWordsPath:kLearnedPath
                     apply:^BOOL(NSDictionary *next) {
                       record->offMain = record->offMain || !NSThread.isMainThread;
                       [record->calls addObject:next];
@@ -80,8 +84,9 @@ void testSnapshotPreservation() {
   // Absent options are shown with their defaults and then saved as explicit values
   CHECK(isTrue(next[kCompatibility]) && isFalse(next[kUnlistedModel]));
   CHECK(isTrue(next[kSwitching]));
+  CHECK(isFalse(next[kLearned]));
   // An untouched missing path stays absent, so the runtime keeps its default discovery
-  CHECK(!next[kEnglish] && next.count == 6);
+  CHECK(!next[kEnglish] && next.count == 7);
   CHECK(controller.errorLabel.stringValue.length == 0);
 }
 
@@ -174,6 +179,63 @@ void testChosenClearedAndUntouchedPaths() {
   CHECK([cleared.calls[0][kRussian] isEqualToString:@"/ru.add"]);
 }
 
+// Selecting the learned list enables only its opt-in; cancel and wrong files apply nothing
+void testLearnedWordsChoice() {
+  currentTest = "learned_words_choice";
+  Applied applied;
+  KRPreferencesController *controller =
+      makeController(@{kEnglish : @"/en.add", kRussian : @"/ru.add"}, applied);
+  CHECK(controller.chooseLearnedWords.enabled);
+  CHECK([controller.chooseLearnedWords.accessibilityLabel containsString:@"Learn Spelling"]);
+  NSURL *__block answer = nil;
+  controller.chooseFile = ^NSURL *(NSString *name) {
+    CHECK([name isEqualToString:@"Learn Spelling"]);
+    return answer;
+  };
+  [controller.chooseLearnedWords performClick:nil];
+  CHECK(controller.learnedWordsEnabled.state == NSControlStateValueOff);
+  CHECK(controller.errorLabel.stringValue.length == 0 && applied.calls.count == 0);
+  for (NSURL *wrong in @[
+         [NSURL URLWithString:@"https://example.invalid/LocalDictionary"],
+         [NSURL fileURLWithPath:@"/other/LocalDictionary"],
+         [NSURL fileURLWithPath:[kLearnedPath stringByAppendingString:@".other"]]
+       ]) {
+    answer = wrong;
+    [controller.chooseLearnedWords performClick:nil];
+    CHECK(controller.learnedWordsEnabled.state == NSControlStateValueOff);
+    CHECK([controller.errorLabel.stringValue containsString:@"LocalDictionary"]);
+    CHECK(applied.calls.count == 0);
+  }
+  answer = [NSURL fileURLWithPath:kLearnedPath];
+  [controller.chooseLearnedWords performClick:nil];
+  CHECK(controller.learnedWordsEnabled.state == NSControlStateValueOn);
+  CHECK(controller.errorLabel.stringValue.length == 0 && applied.calls.count == 0);
+  CHECK([controller.englishPath.stringValue isEqualToString:@"/en.add"]);
+  CHECK([controller.russianPath.stringValue isEqualToString:@"/ru.add"]);
+  [controller.cancelButton performClick:nil];
+  CHECK(controller.learnedWordsEnabled.state == NSControlStateValueOff);
+  CHECK(applied.calls.count == 0);
+  [controller.chooseLearnedWords performClick:nil];
+  [controller.saveButton performClick:nil];
+  CHECK(applied.calls.count == 1 && isTrue(applied.calls[0][kLearned]));
+  CHECK([applied.calls[0][kEnglish] isEqualToString:@"/en.add"]);
+  CHECK([applied.calls[0][kRussian] isEqualToString:@"/ru.add"]);
+  controller = [[KRPreferencesController alloc] initWithPreferences:@{}
+      learnedWordsPath:[kLearnedPath stringByReplacingOccurrencesOfString:@"/home/"
+                                                               withString:@"/home/../home/"]
+      apply:^BOOL(NSDictionary *next) {
+        (void)next;
+        return NO;
+      }];
+  controller.chooseFile = ^NSURL *(NSString *name) {
+    CHECK([name isEqualToString:@"Learn Spelling"]);
+    return [NSURL fileURLWithPath:kLearnedPath];
+  };
+  [controller.chooseLearnedWords performClick:nil];
+  CHECK(controller.learnedWordsEnabled.state == NSControlStateValueOn);
+  CHECK(controller.errorLabel.stringValue.length == 0);
+}
+
 // Cancel after a refused Save applies nothing, restores every control from the snapshot and
 // clears the error
 void testCancelDiscardsEdits() {
@@ -235,10 +297,13 @@ void testDefaultCheckboxes() {
     id stored;
     bool on;
   };
-  NSArray<NSString *> *keys = @[ kSwitching, kCompatibility, kUnlistedModel ];
-  const bool defaults[] = {true, true, false};
+  NSArray<NSString *> *keys = @[ kSwitching, kCompatibility, kUnlistedModel, kLearned ];
+  const bool defaults[] = {true, true, false, false};
   NSArray<NSButton *> * (^buttons)(KRPreferencesController *) = ^(KRPreferencesController *c) {
-    return @[ c.inputSourceSwitching, c.compatibilityEnabled, c.unlistedAutomaticCorrection ];
+    return @[
+      c.inputSourceSwitching, c.compatibilityEnabled, c.unlistedAutomaticCorrection,
+      c.learnedWordsEnabled
+    ];
   };
   for (NSUInteger k = 0; k < keys.count; ++k) {
     const Case cases[] = {{nil, defaults[k]}, {@YES, true},    {@1, true},        {@NO, false},
@@ -270,10 +335,12 @@ void testDefaultCheckboxes() {
   controller.compatibilityEnabled.state = NSControlStateValueOff;
   controller.inputSourceSwitching.state = NSControlStateValueOff;
   controller.unlistedAutomaticCorrection.state = NSControlStateValueOn;
+  controller.learnedWordsEnabled.state = NSControlStateValueOn;
   [controller.saveButton performClick:nil];
   CHECK(applied.calls.count == 1 && isFalse(applied.calls[0][kCompatibility]));
   CHECK(isFalse(applied.calls[0][kSwitching]));
   CHECK(isTrue(applied.calls[0][kUnlistedModel]) && isTrue(applied.calls[0][kModel]));
+  CHECK(isTrue(applied.calls[0][kLearned]));
   // Cancel returns to the snapshot, including the absent-key defaults
   controller = makeController(@{}, applied);
   for (NSButton *button in buttons(controller))
@@ -303,7 +370,7 @@ void testScopeDisclosureDoesNotBecomeAPreference() {
     CHECK([text containsString:part]);
   [controller.saveButton performClick:nil];
   // Per-app tiers belong to the input menu: the window passes them through unchanged
-  CHECK(applied.calls.count == 1 && applied.calls[0].count == 5);
+  CHECK(applied.calls.count == 1 && applied.calls[0].count == 6);
   CHECK([applied.calls[0][@"ApplicationTiers"] isEqual:tiers]);
   NSTextField *note = controller.compatibilityNote;
   CHECK([note.stringValue containsString:@"Backspace"] &&
@@ -331,6 +398,7 @@ int main() {
     testCheckboxValues();
     testUnusablePathsRefused();
     testChosenClearedAndUntouchedPaths();
+    testLearnedWordsChoice();
     testCancelDiscardsEdits();
     testFailedApplyRetainsEdits();
     testDefaultCheckboxes();
