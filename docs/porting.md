@@ -6,11 +6,32 @@ table, safety invariants and rejected mechanisms apply to every adapter. Don't w
 inference engine, and don't build a cross-platform editing abstraction before two adapters have
 shown the same real contract ([ADR 001](adr/001-rust-core-native-adapters.md)).
 
-No Windows or Linux adapter exists yet. Each platform starts with the same first slice: one real
-editor, physical keys, an owned composition, a Rust decision, a verified update, commit, then rapid
-continuation and a focus change, all checked against the whole document. Use the fixture policy
-(`kr_set_automatic_policy` with `KR_POLICY_FIXTURE`, which corrects only `ghbdtn` and `руддщ`)
-before the model and real dictionaries. Tray icons, settings UI and packaging come after that works.
+The Windows C++ backend passed controlled-editor and bounded ordinary Notepad acceptance
+before the windows-rs migration. The full Rust runtime and proof tools passed complete native
+and experimental sanitizer suites. Fresh automated Rust editor checks passed correction,
+reversal, continuation, native Undo, focus preservation, exclusions, native lock denial, and
+bounded owned shutdown. Current Rust Notepad 11.2609.11.0 checks passed fixture correction,
+manual commands, continuation, native Undo, Find exclusion, a focus round trip, both model
+directions, and vocabulary reload. Physical boundary correction, reversal, and a rapid-typing
+and native Undo sequence also passed. The broader physical acceptance matrix remains pending.
+Historical packaged x64 Notepad 11.2607.14.0 acceptance covered the owned-composition
+executor, shared model, and vocabulary integration. Exact UIA checks covered both model
+directions, retained reversal, rapid continuation, native Undo, and vocabulary reloads.
+Physical command checks covered conversion and held reversal within one focus interval.
+Other versions now pass input under bounded-only containment, as do generic TSF hosts.
+Editing requires the compiled proof-editor or exact-version Notepad main-field contract, fresh
+native identity, writable state, scope, owned-range verification and revocation subscriptions.
+Browser and other generic application correction remains unimplemented pending authoritative
+per-field semantic evidence. Full Windows qualification remains in progress.
+No Linux adapter exists. An explicit-PID inspector supplies independent field evidence and
+named public-document checks. The evidence limits are recorded with
+[Windows admission](windows.md#bounded-notepad-admission-and-observation).
+Each platform starts with the same first slice: one real
+editor, physical keys, an owned composition, a Rust decision, a verified update, commit, then
+rapid continuation and a focus change, all checked against the whole document. Use the fixture
+policy (`kr_set_automatic_policy` with `KR_POLICY_FIXTURE`, which corrects only `ghbdtn` and
+`руддщ`) before the model and real dictionaries. Tray icons, settings UI and packaging come after
+that works.
 
 ## Building the library
 
@@ -33,18 +54,21 @@ the struct layouts. CI runs the portable checks on `windows-2025` and `ubuntu-24
 Put the code in `native/windows/` or `native/linux/`, next to `native/macos/`, with its own build
 script, tests and packaging. The Rust crates change only when the ABI does.
 
-[`crates/keyrill-ffi/tests/abi_smoke.c`](../crates/keyrill-ffi/tests/abi_smoke.c) is the smallest
-working caller and the place to start. It runs the whole loop against an in-memory document: plan a
-key, check the composition against `expected`, write `mark`, commit the outcome, and honor the key
-disposition, including `KR_FINISH` with `KR_KEY_REPLAN`. Its scenarios type `ghbdtn` and `руддщ`
-with Space under the fixture policy, restore with Escape, leave an unlisted word alone, and convert
-`ёлка` and `[jhjij` manually, including under the PC keyboard. `./tools/verify` links and runs it on
-every platform, with the system libraries `--print native-static-libs` reports; on Windows it links
-against the DLL C runtime (`-fms-runtime-lib=dll`), as Rust's MSVC staticlib expects.
+[`crates/keyrill-ffi/tests/abi_smoke.c`](../crates/keyrill-ffi/tests/abi_smoke.c) is the
+smallest working caller and the place to start. It runs the whole loop against an in-memory
+document: plan a key, check the composition against `expected`, write `mark`, commit the
+outcome, and honor the key disposition, including `KR_FINISH` with `KR_KEY_REPLAN`. Its
+scenarios type `ghbdtn` and `руддщ` with Space under the fixture policy, restore with Escape,
+leave an unlisted word alone, and convert `ёлка` and `[jhjij` manually, including under the PC
+keyboard. `./tools/verify` links and runs the C caller on macOS and Linux, with the system
+libraries `--print native-static-libs` reports. Windows has an independent Rust caller in
+`crates/keyrill-ffi/tests/windows_abi.rs`. It declares the published C structs and signatures,
+checks their literal layouts, and runs all nine original smoke scenarios against the ABI.
 
-Wire the adapter into `tools/verify` the way macOS is: a `uname -s` branch in the default mode runs
-its format check, build and controlled tests, and a separate mode covers anything that needs
-sanitizers or a desktop session. Platform setup goes in the Toolchain step of
+Wire the adapter into `tools/verify` through the host branch in the default mode. Windows
+dispatches to `cargo xtask windows check`, while its separate `sanitize` mode dispatches to
+`cargo xtask windows sanitize`. Desktop acceptance remains a separate gate. Platform setup goes
+in the Toolchain step of
 `.github/workflows/verify.yml`. Clippy and rustdoc run on every lane, so shared docs can't link to
 an item that exists on one OS only ([development](development.md#style)).
 
@@ -88,6 +112,12 @@ flowchart TD
   with `mark_len` 0 empties the composition. Perform at most that one write, verify it, then
   `kr_commit` with `KR_APPLIED_VERIFIED`, `KR_REFUSED_BEFORE_WRITE` or `KR_ATTEMPTED_UNKNOWN`.
 - **Policy and dictionaries.** `kr_set_automatic_policy` selects off, fixture or model while idle.
+  `kr_prepare_model` warms the existing process-wide model cache on a worker without an engine.
+  `kr_dictionary_parse_utf8` creates an immutable dictionary handle off the input thread;
+  `kr_adopt_dictionaries` borrows a pair on the engine owner and retains independent references.
+  Free handles with `kr_dictionary_free` after their borrows drain, even after adoption. A null
+  language handle means missing; a parsed empty source means ready. Pair adoption rejects any
+  pending proposal and preserves policy, word history and reversal receipts.
   `kr_set_dictionary_utf8` publishes a whole dictionary (at most 1 MiB, NULL+0 is a valid empty
   source); `kr_clear_dictionary` makes a language missing. The `kr_vocabulary_*` handle reads and
   settles the files for you, as [macOS](macos.md#dictionaries) describes; the adapter owns the
@@ -136,17 +166,79 @@ These follow from the architecture and apply on every platform:
 - Report `KR_ATTEMPTED_UNKNOWN` when you can't tell what happened, and never replay the key or try
   to repair the document.
 - Set key disposition from what actually happened, not from whether a request was accepted.
-- Exclude password, secure and read-only fields before reading anything or starting a composition.
-- Never hold a Rust borrow, a dictionary lock or the engine across a callback into the host. Contain
-  native exceptions on the native side.
+- Exclude password, secure and read-only fields before reading anything or starting a
+  composition. Recheck current scope, writability, exact field identity, and generation after
+  callback-capable preparation before every character read or native effect. Metadata checks
+  cannot make document authority atomic. Exclusion after an attempted character write forbids
+  further character reads and yields Unknown without replan, replay, or repair.
+- Never hold a Rust borrow, a dictionary lock or the engine across a callback into the host.
+  Contain native exceptions on the native side.
 - Keep raw input, personal vocabulary and paths out of logs and status.
 
 ## Windows: Text Services Framework
 
-TSF is the leading proposal ([ADR 007](adr/007-windows-tsf.md)): granted edit sessions, explicit
-contexts and owned compositions fit the contract better than UI Automation reads plus synthetic
-replacement. Use [`windows-rs`](https://github.com/microsoft/windows-rs) where practical, or a thin
-native COM shim if it narrows lifetime risk.
+The windows-rs implementation is in `native/windows/rust/`. Its build, maintainer-only
+registration commands, evidence limits, and physical acceptance matrix are in
+[Windows TSF proof](windows.md). The bounded first-editor proof includes observed owned
+termination on focus loss in the historical C++ backend. The Rust Notepad physical results are
+recorded separately from the pending completion-candidate matrix. Bounded field admission
+requires the [native contract](windows-admission-contract.md), including coherent metadata and
+revocation notifications. Generic TSF scope admission is disabled. Granted edit
+sessions, explicit contexts, and owned compositions provide the native editing mechanism.
+[TSF design](adr/007-windows-tsf.md).
+
+Exact version recognition includes 11.2607.14.0 and 11.2609.11.0. The updated version has matching
+live native-field and unavailable-scope evidence. The current Rust DLL passed the
+[fixture-policy Notepad checks](windows.md#rust-notepad-verification).
+
+The [`windows-rs`](https://github.com/microsoft/windows-rs) adapter uses `windows` and
+`windows-core` 0.62.2 for generated COM identity and SDK types.
+Typed leases in `foreign.rs` own host COM references. Raw SDK vtables preserve exact HRESULTs.
+The service contains Rust panics at callbacks and requires foreign COM implementations to obey
+the standard HRESULT and no-throw contract. The C++ exception-recovery layer is retired.
+The proof editor, independent raw COM providers, and UIA diagnostics are Rust in
+`native/windows/proof`. `native/windows/build-support` owns source and artifact identities, and
+`tools/xtask` owns the Windows Cargo build and verification commands. Public COM diagnostic and
+wire versions retain their contracts. The private test API is version 3.
+The scenario inventory maps all 25 former CTest entries and 111 families to Rust tests
+or explicit retirement reasons. Full native execution and the complete experimental Rust ASan
+suite have passed. The ASan memory-error canary and byte-for-byte Rust model regeneration
+have passed. UIA supplies test and diagnostic observations. Unsupported, secure, excluded, and
+uncertain controls pass input. A hook or SendInput backend requires a separate decision.
+
+The Windows executor replaces the exact owned range once for each MARK or changed FINISH.
+Ordinary unchanged FINISH ends the exact verified composition without `SetText`. Retirement
+retains its unchanged replacement protocol. Unchanged FINISH has no expected end-caret
+requirement and does not force selection collapse. It captures immutable selection coordinates
+and style, verifies range extent and UTF-16 text before and after `EndComposition`, and checks
+that no composition remains. After those checks succeed, it preserves the complete selection
+using a metadata-only range clone and at most one `SetSelection`. Failed checks stop without
+retry or another character write. A FINISH followed by a replanned MARK writes once on the new
+composition. Controlled providers cover selection movement, clone gravity, exact selection
+styles, fresh policy refusal, and attempted-unknown termination without replay or recovery.
+Historical C++ Notepad checks cover rapid continuation, native Undo, caret movement, and
+whole-document selection. The complete selection-style matrix has controlled coverage.
+
+The Windows branch uses bounded `PreserveKey` delivery for manual conversion
+and reversal. Two exact left Ctrl + left Alt commands and one declined Alt-press observer belong
+to one activation through a shared binding table. A provisional
+stack owner accounts for late successful registrations before rollback, and reactivation waits
+for the whole activation call and all captured releases. Unknown mandatory acquisition or cleanup
+effects fault the instance. Ordinary and preserved callbacks share native admission and the
+existing executor. A command GUID supplies no modifier, repeat, or document-authority facts.
+Historical C++ physical Notepad runs observed command delivery and retained ownership through
+modifier release, as described in
+[the command contract](windows.md#manual-conversion-and-reversal).
+The Windows host probe uses a separate protocol-4 command and modifier-release observation
+window. Callback-local tickets preserve command identity through reentry. Lifecycle anchors
+order those content-free observations against owned termination. Dispatch records executor
+entry. Separate completion records distinguish verified manual MARK, no-write reservation,
+refusal and unknown effects. The observer witnesses an Alt cycle before a verified command can
+grant one release permission on its owned composition. Release validation performs metadata
+queries only. Missing original release plus missing later observer is an excluded indistinguishable
+host schedule. Historical C++ Notepad checks observed delivery and retention, with separate generated
+bare-Alt checks and the physical coverage limits recorded in
+[Notepad acceptance](windows.md#notepad-behavior-acceptance).
 
 | Interface | Documented behavior | Obligation |
 | -- | -- | -- |
@@ -171,11 +263,12 @@ the host, so don't install one.
 Determine COM registration, profile registration, enablement and activation separately, and look for
 a per-user installation before anything that needs elevation. The Microsoft
 [`textservice-step06-3`](https://github.com/microsoft/Windows-classic-samples/tree/main/Samples/Win7Samples/winui/input/tsf/textservice/textservice-step06-3)
-sample is a reference for structure, not error handling: it reports keys eaten too early, uses a
-composition without checking it started, ends the current rather than the captured composition and
-translates keys inadequately. A sample that turns virtual keys into uppercase letters is not an
-EN/RU input method; verify Shift, Caps Lock, dead keys and the EN/RU layouts against real input.
-List x64 and ARM64 results separately.
+sample is a reference for structure, not error handling: it reports keys eaten too early, uses
+a composition without checking it started, ends the current rather than the captured composition
+and translates keys inadequately. A sample that turns virtual keys into uppercase letters is not
+an EN/RU input method; verify Shift, Caps Lock, dead keys and the EN/RU layouts against real
+input. Intel/AMD x64 and x86 clients have separate artifacts and execution results. ARM64 is
+outside the current Windows scope.
 
 Acceptance for the first slice includes edit-session denial, a rejected composition, focus A→B→A,
 rapid continuation, read-only and password fields, a source change and service teardown, each with

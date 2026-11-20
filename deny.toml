@@ -16,6 +16,12 @@ ignore = true
 [bans]
 multiple-versions = "deny"
 wildcards = "deny"
+skip = [
+    # sha2 0.10 uses 0.2, while proptest's chacha20 uses 0.3.
+    { name = "cpufeatures", version = "=0.2.17" },
+    # windows-implement uses syn 2, while serde_derive uses syn 3.
+    { name = "syn", version = "=2.0.119" },
+]
 
 [sources]
 unknown-registry = "deny"

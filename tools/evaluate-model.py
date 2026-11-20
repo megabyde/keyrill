@@ -28,9 +28,10 @@ TYPO_BOUND_PER_10000 = 1.0
 
 root = Path(__file__).resolve().parent.parent
 reference = root / "model"
+probe_name = "inference-probe.exe" if sys.platform == "win32" else "inference-probe"
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--split", choices=["dev", "test"], required=True)
-parser.add_argument("--probe", type=Path, default=root / "target/release/inference-probe")
+parser.add_argument("--probe", type=Path, default=root / "target/release" / probe_name)
 parser.add_argument("--output", type=Path, default=root / "target/evaluation")
 parser.add_argument("policy", nargs="*", help="NAME=VALUE policy overrides")
 args = parser.parse_args()

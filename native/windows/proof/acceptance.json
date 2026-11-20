@@ -1,0 +1,117 @@
+{
+  "schema": 1,
+  "purpose": "Required Windows acceptance targets. Application names never grant runtime admission. Results and installed versions stay in local evidence ledgers.",
+  "platform": "Windows 11 Intel/AMD",
+  "nativeTargets": ["x86_64-pc-windows-msvc", "i686-pc-windows-msvc"],
+  "evidenceKinds": {
+    "controlled": "Executed independent providers or controlled native fixtures",
+    "generated": "Generated desktop input with independent public-document and native observations",
+    "physical": "Maintainer physical keyboard input with independent public-document and native observations",
+    "historical": "Historical C++ evidence retained separately in scenarios.json and docs/windows.md. Never satisfies this candidate."
+  },
+  "applications": [
+    {"id": "notepad", "name": "Notepad", "defaultMode": "automatic"},
+    {"id": "chrome", "name": "Chrome", "defaultMode": "automatic"},
+    {"id": "edge", "name": "Edge", "defaultMode": "automatic"},
+    {"id": "firefox", "name": "Firefox", "defaultMode": "automatic"},
+    {"id": "vscode", "name": "VS Code", "defaultMode": "manual"},
+    {"id": "word", "name": "Word", "defaultMode": "manual"},
+    {"id": "terminal", "name": "Windows Terminal", "defaultMode": "manual"}
+  ],
+  "oracleSets": {
+    "document": ["whole-public-document", "prefix", "suffix", "caret", "selection", "focus", "owned-composition", "input-order"],
+    "exclusion": ["metadata-only", "zero-character-reads", "zero-composition-starts", "zero-character-writes", "input-pass-through", "focus"],
+    "fault": ["whole-public-document", "prefix", "suffix", "caret", "selection", "focus", "owned-composition", "input-order", "one-write-per-plan", "no-replay", "no-guessed-repair"],
+    "formatted-document": ["whole-public-document", "prefix", "suffix", "caret", "selection", "focus", "owned-composition", "input-order", "formatting"],
+    "terminal-bytes": ["caret", "selection", "focus", "owned-composition", "input-order", "committed-bytes", "native-command-baseline", "output-order", "ordinary-input-authority", "no-echo-distinction"]
+  },
+  "scenarioGroups": {
+    "ordinary": {
+      "evidence": ["generated", "physical"], "oracles": "document",
+      "scenarios": [
+        {"id": "auto-en-ru", "mode": "automatic", "expected": "Public cgbcjr plus Space becomes список plus one Space with unrelated content and input order preserved."},
+        {"id": "auto-ru-en", "mode": "automatic", "expected": "Public цщкдв plus Space becomes world plus one Space."},
+        {"id": "manual-k", "mode": "manual", "expected": "Owned public ghbdtn becomes привет after Ctrl+Alt+K and survives modifier release."},
+        {"id": "retained-z", "mode": "manual", "expected": "Ctrl+Alt+Z restores the exact owned original once. Expired reversal makes zero writes."},
+        {"id": "escape-reversal", "mode": "automatic", "expected": "Escape restores the retained original and finishes its mark once."},
+        {"id": "rapid-continuation", "mode": "automatic", "expected": "Public cgbcjr, Space, x in one burst yields список, one Space, x in order."},
+        {"id": "focus-round-trip", "mode": "manual", "expected": "Partial public input in A, focus B, then A never carries editing authority or partial inference between fields."},
+        {"id": "external-source-change", "mode": "manual", "expected": "External source selection finishes the old owned public word and expires its receipt."},
+        {"id": "automatic-source-switch", "mode": "automatic", "expected": "Verified correction retains its original profile and owned reversal. The next eligible letter finishes the mark, expires the receipt, confirms the target profile, and continues once through fresh admission. Late reversal cannot rewrite the finished word."},
+        {"id": "owned-close", "mode": "manual", "expected": "Closing with a verified owned public word finishes only that exact mark and releases callbacks within the bound."},
+        {"id": "empty-close", "mode": "manual", "expected": "Closing an empty control makes zero character writes and creates no owned mark."},
+        {"id": "selection-navigation", "mode": "manual", "expected": "Selection, navigation, Enter, Tab and native shortcuts retain baseline semantics and exact input order."},
+        {"id": "keyboard-edges", "mode": "manual", "expected": "Shift, Caps Lock, PC punctuation and ё behave correctly. Available dead keys, AltGr and alternate layouts pass through safely."},
+        {"id": "held-commands", "mode": "manual", "expected": "Held K and Z agree with delivered command callbacks and never leave a stuck modifier or unexpected menu."}
+      ]
+    },
+    "editor": {"evidence": ["generated", "physical"], "oracles": "document", "scenarios": [
+      {"id": "native-undo", "mode": "automatic", "expected": "Rapid correction then native Undo agrees with the independently captured control-specific Undo baseline."}
+    ]},
+    "browser": {"evidence": ["generated", "physical"], "oracles": "document", "scenarios": [
+      {"id": "renderer-tab-change", "mode": "manual", "expected": "Renderer, tab, detached-node and focus transitions expire stale control and owned-composition authority."}
+    ]},
+    "vscode": {"evidence": ["generated", "physical"], "oracles": "document", "scenarios": [
+      {"id": "completion-snippet-window", "mode": "manual", "expected": "Completion, snippets and workspace/window changes preserve native behavior and expire stale authority."}
+    ]},
+    "word": {"evidence": ["generated", "physical"], "oracles": "formatted-document", "scenarios": [
+      {"id": "formatting-preservation", "mode": "manual", "expected": "Formatting surrounding the public test word and table-cell boundaries remain exact."}
+    ]},
+    "terminal": {"evidence": ["physical"], "oracles": "terminal-bytes", "scenarios": [
+      {"id": "child-byte-order", "mode": "manual", "expected": "The independent public child receives exact committed bytes for conversion, reversal and continuation in order."},
+      {"id": "terminal-command-output", "mode": "manual", "expected": "Enter, Tab, navigation, Ctrl+C, pane changes and concurrent output preserve the captured terminal baseline and byte order."}
+    ]},
+    "excluded": {"evidence": ["generated", "physical"], "oracles": "exclusion", "scenarios": [
+      {"id": "pass-through", "mode": "off", "expected": "Excluded control receives normal input. Keyrill performs zero character reads, composition starts and character writes. Secret values remain unqueried."}
+    ]},
+    "terminal-excluded": {"evidence": ["physical"], "oracles": "exclusion", "scenarios": [
+      {"id": "secret-no-echo", "mode": "off", "expected": "Metadata distinguishes secret/no-echo or uncertain context before character access. Public test input passes through with no inspection or composition."}
+    ]},
+    "faults": {"evidence": ["controlled"], "oracles": "fault", "scenarios": [
+      {"id": "denied-edit-session", "mode": "manual", "expected": "Denied or deferred edit session refuses before writing and passes ordinary input once."},
+      {"id": "rejected-composition", "mode": "manual", "expected": "Rejected or null composition never advances engine state or consumes an unwritten ordinary key."},
+      {"id": "stale-client-generation", "mode": "manual", "expected": "Wrong client, reused proxy, stale generation, context, view or foreign focus yields no write."},
+      {"id": "foreign-mark-range", "mode": "manual", "expected": "Foreign mark, wrong UTF-16 text, returned range, caret or selection refuses authority."},
+      {"id": "unknown-write-effect", "mode": "manual", "expected": "Unknown effect stops correction with no replay or guessed repair. Only the permitted client-mark readback commit can follow."},
+      {"id": "reentrant-exclusion", "mode": "manual", "expected": "Sensitive, read-only, disabled or detached state appearing during a callback prevents subsequent character reads and effects."},
+      {"id": "observer-wrong-identity", "mode": "off", "expected": "Wrong PID, creation time, DLL, architecture, control, focus or public fixture identity rejects the observation."},
+      {"id": "observer-stale-unavailable", "mode": "off", "expected": "Stale publication, unavailable independent oracle, extra character or wrong caret rejects the observation."},
+      {"id": "source-echo-reentry", "mode": "automatic", "expected": "Late, failed, unsolicited or reentrant source callbacks cannot revive a receipt or acknowledge an unverified edit."}
+    ]}
+  },
+  "controls": [
+    {"application": "proof-editor", "id": "document", "architectures": "both", "groups": ["ordinary", "editor"]},
+    {"application": "proof-editor", "id": "read-only", "architectures": "both", "groups": ["excluded"]},
+    {"application": "proof-editor", "id": "password", "architectures": "both", "groups": ["excluded"]},
+    {"application": "proof-provider", "id": "native-boundaries", "architectures": "both", "groups": ["faults"]},
+    {"application": "notepad", "id": "document", "architectures": "installed", "groups": ["ordinary", "editor"]},
+    {"application": "notepad", "id": "find", "architectures": "installed", "groups": ["excluded"]},
+    {"application": "chrome", "id": "text-input", "architectures": "installed", "groups": ["ordinary", "editor", "browser"]},
+    {"application": "chrome", "id": "textarea", "architectures": "installed", "groups": ["ordinary", "editor", "browser"]},
+    {"application": "chrome", "id": "contenteditable", "architectures": "installed", "groups": ["ordinary", "editor", "browser"]},
+    {"application": "chrome", "id": "password", "architectures": "installed", "groups": ["excluded"]},
+    {"application": "chrome", "id": "read-only", "architectures": "installed", "groups": ["excluded"]},
+    {"application": "chrome", "id": "sensitive", "architectures": "installed", "groups": ["excluded"]},
+    {"application": "edge", "id": "text-input", "architectures": "installed", "groups": ["ordinary", "editor", "browser"]},
+    {"application": "edge", "id": "textarea", "architectures": "installed", "groups": ["ordinary", "editor", "browser"]},
+    {"application": "edge", "id": "contenteditable", "architectures": "installed", "groups": ["ordinary", "editor", "browser"]},
+    {"application": "edge", "id": "password", "architectures": "installed", "groups": ["excluded"]},
+    {"application": "edge", "id": "read-only", "architectures": "installed", "groups": ["excluded"]},
+    {"application": "edge", "id": "sensitive", "architectures": "installed", "groups": ["excluded"]},
+    {"application": "firefox", "id": "text-input", "architectures": "installed", "groups": ["ordinary", "editor", "browser"]},
+    {"application": "firefox", "id": "textarea", "architectures": "installed", "groups": ["ordinary", "editor", "browser"]},
+    {"application": "firefox", "id": "contenteditable", "architectures": "installed", "groups": ["ordinary", "editor", "browser"]},
+    {"application": "firefox", "id": "password", "architectures": "installed", "groups": ["excluded"]},
+    {"application": "firefox", "id": "read-only", "architectures": "installed", "groups": ["excluded"]},
+    {"application": "firefox", "id": "sensitive", "architectures": "installed", "groups": ["excluded"]},
+    {"application": "vscode", "id": "editor", "architectures": "installed", "groups": ["ordinary", "editor", "vscode"]},
+    {"application": "vscode", "id": "search", "architectures": "installed", "groups": ["ordinary", "editor", "vscode"]},
+    {"application": "vscode", "id": "integrated-terminal", "architectures": "installed", "groups": ["excluded"]},
+    {"application": "vscode", "id": "read-only", "architectures": "installed", "groups": ["excluded"]},
+    {"application": "word", "id": "body", "architectures": "installed", "groups": ["ordinary", "editor", "word"]},
+    {"application": "word", "id": "table-cell", "architectures": "installed", "groups": ["ordinary", "editor", "word"]},
+    {"application": "word", "id": "protected-document", "architectures": "installed", "groups": ["excluded"]},
+    {"application": "terminal", "id": "ordinary-input", "architectures": "installed", "groups": ["ordinary", "terminal"], "oracleOverride": "terminal-bytes"},
+    {"application": "terminal", "id": "secret-no-echo", "architectures": "installed", "groups": ["terminal-excluded"]}
+  ]
+}

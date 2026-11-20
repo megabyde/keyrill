@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <assemblyIdentity name="Keyrill.Proof.Activation" version="1.0.0.0" type="win32" processorArchitecture="@KEYRILL_ARCHITECTURE@" />
+  <file name="KeyrillTsf.dll">
+    <comClass clsid="{1A746212-84DB-4ACF-88B3-CAAA26352774}" threadingModel="Apartment" />
+  </file>
+</assembly>

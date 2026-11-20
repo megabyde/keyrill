@@ -10,20 +10,20 @@ follows one word through all of this; this page is the reference it leads to.
 ```mermaid
 flowchart TD
     K[Physical input and host lifecycle] --> M[macOS IMK, Objective-C++]
-    K -.-> W[Windows / Linux adapter, planned]
+    K --> W[Windows TSF, Rust]
     M -->|bounded UTF-16 facts| F[C ABI, keyrill-ffi]
-    W -.->|bounded UTF-16 facts| F
+    W -->|bounded UTF-16 facts| F
     F --> R[Rust session and policy, keyrill-core]
     R --> D[Immutable model and vocabulary snapshots]
     R -->|plan| F
     F -->|copied plan| M
-    F -.->|copied plan| W
+    F -->|copied plan| W
     M -->|owned composition| H[Host text client]
     M -->|"compatibility backend:<br/>synthetic keys, ADR 006"| H
-    W -.->|owned composition only| H
+    W -->|owned composition only| H
 ```
 
-Dashed parts are planned: only the macOS adapter exists. Its compatibility backend is the one path
+Linux support is planned. The macOS compatibility backend is the one path
 that edits committed text, under the terms of [ADR 006](docs/adr/006-compatibility-backend.md).
 
 | Path | Contents |
@@ -32,6 +32,11 @@ that edits committed text, under the terms of [ADR 006](docs/adr/006-compatibili
 | `crates/keyrill-ffi` | C ABI over the core, panic containment, dictionary-file acquisition |
 | `include/keyrill.h` | The ABI contract: layouts, ownership, versioning, every status code |
 | `native/macos` | InputMethodKit server, controller, settings window, compatibility backend, tests |
+| `native/windows/rust` | windows-rs TSF service, owned-composition executor, registrar, vocabulary worker, diagnostics, raw COM HRESULT calls and typed reference leases |
+| `native/windows/proof` | Rust proof editor, UIA inspectors, independent raw COM providers and controlled schedules |
+| `native/windows/build-support` | Rust source and artifact identities shared by runtime and proof tools |
+| `native/windows/setup` | Explicit machine installation, durable recovery, and dual-architecture package validation |
+| `tools/xtask` | Rust Windows build, model checker, scenario coverage and sanitizer runner |
 | `assets/model.bin` | Frozen EN/RU model, generated from `model/` by `tools/pack-model.py` |
 | `model/` | Hash-pinned model source, generator, evaluator and evaluation corpora |
 | `tools/inference-probe` | Stdin probe the evaluator drives; not part of any build product |
@@ -84,6 +89,19 @@ refuses every plan until the adapter resets it.
 without changing confirmed state. `acknowledge` advances state only on a verified result. A refused
 or unknown outcome invalidates the session; reset expires tokens and receipts; a panic poisons the
 handle permanently. A plan permits at most one native write.
+
+Ordinary Windows finalization can end an unchanged owned TSF composition without a text write.
+The native executor requires exact equality with its last verified text and checks context,
+generation, composition identity, range extent, text and full selection around termination.
+It marks the effect attempted before `EndComposition`. Failed or unknown termination stops
+correction without replay, another termination attempt or a recovery write. Changed finishes,
+retirement and platform-requested focus-loss commits retain their replacement protocols.
+
+When a write was attempted and its result is unknown, the key that carried it is consumed and
+not replayed, because it may already be in the document. An unknown finish passes the next
+ordinary key once, since the finish did not include it. Reserved commands stay consumed. This
+contains ambiguity; it does not prove the host preserved input, and a client that produces
+unknown outcomes cannot be admitted for automatic correction.
 
 Callbacks are not a document lock. Every native client call can reenter or invalidate state:
 snapshot the generation before a query, recheck it after each call and before any effect.
@@ -222,7 +240,8 @@ release assets. No telemetry, remote configuration, automatic update or privileg
 ## Lifetime
 
 Quit stops new operations, finishes only a valid owned mark, detaches native sinks and releases
-handles after callbacks drain. An engine is never freed while a callback can still reach it. Rust
-panics are contained at the ABI and poison the handle; native exceptions are contained on the native
-side; neither unwinds through the other. A caught panic does not recover allocation aborts or a
-partially mutated host.
+handles after callbacks drain. An engine is never freed while a callback can still reach it.
+Rust panics are contained at the ABI and poison the handle. Windows callbacks also contain Rust
+panics. Windows foreign COM implementations must obey the HRESULT and no-throw contract.
+The macOS adapter contains native exceptions on its side of the ABI. A caught panic does not
+recover allocation aborts or a partially mutated host.

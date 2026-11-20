@@ -1,4 +1,4 @@
-<!-- translation of docs/learn/boundary.md at 48ef235fb3965f9fff907044317b2827c668a3e4 -->
+<!-- translation of docs/learn/boundary.md at 15b9b1ce71677a6b9aabb1d689ff42f85fa317d7 -->
 
 # Граница C
 
@@ -84,11 +84,12 @@ Rust вправе переставлять поля структуры, чтоб
 [`ctypes.Structure`](https://docs.python.org/3/library/ctypes.html#structures-and-unions) в Python
 со своим списком `_fields_` выполняет ту же работу со стороны Python:
 
-[`crates/keyrill-ffi/src/lib.rs:132-153`](../../crates/keyrill-ffi/src/lib.rs#L132-L153)
+[`crates/keyrill-ffi/src/lib.rs:139-161`](../../crates/keyrill-ffi/src/lib.rs#L139-L161)
 
 ```rust
 /// `kr_event`: one key or command, read by value; `len` counts the UTF-16 units in use.
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct NativeEvent {
     role: u32,
     mode: u32,
@@ -115,7 +116,7 @@ pub struct NativePlan {
 объявления. Поэтому расположение закреплено с обеих сторон. В Rust элемент `const` вычисляется
 компилятором, и невыполненный `assert!` внутри него является ошибкой компиляции:
 
-[`crates/keyrill-ffi/src/lib.rs:167-176`](../../crates/keyrill-ffi/src/lib.rs#L167-L176)
+[`crates/keyrill-ffi/src/lib.rs:260-269`](../../crates/keyrill-ffi/src/lib.rs#L260-L269)
 
 ```rust
 // The same layouts the header's static assertions pin
@@ -132,7 +133,7 @@ const _: () = assert!(MAX_SOURCE_BYTES == 1_048_576);
 
 На стороне C заголовочный файл документирует каждое смещение и проверяет те же числа:
 
-[`include/keyrill.h:173-192`](../../include/keyrill.h#L173-L192)
+[`include/keyrill.h:174-193`](../../include/keyrill.h#L174-L193)
 
 ```c
 /* A copied plan. expected is the exact text the owned composition must hold before the write,
@@ -157,7 +158,7 @@ typedef struct {
 } kr_plan;
 ```
 
-[`include/keyrill.h:435-446`](../../include/keyrill.h#L435-L446)
+[`include/keyrill.h:466-477`](../../include/keyrill.h#L466-L477)
 
 ```c
 #ifdef __cplusplus
@@ -214,7 +215,7 @@ typedef struct kr_engine kr_engine;
 этот указатель является [`Box<Engine>`](https://doc.rust-lang.org/std/boxed/struct.Box.html) —
 владеющим указателем Rust на значение в куче, аналогом `std::unique_ptr` в C++:
 
-[`crates/keyrill-ffi/src/lib.rs:330-366`](../../crates/keyrill-ffi/src/lib.rs#L330-L366)
+[`crates/keyrill-ffi/src/lib.rs:423-459`](../../crates/keyrill-ffi/src/lib.rs#L423-L459)
 
 ```rust
 #[unsafe(no_mangle)]
@@ -265,7 +266,7 @@ pub unsafe extern "C" fn kr_engine_new(abi: u32, out: *mut *mut Engine) -> u32 {
 [`Box::from_raw`](https://doc.rust-lang.org/std/boxed/struct.Box.html#method.from_raw): она забирает
 владение обратно, после чего `drop` уничтожает движок и освобождает его память:
 
-[`crates/keyrill-ffi/src/lib.rs:368-382`](../../crates/keyrill-ffi/src/lib.rs#L368-L382)
+[`crates/keyrill-ffi/src/lib.rs:461-475`](../../crates/keyrill-ffi/src/lib.rs#L461-L475)
 
 ```rust
 /// Free once, after every call on the engine has returned and no callback can reach it. Null is
@@ -323,7 +324,7 @@ pub unsafe extern "C" fn kr_engine_free(pointer: *mut Engine) {
 экспортируемая функция, работающая с движком, проходит через одну функцию — самые поучительные
 двадцать строк крейта:
 
-[`crates/keyrill-ffi/src/lib.rs:292-316`](../../crates/keyrill-ffi/src/lib.rs#L292-L316)
+[`crates/keyrill-ffi/src/lib.rs:385-409`](../../crates/keyrill-ffi/src/lib.rs#L385-L409)
 
 ```rust
 // Callers provide live, uniquely borrowed handles. No callback is made while this borrow
@@ -399,7 +400,7 @@ panic = "unwind"
 
 *Цель: прочитать функцию `extern "C"` строка за строкой.*
 
-[`crates/keyrill-ffi/src/lib.rs:602-627`](../../crates/keyrill-ffi/src/lib.rs#L602-L627)
+[`crates/keyrill-ffi/src/lib.rs:695-720`](../../crates/keyrill-ffi/src/lib.rs#L695-L720)
 
 ```rust
 /// Acknowledge the latest plan; refused and unknown outcomes invalidate the session until
@@ -453,7 +454,7 @@ pub unsafe extern "C" fn kr_commit(pointer: *mut Engine, token: u64, outcome: u3
 собственный тип Rust `Event` и записывает полную структуру `NativePlan` в память, принадлежащую
 вызывающему коду:
 
-[`crates/keyrill-ffi/src/lib.rs:228-255`](../../crates/keyrill-ffi/src/lib.rs#L228-L255)
+[`crates/keyrill-ffi/src/lib.rs:321-348`](../../crates/keyrill-ffi/src/lib.rs#L321-L348)
 
 ```rust
 fn decode_event(event: &NativeEvent) -> Result<(Event, Mode, Context), u32> {
@@ -486,7 +487,7 @@ fn decode_event(event: &NativeEvent) -> Result<(Event, Mode, Context), u32> {
 }
 ```
 
-[`crates/keyrill-ffi/src/lib.rs:593-597`](../../crates/keyrill-ffi/src/lib.rs#L593-L597)
+[`crates/keyrill-ffi/src/lib.rs:686-690`](../../crates/keyrill-ffi/src/lib.rs#L686-L690)
 
 ```rust
             // Conversion maps unit for unit, so both texts are at most a MAX_WORD word plus Space
