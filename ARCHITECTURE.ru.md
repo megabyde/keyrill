@@ -1,4 +1,4 @@
-<!-- translation of ARCHITECTURE.md at e87e7e1d9ed56e9396c576c887b36a086d58624f -->
+<!-- translation of ARCHITECTURE.md at 6788ab5bc2f24bee1f41e8e423243efd31f33246 -->
 
 # Архитектура
 

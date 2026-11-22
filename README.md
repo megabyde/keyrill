@@ -9,9 +9,9 @@ the decision whether a typed word is in the wrong layout, runs offline against a
 model and your own spelling lists: Vim `.add` files if you keep them and the words you taught macOS
 with Learn Spelling. Nothing is logged, persisted or sent over the network.
 
-This is an alpha. macOS has an adapter, and Windows has a Rust TSF runtime and proof tools.
-The Windows x64 and x86 native suites have passed locally. Application and physical input
-acceptance are in progress. Linux remains open work. See [porting](docs/porting.md) and
+This is an alpha. macOS has an adapter, and Windows has a Rust TSF runtime and proof tools. The
+Windows x64 and x86 native suites have passed locally. Application and physical input acceptance are
+in progress. Linux remains open work. See [porting](docs/porting.md) and
 [Windows application qualification](docs/windows.md#application-qualification).
 
 ## How it works

@@ -1,4 +1,4 @@
-<!-- translation of README.md at 1fa12af43320957bd9d59604c1f7f25d2695117c -->
+<!-- translation of README.md at 62db1e7e08da69c17b11857bec059ac9554d0dca -->
 
 # Keyrill
 
