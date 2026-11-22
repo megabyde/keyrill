@@ -6,10 +6,17 @@ permissions:
   contents: read
 jobs:
   behavior:
+    name: behavior (${{ matrix.platform }})
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, windows-2025, ubuntu-24.04]
+        include:
+          - os: macos-15
+            platform: macos
+          - os: windows-2025
+            platform: windows-x64
+          - os: ubuntu-24.04
+            platform: linux
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -43,6 +50,7 @@ jobs:
           pipx install uv==0.13.7
           ./tools/verify markdown
   windows-x86:
+    name: behavior (windows-x86)
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -54,7 +62,7 @@ jobs:
       - name: Verify x86 clients on Windows x64
         run: cargo xtask windows check --arch x86
   windows-sanitize:
-    name: Windows x64 AddressSanitizer with prebuilt std and Windows code uninstrumented
+    name: sanitize (windows-x64)
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -66,6 +74,7 @@ jobs:
       - name: Verify x64 with experimental Rust AddressSanitizer and required memory-error canary
         run: cargo xtask windows sanitize
   windows-package:
+    name: package (windows-x64+x86)
     needs: [behavior, windows-x86, windows-sanitize, audit, coverage, core-analysis]
     runs-on: windows-2025
     steps:
