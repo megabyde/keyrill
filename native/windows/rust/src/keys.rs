@@ -1,3 +1,4 @@
+use crate::foreign::win32::KeyTranslation;
 use crate::profiles::{PROFILES, SERVICE_ID};
 use keyrill_ffi::NativeEvent;
 use windows::Win32::Foundation::{LPARAM, WPARAM};
@@ -60,6 +61,7 @@ pub(crate) fn handoff_letter(
     physical: &PhysicalKey,
     layout: HKL,
     fresh: &[u8; 256],
+    translation: KeyTranslation,
 ) -> Option<NativeEvent> {
     let key = physical.key.0;
     let word_key = (b'A' as usize..=b'Z' as usize).contains(&key)
@@ -81,7 +83,9 @@ pub(crate) fn handoff_letter(
     {
         return None;
     }
-    let Key::Event(event) = translate(physical.key, physical.flags, layout, fresh).ok()? else {
+    let Key::Event(event) =
+        translate(physical.key, physical.flags, layout, fresh, translation).ok()?
+    else {
         return None;
     };
     let view = event.view().ok()?;
@@ -137,6 +141,7 @@ pub(crate) fn translate(
     flags: LPARAM,
     layout: HKL,
     state: &[u8; 256],
+    translation: KeyTranslation,
 ) -> Result<Key, u32> {
     if [
         VK_SHIFT,
@@ -199,8 +204,8 @@ pub(crate) fn translate(
         return event(3, mode, &[]);
     }
     let mut text = [0; 8];
-    // SAFETY: the fixed keyboard state and output buffer are live for this non-mutating translation.
     let count = crate::foreign::win32::translate(
+        translation,
         key.0 as u32,
         (flags.0 as u32 >> 16) & 0xff,
         state,

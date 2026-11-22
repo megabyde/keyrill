@@ -338,6 +338,8 @@ pub(crate) struct Service {
     state: RefCell<State>,
     #[cfg(feature = "test-api")]
     panic_at: Cell<u32>,
+    #[cfg(feature = "test-api")]
+    pub(crate) test_key_translation: Cell<Option<foreign::win32::KeyTranslation>>,
     _dependencies: Option<DependencyLease>,
     _object: ObjectLease,
 }
@@ -355,9 +357,19 @@ impl Service {
             state: RefCell::new(State::default()),
             #[cfg(feature = "test-api")]
             panic_at: Cell::new(0),
+            #[cfg(feature = "test-api")]
+            test_key_translation: Cell::new(None),
             _dependencies: dependencies,
             _object: ObjectLease::new(),
         })
+    }
+
+    fn key_translation(&self) -> foreign::win32::KeyTranslation {
+        #[cfg(feature = "test-api")]
+        if let Some(translation) = self.test_key_translation.get() {
+            return translation;
+        }
+        foreign::win32::KEY_TRANSLATION
     }
 
     pub(crate) fn maintain(self: &Rc<Self>) -> HRESULT {
@@ -1646,16 +1658,21 @@ impl Service {
                 Ok(admitted) => admitted,
                 Err(result) => return result,
             };
-            let event =
-                match crate::keys::translate(key, flags, admitted.layout, &admitted.keyboard) {
-                    Ok(crate::keys::Key::Event(event)) => event,
-                    _ => {
-                        if matches!(key.0, 0x12 | 0xa4 | 0xa5) {
-                            self.revoke_release();
-                        }
-                        return S_OK;
+            let event = match crate::keys::translate(
+                key,
+                flags,
+                admitted.layout,
+                &admitted.keyboard,
+                self.key_translation(),
+            ) {
+                Ok(crate::keys::Key::Event(event)) => event,
+                _ => {
+                    if matches!(key.0, 0x12 | 0xa4 | 0xa5) {
+                        self.revoke_release();
                     }
-                };
+                    return S_OK;
+                }
+            };
             if !self.current(admitted.guard)
                 || self.state.borrow().mode != admitted.mode
                 || event

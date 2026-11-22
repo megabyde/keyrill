@@ -93,7 +93,15 @@ pub(crate) fn volume_filesystem(file: HANDLE, output: &mut [u16]) -> Result<()> 
     }
 }
 
+pub(crate) type KeyTranslation =
+    unsafe extern "system" fn(u32, u32, *const u8, *mut u16, i32, u32, HKL) -> i32;
+
+windows_core::link!("user32.dll" "system" fn ToUnicodeEx(key: u32, scan: u32, keyboard: *const u8, output: *mut u16, capacity: i32, flags: u32, layout: HKL) -> i32);
+
+pub(crate) const KEY_TRANSLATION: KeyTranslation = ToUnicodeEx;
+
 pub(crate) fn translate(
+    translation: KeyTranslation,
     key: u32,
     scan: u32,
     keyboard: &[u8; 256],
@@ -101,10 +109,9 @@ pub(crate) fn translate(
     flags: u32,
     layout: HKL,
 ) -> i32 {
-    windows_core::link!("user32.dll" "system" fn ToUnicodeEx(key: u32, scan: u32, keyboard: *const u8, output: *mut u16, capacity: i32, flags: u32, layout: HKL) -> i32);
-    // SAFETY: the complete keyboard snapshot and bounded output remain live through this native call.
+    // SAFETY: the complete keyboard snapshot and bounded output remain live through the call.
     unsafe {
-        ToUnicodeEx(
+        translation(
             key,
             scan,
             keyboard.as_ptr(),

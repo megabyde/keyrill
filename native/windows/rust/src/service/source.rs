@@ -353,7 +353,8 @@ impl Service {
             return false;
         };
         drop(state);
-        crate::keys::handoff_letter(physical, layout, &admitted.keyboard).is_some()
+        crate::keys::handoff_letter(physical, layout, &admitted.keyboard, self.key_translation())
+            .is_some()
             && self.current(admitted.guard)
     }
 
@@ -612,9 +613,12 @@ impl Service {
         if operation.cancelled.get() || admitted.mode != target.mode {
             return Execution::default();
         }
-        let Some(event) =
-            crate::keys::handoff_letter(physical, admitted.layout, &admitted.keyboard)
-        else {
+        let Some(event) = crate::keys::handoff_letter(
+            physical,
+            admitted.layout,
+            &admitted.keyboard,
+            self.key_translation(),
+        ) else {
             return Execution::default();
         };
         if !self.current(admitted.guard) || operation.cancelled.get() {

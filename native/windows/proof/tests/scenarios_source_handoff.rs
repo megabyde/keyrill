@@ -42,6 +42,74 @@ fn notify(c: &Client, mode: u32, active: bool) {
     }
 }
 
+type KeyTranslation =
+    unsafe extern "system" fn(u32, u32, *const u8, *mut u16, i32, u32, HKL) -> i32;
+
+// The profile provider supplies synthetic HKLs, so their translation cannot rely on Win32.
+unsafe extern "system" fn fixture_translation(
+    key: u32,
+    _: u32,
+    keyboard: *const u8,
+    output: *mut u16,
+    capacity: i32,
+    _: u32,
+    layout: HKL,
+) -> i32 {
+    let russian = match layout.0 as usize {
+        0x04090409 => false,
+        0x04190419 => true,
+        _ => return 0,
+    };
+    if capacity < 1 {
+        return 0;
+    }
+    // SAFETY: the test translation call supplies the complete keyboard snapshot.
+    let keyboard = unsafe { &*keyboard.cast::<[u8; 256]>() };
+    let shift = [VK_SHIFT, VK_LSHIFT, VK_RSHIFT]
+        .iter()
+        .any(|key| keyboard[key.0 as usize] & 0x80 != 0);
+    let uppercase = shift ^ (keyboard[VK_CAPITAL.0 as usize] & 1 != 0);
+    let character = if (u32::from(b'A')..=u32::from(b'Z')).contains(&key) {
+        let character = if russian {
+            const LETTERS: [char; 26] = [
+                'ф', 'и', 'с', 'в', 'у', 'а', 'п', 'р', 'ш', 'о', 'л', 'д', 'ь', 'т', 'щ', 'з',
+                'й', 'к', 'ы', 'е', 'г', 'м', 'ц', 'ч', 'н', 'я',
+            ];
+            LETTERS[(key - u32::from(b'A')) as usize]
+        } else {
+            (key as u8).to_ascii_lowercase().into()
+        };
+        if uppercase {
+            character.to_uppercase().next().unwrap_or(character)
+        } else {
+            character
+        }
+    } else {
+        let (lower, upper, plain, shifted) = match VIRTUAL_KEY(key as u16) {
+            VK_OEM_4 => ('х', 'Х', '[', '{'),
+            VK_OEM_6 => ('ъ', 'Ъ', ']', '}'),
+            VK_OEM_1 => ('ж', 'Ж', ';', ':'),
+            VK_OEM_7 => ('э', 'Э', '\'', '"'),
+            VK_OEM_COMMA => ('б', 'Б', ',', '<'),
+            VK_OEM_PERIOD => ('ю', 'Ю', '.', '>'),
+            VK_OEM_3 => ('ё', 'Ё', '`', '~'),
+            VK_OEM_2 => ('.', ',', '/', '?'),
+            VK_OEM_5 => ('\\', '/', '\\', '|'),
+            VK_SPACE => (' ', ' ', ' ', ' '),
+            _ => return 0,
+        };
+        match (russian, uppercase, shift) {
+            (true, true, _) => upper,
+            (true, false, _) => lower,
+            (false, _, true) => shifted,
+            (false, _, false) => plain,
+        }
+    };
+    // SAFETY: the test caller provides a writable output buffer of the checked capacity.
+    unsafe { output.write(character as u16) };
+    1
+}
+
 struct Fixture {
     c: Client,
     keyboard: Keyboard,
@@ -54,6 +122,14 @@ impl Fixture {
         settings.save(true, "en.add", None);
         let keyboard = Keyboard::new();
         let c = Client::new();
+        let set_translation: unsafe extern "system" fn(
+            *mut c_void,
+            Option<KeyTranslation>,
+        ) -> HRESULT = unsafe { c.api.export(b"KeyrillTestSetKeyTranslation\0") };
+        assert_eq!(
+            unsafe { set_translation(c.handle, Some(fixture_translation)) },
+            S_OK
+        );
         select_controlled(&c, mode);
         until(&c, |status| status.effective == 2);
         Self {
