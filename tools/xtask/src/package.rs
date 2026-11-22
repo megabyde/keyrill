@@ -49,12 +49,14 @@ pub(crate) fn build(root: &Path, target: Target) -> Result<()> {
         .or_else(|| std::env::var_os("USERPROFILE").map(|p| PathBuf::from(p).join(".cargo")))
         .ok_or("Cargo home unavailable for release path remapping")?;
     let sysroot = output(root, "rustc", &["--print", "sysroot"])?;
-    let flags = format!(
-        "--remap-path-prefix={}=/keyrill --remap-path-prefix={}=/cargo --remap-path-prefix={}=/rust -Clink-arg=/Brepro -Clink-arg=/PDBALTPATH:%_PDB%",
-        root.display(),
-        cargo_home.display(),
-        sysroot
-    );
+    let flags = [
+        format!("--remap-path-prefix={}=/keyrill", root.display()),
+        format!("--remap-path-prefix={}=/cargo", cargo_home.display()),
+        format!("--remap-path-prefix={sysroot}=/rust"),
+        "-Clink-arg=/Brepro".into(),
+        "-Clink-arg=/PDBALTPATH:%_PDB%".into(),
+    ]
+    .join("\x1f");
     let artifacts = cargo::artifacts(
         root,
         &[
@@ -71,7 +73,10 @@ pub(crate) fn build(root: &Path, target: Target) -> Result<()> {
                 .to_str()
                 .ok_or("non-Unicode build directory")?,
         ],
-        &[("KEYRILL_INSTRUMENTATION", "none"), ("RUSTFLAGS", &flags)],
+        &[
+            ("KEYRILL_INSTRUMENTATION", "none"),
+            ("CARGO_ENCODED_RUSTFLAGS", &flags),
+        ],
     )?;
     let mut hashes = serde_json::Map::new();
     for name in BINARIES {
