@@ -22,6 +22,7 @@ mod build_identity {
 }
 #[cfg(windows)]
 mod admission_watch;
+#[cfg(windows)]
 mod edit;
 #[cfg(windows)]
 mod field;

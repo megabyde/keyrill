@@ -4,7 +4,7 @@
 pub mod journal;
 #[cfg(windows)]
 pub mod native;
-#[cfg(test)]
+#[cfg(all(windows, test))]
 #[path = "../../build-support/src/artifact/fixture.rs"]
 mod package_fixture;
 

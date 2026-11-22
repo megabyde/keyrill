@@ -124,9 +124,8 @@ pub fn retain(path: &Path, directory: bool) -> Result<File> {
 
 fn retain_root(directory: &Path) -> Result<(PathBuf, Vec<File>)> {
     let directory = std::path::absolute(directory)?;
-    let mut leases = Vec::new();
     #[cfg(windows)]
-    {
+    let leases = {
         use std::path::{Component, Prefix};
         if !matches!(directory.components().next(),Some(Component::Prefix(p)) if matches!(p.kind(),Prefix::Disk(_)|Prefix::VerbatimDisk(_)))
         {
@@ -134,12 +133,14 @@ fn retain_root(directory: &Path) -> Result<(PathBuf, Vec<File>)> {
         }
         let mut ancestors: Vec<_> = directory.ancestors().collect();
         ancestors.reverse();
+        let mut leases = Vec::with_capacity(ancestors.len());
         for ancestor in ancestors {
             leases.push(open_entry(ancestor, true)?);
         }
-    }
+        leases
+    };
     #[cfg(not(windows))]
-    leases.push(open_entry(&directory, true)?);
+    let leases = vec![open_entry(&directory, true)?];
     #[cfg(not(windows))]
     let directory = directory.canonicalize()?;
     Ok((directory, leases))
