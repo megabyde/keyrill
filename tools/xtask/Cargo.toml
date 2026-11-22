@@ -7,7 +7,7 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
-keyrill-windows-build = { path = "../../native/windows/build-support" }
+keyrill-windows-build = { path = "../../native/windows/build-support", version = "=0.1.0" }
 serde_json = "=1.0.154"
 flate2 = "=1.1.9"
 

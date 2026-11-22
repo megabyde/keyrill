@@ -22,7 +22,7 @@ path = "src/bin/keyrill-settings.rs"
 test-api = []
 
 [dependencies]
-keyrill-windows-build = { path = "../build-support" }
+keyrill-windows-build = { path = "../build-support", version = "=0.1.0" }
 keyrill-ffi = { path = "../../../crates/keyrill-ffi", version = "=0.1.0" }
 
 [target.'cfg(windows)'.dependencies]
@@ -30,7 +30,7 @@ windows = { version = "=0.62.2", features = ["Wdk_Foundation", "Wdk_Storage_File
 windows-core = "=0.62.2"
 
 [build-dependencies]
-keyrill-windows-build = { path = "../build-support" }
+keyrill-windows-build = { path = "../build-support", version = "=0.1.0" }
 
 [dev-dependencies]
 serde_json = "=1.0.154"
