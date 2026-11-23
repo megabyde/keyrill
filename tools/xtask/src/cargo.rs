@@ -1,5 +1,6 @@
 use serde_json::Value;
 use std::error::Error;
+use std::ffi::OsStr;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -60,14 +61,14 @@ fn decode(output: &[u8]) -> Result<Vec<Artifact>> {
 pub(crate) fn artifacts(
     root: &Path,
     arguments: &[&str],
-    environment: &[(&str, &str)],
+    environment: &[(&str, impl AsRef<OsStr>)],
 ) -> Result<Vec<Artifact>> {
     let output = Command::new("cargo")
         .current_dir(root)
         .args(arguments)
         .args(["--locked", "--offline", "--message-format=json"])
         .env_remove("CARGO_ENCODED_RUSTFLAGS")
-        .envs(environment.iter().copied())
+        .envs(environment.iter().map(|(key, value)| (key, value)))
         .stdin(Stdio::null())
         .stderr(Stdio::inherit())
         .output()?;

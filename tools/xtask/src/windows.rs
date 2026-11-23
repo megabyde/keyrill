@@ -77,7 +77,7 @@ pub(crate) struct Build {
     pub(crate) identity: Identity,
     pub(crate) test_executable: PathBuf,
     runtime_path: Option<OsString>,
-    compiler_environment: Vec<(&'static str, &'static str)>,
+    compiler_environment: Vec<(&'static str, OsString)>,
 }
 
 impl Build {
@@ -229,18 +229,21 @@ pub(crate) fn build(
         instrumentation,
     };
     let before = identity(root, config)?;
-    let (directory_name, environment, runtime_path) = match instrumentation {
+    let (directory_name, mut environment, runtime_path) = match instrumentation {
         Instrumentation::None => (
             "target/windows-rust-check",
-            vec![("KEYRILL_INSTRUMENTATION", "none"), ("RUSTFLAGS", "")],
+            vec![
+                ("KEYRILL_INSTRUMENTATION", "none".into()),
+                ("RUSTFLAGS", "".into()),
+            ],
             None,
         ),
         Instrumentation::Address => (
             "target/windows-rust-sanitize",
             vec![
-                ("KEYRILL_INSTRUMENTATION", "address"),
-                ("RUSTC_BOOTSTRAP", "1"),
-                ("RUSTFLAGS", "-Zsanitizer=address -Cdebuginfo=1"),
+                ("KEYRILL_INSTRUMENTATION", "address".into()),
+                ("RUSTC_BOOTSTRAP", "1".into()),
+                ("RUSTFLAGS", "-Zsanitizer=address -Cdebuginfo=1".into()),
             ],
             Some(sanitize::prepare(root)?),
         ),
@@ -249,6 +252,11 @@ pub(crate) fn build(
         Target::X64 => directory_name.to_owned(),
         Target::X86 => format!("{directory_name}-x86"),
     });
+    // Final outputs remain separate so the two DLL variants never share a destination.
+    environment.push((
+        "CARGO_BUILD_BUILD_DIR",
+        directory.join("cargo-build").into_os_string(),
+    ));
     fs::create_dir_all(directory.join("tests"))?;
     let mut binary_hashes = BTreeMap::new();
     let target_directory = directory.join("cargo-production");
