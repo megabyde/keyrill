@@ -75,6 +75,7 @@ jobs:
         run: cargo xtask windows sanitize
   windows-package:
     name: package (windows-x64+x86)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [behavior, windows-x86, windows-sanitize, audit, coverage, core-analysis]
     runs-on: windows-2025
     steps:

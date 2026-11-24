@@ -63,7 +63,8 @@ qualification evidence.
 
 Repeat staging into a second new directory from the same build receipts and compare the manifest and
 file hashes. Candidate staging is deterministic for those inputs. Independently rebuilding the
-binaries is a separate reproducibility check. Signing changes binary bytes and requires a new
+binaries is a separate reproducibility check. CI builds and verifies both clean packages on pushes
+to `main` after the verification jobs pass. Signing changes binary bytes and requires a new
 manifest, candidate identity, and renewed validation. Signing and publication remain maintainer
 work.
 
