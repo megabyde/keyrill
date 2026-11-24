@@ -217,6 +217,12 @@ domain, keeping unrelated ones such as `ApplicationTiers`, and installs a replac
 controller finishes its old owned mark through the verified path and picks up the new configuration
 on its next activation. Dictionary contents are never displayed or logged.
 
+Settings uses a key-capable, nonactivating `NSPanel` and stays visible when focus moves elsewhere.
+Showing it does not explicitly activate the input-method server, and Save, Cancel and close make no
+input-source selection request. This avoids selecting a remembered source after the user has
+continued in another application. The panel's text fields and the separate modal file chooser still
+need physical input-source checks; the nonactivating style alone is not proof of TSM behavior.
+
 ## Input-source switching
 
 After an automatic correction Keyrill asks IMK for the Keyrill mode of the corrected language;
