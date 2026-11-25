@@ -6,6 +6,11 @@ set -eu
 cd "$(dirname "$0")/.."
 case "${1:-check}" in
   check)
+    case "$(uname -s)" in
+      MINGW* | MSYS* | CYGWIN*)
+        exec cargo xtask windows check
+        ;;
+    esac
     python3 tools/pack-model.py --check
     python3 tools/check-excerpts.py
     cargo fmt --all -- --check
@@ -14,6 +19,13 @@ case "${1:-check}" in
     cargo test --locked --workspace
     RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
     cargo build --locked --workspace --release
+    "$0" abi-smoke
+    if [ "$(uname -s)" = Darwin ]; then
+      clang-format --dry-run --Werror include/keyrill.h crates/keyrill-ffi/tests/abi_smoke.c
+      native/macos/build.sh check
+    fi
+    ;;
+  abi-smoke)
     clang -std=c11 -Wall -Wextra -Werror -fsyntax-only -x c include/keyrill.h
     # The C smoke test links the staticlib with the system libraries rustc reports for it
     libs=$(cargo rustc --locked --release -p keyrill-ffi --crate-type staticlib -- --print native-static-libs 2>&1 |
@@ -31,12 +43,13 @@ case "${1:-check}" in
     clang -std=c11 -Wall -Wextra -Wpedantic -Werror $crt -Iinclude crates/keyrill-ffi/tests/abi_smoke.c \
       "$lib" $libs -o "target/release/abi-smoke$exe"
     "target/release/abi-smoke$exe"
-    if [ "$(uname -s)" = Darwin ]; then
-      clang-format --dry-run --Werror include/keyrill.h crates/keyrill-ffi/tests/abi_smoke.c
-      native/macos/build.sh check
-    fi
     ;;
-  sanitize) native/macos/build.sh sanitize ;;
+  sanitize)
+    case "$(uname -s)" in
+      MINGW* | MSYS* | CYGWIN*) exec cargo xtask windows sanitize ;;
+      *) native/macos/build.sh sanitize ;;
+    esac
+    ;;
   browser-fixture) node native/macos/tests/browser-fixture.test.cjs ;;
   markdown)
     # model/corpora holds upstream READMEs pinned by hash, so their bytes must stay as published.
@@ -59,14 +72,14 @@ case "${1:-check}" in
     ;;
   coverage)
     test "$(cargo llvm-cov --version)" = "cargo-llvm-cov 0.6.21"
-    cargo llvm-cov --locked --workspace --exclude inference-probe --html
+    cargo llvm-cov --locked -p keyrill-core -p keyrill-ffi --html
     # Without an output directory llvm-cov writes the HTML report as one self-contained page;
     # cargo-llvm-cov has no option for that, so its own show command is reused
-    show=$(cargo llvm-cov report -v --text --output-path target/llvm-cov/coverage.txt 2>&1 |
+    show=$(cargo llvm-cov report -p keyrill-core -p keyrill-ffi -v --text --output-path target/llvm-cov/coverage.txt 2>&1 |
       sed -n 's/^ *Running `\(.*llvm-cov show\) -format=text -use-color=0\(.*\)`$/\1 -format=html\2/p')
     test -n "$show"
     eval "$show" >target/llvm-cov/keyrill-coverage.html
-    cargo llvm-cov report --fail-under-lines 95 --fail-under-regions 95 >target/llvm-cov/summary.txt
+    cargo llvm-cov report -p keyrill-core -p keyrill-ffi --fail-under-lines 95 --fail-under-regions 95 >target/llvm-cov/summary.txt
     ;;
   evaluate)
     cargo build --locked --release -p inference-probe
@@ -97,5 +110,5 @@ case "${1:-check}" in
       --skip vocabulary_source:: --skip vocabulary_host::tests::source_ \
       --skip model_policy_bridge_preserves_configuration_context_and_receipts
     ;;
-  *) echo "usage: ./tools/verify [check|sanitize|browser-fixture|markdown [fix]|site|audit|coverage|evaluate|fuzz|miri]" >&2; exit 2 ;;
+  *) echo "usage: ./tools/verify [check|abi-smoke|sanitize|browser-fixture|markdown [fix]|site|audit|coverage|evaluate|fuzz|miri]" >&2; exit 2 ;;
 esac

@@ -18,6 +18,12 @@ text. No AX replacement, clipboard transport, synthetic deletion or committed-ra
 Secure, excluded and uncertain controls get no text inspection or composition. Never persist raw
 input or personal vocabulary. No runtime network access.
 
+On Windows, ordinary finalization of an unchanged owned TSF composition may end the exact verified
+composition without replacing its text. Verify its text, extent, context, generation and full
+selection before and after termination. Failed or unknown termination stops correction without
+replay or repair. Changed-text finalization, retirement, platform-requested focus-loss commits and
+unknown-effect readback commits retain their existing replacement protocols.
+
 The macOS compatibility backend in `docs/adr/006-compatibility-backend.md` is the one explicit
 exception to owned-composition-only editing and the synthetic-deletion prohibition. Keep its
 observed/dispatched protocol separate from verified edits. Never invoke it to repair an unknown

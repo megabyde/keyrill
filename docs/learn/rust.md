@@ -132,7 +132,7 @@ similar syntax, but it doesn't check that the cases are complete; TypeScript can
 you write yourself. This is the place where the C boundary turns Rust's enums back into the numbers
 of `keyrill.h`:
 
-[`crates/keyrill-ffi/src/lib.rs:575-592`](../../crates/keyrill-ffi/src/lib.rs#L575-L592)
+[`crates/keyrill-ffi/src/lib.rs:668-685`](../../crates/keyrill-ffi/src/lib.rs#L668-L685)
 
 ```rust
             let mut copied = NativePlan {
@@ -552,7 +552,7 @@ Python it would be a constructor that takes the other type.
 
 The engine takes the snapshots apart into plain references for the length of one proposal:
 
-[`crates/keyrill-ffi/src/lib.rs:271-287`](../../crates/keyrill-ffi/src/lib.rs#L271-L287)
+[`crates/keyrill-ffi/src/lib.rs:364-380`](../../crates/keyrill-ffi/src/lib.rs#L364-L380)
 
 ```rust
     match &engine.automatic {
@@ -789,7 +789,7 @@ A function may take a closure as a parameter, as a Python function may take a ca
 `impl FnOnce() -> ...` in a parameter list means "any function or closure that can be called once
 and returns this":
 
-[`crates/keyrill-ffi/src/lib.rs:178-189`](../../crates/keyrill-ffi/src/lib.rs#L178-L189)
+[`crates/keyrill-ffi/src/lib.rs:271-282`](../../crates/keyrill-ffi/src/lib.rs#L271-L282)
 
 ```rust
 // Validated once per process; every engine that selects MODEL shares the result, a failure too

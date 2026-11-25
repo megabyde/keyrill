@@ -1,4 +1,4 @@
-<!-- translation of docs/learn/rust.md at 0eae3bc6496230366fabc5620d2e5703feb8ff3e -->
+<!-- translation of docs/learn/rust.md at 8384b621ddb5d149b42f78114524d199fa483e9e -->
 
 # Rust в ядре
 
@@ -147,7 +147,7 @@ pub enum Outcome {
 которую вы пишете сами. Вот место, где граница C превращает перечисления Rust обратно в числа из
 `keyrill.h`:
 
-[`crates/keyrill-ffi/src/lib.rs:575-592`](../../crates/keyrill-ffi/src/lib.rs#L575-L592)
+[`crates/keyrill-ffi/src/lib.rs:668-685`](../../crates/keyrill-ffi/src/lib.rs#L668-L685)
 
 ```rust
             let mut copied = NativePlan {
@@ -589,7 +589,7 @@ Python это был бы конструктор, принимающий дру�
 
 На время одного предложения движок получает из снимков обычные ссылки:
 
-[`crates/keyrill-ffi/src/lib.rs:271-287`](../../crates/keyrill-ffi/src/lib.rs#L271-L287)
+[`crates/keyrill-ffi/src/lib.rs:364-380`](../../crates/keyrill-ffi/src/lib.rs#L364-L380)
 
 ```rust
     match &engine.automatic {
@@ -833,7 +833,7 @@ fn convert_unit(unit: u16, keyboard: Keyboard, mapping: Mapping) -> u16 {
 вызываемый объект. Запись `impl FnOnce() -> ...` в списке параметров означает «любая функция или
 любое замыкание, которое можно вызвать один раз и которое возвращает указанный тип»:
 
-[`crates/keyrill-ffi/src/lib.rs:178-189`](../../crates/keyrill-ffi/src/lib.rs#L178-L189)
+[`crates/keyrill-ffi/src/lib.rs:271-282`](../../crates/keyrill-ffi/src/lib.rs#L271-L282)
 
 ```rust
 // Validated once per process; every engine that selects MODEL shares the result, a failure too

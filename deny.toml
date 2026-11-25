@@ -13,9 +13,20 @@ include-dev = true
 [licenses.private]
 ignore = true
 
+[[licenses.exceptions]]
+name = "unicode-ident"
+version = "=1.0.27"
+allow = ["Unicode-3.0"]
+
 [bans]
 multiple-versions = "deny"
 wildcards = "deny"
+skip = [
+    # sha2 0.10 uses 0.2, while proptest's chacha20 uses 0.3.
+    { name = "cpufeatures", version = "=0.2.17" },
+    # windows-implement uses syn 2, while serde_derive uses syn 3.
+    { name = "syn", version = "=2.0.119" },
+]
 
 [sources]
 unknown-registry = "deny"

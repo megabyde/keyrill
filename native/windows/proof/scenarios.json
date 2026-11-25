@@ -1,0 +1,2757 @@
+{
+  "schema": 1,
+  "baselineCommit": "03e58ca542445855943eb6ac74e10a52c4ab5633",
+  "suites": [
+    "host_routing_schedules",
+    "host_diagnostic_mapping_schedules",
+    "host_thread_startup_schedules",
+    "host_inspector_argument_schedules",
+    "host_field_evidence_schedules",
+    "registration_preflight",
+    "controlled_com_schedules",
+    "worker_filesystem_schedules",
+    "worker_actual_dll",
+    "worker_production_dll",
+    "registration_free_factory",
+    "registration_free_activation",
+    "registration_free_activation_missing_dll",
+    "c11_abi_smoke",
+    "rust_com_boundary_basic",
+    "rust_com_boundary_query-before",
+    "rust_com_boundary_query-after",
+    "rust_com_boundary_request-before",
+    "rust_com_boundary_request-after",
+    "rust_com_boundary_add-before",
+    "rust_com_boundary_add-after",
+    "rust_com_boundary_release-before",
+    "rust_com_boundary_release-after",
+    "rust_diagnostic_roundtrip_production",
+    "rust_diagnostic_roundtrip_test-api",
+    "rust_configure_sdk_production",
+    "rust_configure_package_production",
+    "rust_configure_preview_production",
+    "rust_settings_local_readiness_production",
+    "rust_configure_sdk_test-api",
+    "rust_configure_package_test-api",
+    "rust_configure_preview_test-api",
+    "rust_settings_local_readiness_test-api"
+  ],
+  "families": [
+    {
+      "id": "tests.Require",
+      "source": "native/windows/tests.cpp",
+      "symbol": "Require",
+      "line": 60,
+      "sourceSha256": "3c1f12793aedfe2fa190195cf0de50c24ecf9e38fca6f9029c28e1377dee97e9",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [],
+      "reconciliations": [
+        "Shared assertion/abort helper. Its callers own the baseline executable assertions and their concrete successors are recorded by family and suiteCoverage."
+      ]
+    },
+    {
+      "id": "tests.NativeDenialGateSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "NativeDenialGateSchedules",
+      "line": 66,
+      "sourceSha256": "77a32a9e7416277de08439b58323b25f0dc9c921a8c0ce1a963060a34894423d",
+      "loopHeaders": [
+        "for (uint32_t mode : {0u, static_cast<uint32_t>(KR_RU)}) {",
+        "for (auto effect : {Counter::SessionEntered, Counter::SessionCompleted, Counter::Attempted,",
+        "for (int identity = 0; identity != 3; ++identity) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "proof::options::tests::editor_mode_arguments",
+        "proof::proof_inspect::denial_tests::native_denial_accepts_failed_request_and_failed_session_evidence",
+        "proof::proof_inspect::denial_tests::native_denial_rejects_absent_busy_and_saturated_publications",
+        "proof::proof_inspect::denial_tests::native_denial_rejects_all_six_effects_in_either_sample",
+        "proof::proof_inspect::denial_tests::native_denial_rejects_identity_freshness_mode_and_native_result_drift",
+        "proof::proof_inspect::denial_tests::native_denial_startup_modes_and_exact_setup_confirmation"
+      ],
+      "reconciliations": [
+        "Exact denial startup and setup confirmation, request/session HRESULT evidence, six effects in either sample, stale or changed publication identity/mode/continuity, refusal mismatch, stopped state, saturation, and busy/absent provider are asserted in proof_inspect::denial_tests."
+      ]
+    },
+    {
+      "id": "tests.FixtureScopeOracle",
+      "source": "native/windows/tests.cpp",
+      "symbol": "FixtureScopeOracle",
+      "line": 261,
+      "sourceSha256": "0a0a90e03cd53128b6dbe3f62b4aa3151734f1231b6aa81a83a4f649fc26cf8f",
+      "loopHeaders": [
+        "for (UINT i = 0; i != children; ++i) {"
+      ],
+      "disposition": "helper",
+      "rustTests": [
+        "proof::editor::fixture_tests::fixture_lifecycle_class_reuse_refuses_different_window_procedure_before_scopes",
+        "proof::editor::fixture_tests::fixture_lifecycle_exact_scopes_and_live_owning_thread_cleanup",
+        "proof::editor::fixture_tests::fixture_lifecycle_reset_failure_and_panic_continue_all_children_and_keep_first_error",
+        "proof::editor::fixture_tests::fixture_lifecycle_setup_failure_and_panic_at_each_of_four_assignments"
+      ],
+      "reconciliations": [
+        "Assertion helper for the fixture lifecycle schedules. Its child identity, scope, live HWND, owning-thread, cleanup, and reset-result assertions are shared by the named fixture unit tests."
+      ]
+    },
+    {
+      "id": "tests.FixtureLifecycle",
+      "source": "native/windows/tests.cpp",
+      "symbol": "FixtureLifecycle",
+      "line": 279,
+      "sourceSha256": "55cebd29f9317ba973222b82554107b0f59885ce952626aef25c7d94bd99dd7e",
+      "loopHeaders": [
+        "for (bool throwing : {false, true}) {",
+        "for (UINT position = 1; position != 5; ++position) {",
+        "for (int scenario = 0; scenario != 2; ++scenario) {",
+        "for (auto &clone : document.clones)",
+        "for (const wchar_t *p = text; *p; ++p)",
+        "for (const char *p = keys; *p; ++p) {",
+        "for (int activation = 0; activation != 2; ++activation) {",
+        "for (UINT key : {static_cast<UINT>('K'), static_cast<UINT>('Z')}) {",
+        "for (const auto &binding : command_bindings) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "proof::editor::fixture_tests::fixture_lifecycle_class_reuse_refuses_different_window_procedure_before_scopes",
+        "proof::editor::fixture_tests::fixture_lifecycle_exact_scopes_and_live_owning_thread_cleanup",
+        "proof::editor::fixture_tests::fixture_lifecycle_reset_failure_and_panic_continue_all_children_and_keep_first_error",
+        "proof::editor::fixture_tests::fixture_lifecycle_setup_failure_and_panic_at_each_of_four_assignments",
+        "proof::editor::tests::actual_rich_edit_fixture_preserves_ids_exclusion_styles_and_tsf_setup"
+      ],
+      "reconciliations": [
+        "Four exact scope assignments are observed while each child is alive on its owning thread. Each assignment fails by HRESULT and by contained Rust panic, partial children are destroyed, every reset continues after failure, first reset error survives, and a preexisting different WNDPROC is refused. The C++ throw mechanism is replaced with contained Rust panic and native HRESULT evidence."
+      ]
+    },
+    {
+      "id": "tests.PreservedActivationSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "PreservedActivationSchedules",
+      "line": 1420,
+      "sourceSha256": "0f72289de3ffffa7b6575b3798bd3bcabeb27ec07b34fc9a528fd4f07d693d0b",
+      "loopHeaders": [
+        "for (int position : {0, 1, 2}) {",
+        "for (HRESULT failure : {E_FAIL, S_FALSE, TF_E_ALREADY_EXISTS}) {",
+        "for (int boundary = 0; boundary != 6; ++boundary) {",
+        "for (int position : {0, 1, 2}) {",
+        "for (bool throwing : {false, true}) {",
+        "for (int position : {0, 1, 2}) {",
+        "for (int outcome = 0; outcome != 4; ++outcome) {",
+        "for (int position : {0, 1, 2}) {",
+        "for (bool cancel : {false, true}) {",
+        "for (bool during_query : {false, true}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_commands::preserved_activation_cleanup_failure_and_rollback_matrix",
+        "controlled::scenarios_commands::preserved_activation_provisional_observer_and_profile_notifications",
+        "controlled::scenarios_commands::preserved_activation_registration_failure_prefix_matrix",
+        "controlled::scenarios_commands::preserved_activation_sink_failure_and_cancellation_matrix"
+      ],
+      "reconciliations": [
+        "Three registration positions cross exact failure results. Three sink positions and each native acquisition permit cancellation. Reentrant release drainage, failed cleanup, rollback, provisional commands, and profile notifications during query or registration preserve ownership. HRESULT and legal native reentry replace the C++ foreign-throw mechanism."
+      ]
+    },
+    {
+      "id": "tests.CommandRetentionRegression",
+      "source": "native/windows/tests.cpp",
+      "symbol": "CommandRetentionRegression",
+      "line": 1696,
+      "sourceSha256": "df0a1f2d49c6bc93a3dec67a4b31c84f2909c21d5ecf92bd2443579fa83f4fad",
+      "loopHeaders": [],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_commands::command_retention_regression_and_release_order_matrix"
+      ],
+      "reconciliations": [
+        "Ordinary versus preserved delivery, Control-first versus Alt-first release, convert versus reverse. Exact owned mark survives the permitted release."
+      ]
+    },
+    {
+      "id": "tests.Witness",
+      "source": "native/windows/tests.cpp",
+      "symbol": "Witness",
+      "line": 1749,
+      "sourceSha256": "7d5eda58ef4e5ec2dc8f3266800881c32eae6246caacc37e1f8ebcca3fcc89dd",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [
+        "controlled::scenarios_commands::command_retention_missing_or_refused_witness_matrix",
+        "controlled::scenarios_commands::command_retention_regression_and_release_order_matrix"
+      ],
+      "reconciliations": [
+        "Command witness setup helper for observed Alt cycles. The command-retention successors exercise its caller-owned witness and release schedules."
+      ]
+    },
+    {
+      "id": "tests.CommandReleaseFaultSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "CommandReleaseFaultSchedules",
+      "line": 1756,
+      "sourceSha256": "f39f9d5770bc09b0b127ed41e9a23d8461be71703a079ce7a2f5d61fb7a0d2ec",
+      "loopHeaders": [
+        "for (int failing = 0; failing <= boundaries; ++failing) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_commands::command_release_balanced_reference_reentry_matrix"
+      ],
+      "reconciliations": [
+        "All observed release ordinals, before and after release, with nested focus change and unchanged document. This replaces C++ throwing reference operations with legal native reentry."
+      ]
+    },
+    {
+      "id": "tests.CommandRetentionFocusGainSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "CommandRetentionFocusGainSchedules",
+      "line": 1787,
+      "sourceSha256": "d457cccf9e11967ad7613fcf317974e619b38779b0969f151bb08576b6a83f87",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 2; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_commands::command_retention_focus_gain_direct_and_reentrant"
+      ],
+      "reconciliations": [
+        "Direct and reentrant focus gain both revoke stale release permission."
+      ]
+    },
+    {
+      "id": "tests.CommandRetentionSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "CommandRetentionSchedules",
+      "line": 1827,
+      "sourceSha256": "13573701fb596ecbd61d51ed4326395edaf96f0214e7e4b137bb8ffa6a960426",
+      "loopHeaders": [
+        "for (bool ordinary : {false, true}) {",
+        "for (bool ctrl_first : {false, true}) {",
+        "for (UINT command : {static_cast<UINT>('K'), static_cast<UINT>('Z')}) {",
+        "for (int scenario = 0; scenario != 6; ++scenario) {",
+        "for (int scenario = 0; scenario != 17; ++scenario) {",
+        "for (int scenario = 0; scenario != 8; ++scenario) {",
+        "for (int scenario = 0; scenario != 9; ++scenario) {",
+        "for (int scenario = 0; scenario != 5; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_commands::command_retention_authority_invalidation_matrix",
+        "controlled::scenarios_commands::command_retention_missing_observer_host_contract_boundary",
+        "controlled::scenarios_commands::command_retention_missing_or_refused_witness_matrix",
+        "controlled::scenarios_commands::command_retention_nonverified_command_never_arms",
+        "controlled::scenarios_commands::command_retention_reentrant_cancellation_matrix",
+        "controlled::scenarios_commands::command_retention_regression_and_release_order_matrix"
+      ],
+      "reconciliations": [
+        "Baseline six witness cases, seventeen authority invalidations, eight nonverified commands, and nine effect/reentry combinations are represented with the regression/release-order schedule. The indistinguishable missing-observer host schedule retains its explicit exclusion."
+      ]
+    },
+    {
+      "id": "tests.PreservedDispatchSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "PreservedDispatchSchedules",
+      "line": 2104,
+      "sourceSha256": "87e0ab3f7ad87567529c2ca2c413d74a4c82f9f794a9400ac01bbc4b34b2ee1c",
+      "loopHeaders": [
+        "for (const auto &entry : profiles) {",
+        "for (int repeat = 0; repeat != 2; ++repeat) {",
+        "for (int repeat = 0; repeat != 3; ++repeat)",
+        "for (int extra : {VK_LSHIFT, VK_RSHIFT, VK_RCONTROL, VK_RMENU, VK_LWIN, VK_RWIN, 0, 1, 2}) {",
+        "for (int scenario = 0; scenario != 10; ++scenario) {",
+        "for (int scenario = 0; scenario != 8; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_commands::preserved_dispatch_both_modes_caps_repeat_and_receipt",
+        "controlled::scenarios_commands::preserved_dispatch_continuation_and_release_reactivation",
+        "controlled::scenarios_commands::preserved_dispatch_pointer_guid_thread_and_exclusion_matrix",
+        "controlled::scenarios_commands::preserved_dispatch_refusal_and_unknown_matrix",
+        "controlled::scenarios_commands::preserved_dispatch_termination_and_retained_callback",
+        "controlled::scenarios_commands::preserved_dispatch_wrong_modifiers_do_not_touch_owned_text"
+      ],
+      "reconciliations": [
+        "Both profile modes, repeats, Caps, nine wrong-modifier combinations, ten exclusion cases, eight refusal/unknown cases, stale dispatch, and callback expiration."
+      ]
+    },
+    {
+      "id": "tests.CommandKeySequences",
+      "source": "native/windows/tests.cpp",
+      "symbol": "CommandKeySequences",
+      "line": 2344,
+      "sourceSha256": "54c0db235a14f7b1f2afc5cb52def853907a3b127350f7185f09efa5e610c313",
+      "loopHeaders": [
+        "for (WPARAM key : {static_cast<WPARAM>('K'), static_cast<WPARAM>('Z')}) {",
+        "for (int extra : {VK_LSHIFT, VK_RSHIFT, VK_LWIN, VK_RWIN, VK_RMENU, VK_RCONTROL}) {",
+        "for (WPARAM special : {static_cast<WPARAM>(VK_BACK), static_cast<WPARAM>(VK_ESCAPE)}) {",
+        "for (bool shift : {false, true}) {",
+        "for (int failure = 0; failure != 5; ++failure) {",
+        "for (int failure = 0; failure != 4; ++failure) {",
+        "for (bool secure : {false, true}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_commands::command_key_sequences_conversion_idle_and_receipt",
+        "controlled::scenarios_commands::command_key_sequences_failure_and_exclusion_matrix",
+        "controlled::scenarios_commands::command_key_sequences_modifier_and_special_key_matrix",
+        "controlled::scenarios_commands::command_modifier_identity_caps_and_missing_layout"
+      ],
+      "reconciliations": [
+        "K/Z, extra modifiers, Backspace/Escape crossed with Shift, failure sets of five and four, two excluded scopes, modifier-only identity, Caps, and missing layout."
+      ]
+    },
+    {
+      "id": "tests.DedicatedLayoutRegression",
+      "source": "native/windows/tests.cpp",
+      "symbol": "DedicatedLayoutRegression",
+      "line": 2578,
+      "sourceSha256": "f494153408f15cefe49d9e7b2884d6bb0c5e3b7a96313e6c310fa0a3521ae6f8",
+      "loopHeaders": [
+        "for (const auto &entry : profiles) {",
+        "for (HKL field : {static_cast<HKL>(nullptr), reinterpret_cast<HKL>(1)}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_commands::dedicated_layout_regression_and_negative_matrix"
+      ],
+      "reconciliations": [
+        "Both modes crossed with null or sentinel active HKL, exact dedicated substitute."
+      ]
+    },
+    {
+      "id": "tests.LayoutRefusalOracle",
+      "source": "native/windows/tests.cpp",
+      "symbol": "LayoutRefusalOracle",
+      "line": 2606,
+      "sourceSha256": "8b9574c33cdc4b7c065fafc81025175591a2b116c5befba40f781425314822b7",
+      "loopHeaders": [
+        "for (auto counter :"
+      ],
+      "disposition": "helper",
+      "rustTests": [
+        "controlled::scenarios_commands::dedicated_layout_regression_and_negative_matrix"
+      ],
+      "reconciliations": [
+        "Shared dedicated-layout refusal oracle. The dedicated layout negative matrix owns the full document and zero-effect assertions."
+      ]
+    },
+    {
+      "id": "tests.DedicatedLayoutNegatives",
+      "source": "native/windows/tests.cpp",
+      "symbol": "DedicatedLayoutNegatives",
+      "line": 2623,
+      "sourceSha256": "1289b61dbd7ec1e5c54d667685d7007ecb8348a8769a782c8e96cf06b27e388c",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 20; ++scenario) {",
+        "for (int mismatch = 0; mismatch != 2; ++mismatch) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_commands::dedicated_layout_regression_and_negative_matrix"
+      ],
+      "reconciliations": [
+        "Both ordinary and preserved routes cross 22 profile/substitute/status failures, including the baseline twenty cases and layout mismatches."
+      ]
+    },
+    {
+      "id": "tests.DedicatedLayoutReentry",
+      "source": "native/windows/tests.cpp",
+      "symbol": "DedicatedLayoutReentry",
+      "line": 2754,
+      "sourceSha256": "96072835967096b3f78af110ab0660d2ebae7c7725ffb29c346b1e543911e62c",
+      "loopHeaders": [
+        "for (const char *boundary : {\"GetActiveProfile\", \"profiles.QI\", \"GetSubstituteKeyboardLayout\"}) {",
+        "for (int schedule = 0; schedule != 6; ++schedule) {",
+        "for (int boundary = 1; boundary != 4; ++boundary) {",
+        "for (int schedule = 0; schedule != 6; ++schedule) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_commands::dedicated_layout_reentry_at_every_profile_and_layout_boundary"
+      ],
+      "reconciliations": [
+        "Both delivery routes, profile query/interface/substitute and native layout boundaries, six invalidating reentry schedules per boundary."
+      ]
+    },
+    {
+      "id": "tests.DiagnosticRefusalSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "DiagnosticRefusalSchedules",
+      "line": 2852,
+      "sourceSha256": "9d4b9f994e0fb284f2ce6a51f96e71a6d45e8305826a6d8c02485813029c2860",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 18; ++scenario) {",
+        "for (int scenario = 0; scenario != 3; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_diagnostics::diagnostic_attempted_verified_and_unknown_are_distinct",
+        "controlled::scenarios_diagnostics::diagnostic_refusals_report_exact_stage_cause_and_result",
+        "controlled::scenarios_diagnostics::diagnostic_request_and_session_denial_are_distinct"
+      ],
+      "reconciliations": [
+        "Exact refusal stage, cause, and native result are asserted. Request/session denial and attempted/verified/unknown effects remain distinct."
+      ]
+    },
+    {
+      "id": "tests.DiagnosticExceptionSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "DiagnosticExceptionSchedules",
+      "line": 3025,
+      "sourceSha256": "5874f262a22f0f86487e8681fc4ccbbb4aaf4b6a9d103f3e03a096dd1548d18c",
+      "loopHeaders": [
+        "for (const char *boundary : {\"GetAppProperty\", \"SetText.before\", \"SetText.after\"}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_diagnostics::diagnostic_native_hresult_successors_preserve_effect_evidence"
+      ],
+      "reconciliations": [
+        "App-property failure before effects and SetText failure before/after the document effect. Standard COM returns replace foreign C++ throws."
+      ]
+    },
+    {
+      "id": "tests.SourceProbeSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "SourceProbeSchedules",
+      "line": 3309,
+      "sourceSha256": "2236e6cce899f90bd88bef0c62f3abeed18f6188befaac3eaf6ef58dfcbbd85c",
+      "loopHeaders": [
+        "for (bool redundant : {false, true}) {",
+        "for (size_t i = 0; i != f.calls.size(); ++i)",
+        "for (const auto &bad :",
+        "for (int scenario = 0; scenario != 10; ++scenario) {",
+        "for (int scenario = 0; scenario != 12; ++scenario) {",
+        "for (int scenario = 0; scenario != 14; ++scenario) {",
+        "for (int scenario = 0; scenario != 15; ++scenario) {",
+        "for (int scenario = 0; scenario != 8; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_sources::source_probe_language_and_activation_failure_matrix",
+        "controlled::scenarios_sources::source_probe_success_status_and_publication_contract",
+        "controlled::scenarios_sources::source_probe_word_readiness_and_armed_interference_matrix"
+      ],
+      "reconciliations": [
+        "Redundant notification, ten malformed statuses, twelve readiness cases, fourteen interference cases, fifteen native language failures, and eight activation failures."
+      ]
+    },
+    {
+      "id": "tests.SourceReadinessSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "SourceReadinessSchedules",
+      "line": 3559,
+      "sourceSha256": "a741b6ac7ff8c046878b257684863d7850b610e89bfd303ecf41ad0ee616f358",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 14; ++scenario) {",
+        "for (const char *boundary : {\"target.read\", \"enabled.read\", \"provider\"}) {",
+        "for (bool last : {false, true}) {",
+        "for (int scenario = 0; scenario != 5; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_sources::source_readiness_callback_and_initial_setup_matrix",
+        "controlled::scenarios_sources::source_readiness_public_word_exact_utf16_matrix"
+      ],
+      "reconciliations": [
+        "Fourteen public-word cases, three callback boundaries, first/last observation, and five setup failures."
+      ]
+    },
+    {
+      "id": "tests.SourceReviewRegressionSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "SourceReviewRegressionSchedules",
+      "line": 3669,
+      "sourceSha256": "5d7019b7cc314a839cc03e77992efa37a2656be4420c18e9f2f998714e230954",
+      "loopHeaders": [
+        "for (const char *boundary : {\"target.read\", \"provider\", \"read\", \"copy\"}) {",
+        "for (int scenario = 0; scenario != 4; ++scenario) {",
+        "for (const char *change : {\"password\", \"read-only\", \"disabled\", \"focus-lost\"}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_sources::source_review_cross_thread_public_b_refuses_before_text_queries",
+        "controlled::scenarios_sources::source_review_deadline_clock_and_read_eligibility_matrix"
+      ],
+      "reconciliations": [
+        "Four deadline boundaries, four clock cases, password/readonly/disabled/focus-lost, and cross-thread public B."
+      ]
+    },
+    {
+      "id": "tests.SourceHistorySchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "SourceHistorySchedules",
+      "line": 3822,
+      "sourceSha256": "39b1780de7ab9419539abf429be030866230ba774febd45427d374eaa5bc19f7",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 17; ++scenario) {",
+        "for (int i = 0; i != 8; ++i)",
+        "for (int i = 0; i != (scenario == 0 ? 7 : 8); ++i)"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_sources::source_history_complete_interval_and_unsafe_history_matrix"
+      ],
+      "reconciliations": [
+        "Seventeen histories, complete eight-event retained interval and the seven/eight boundary."
+      ]
+    },
+    {
+      "id": "tests.SourceReentrySchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "SourceReentrySchedules",
+      "line": 3883,
+      "sourceSha256": "17f1c5145ba8584bbfe8d8bb7435c63e35bfcabb39005f7421b3151cfed8a413",
+      "loopHeaders": [
+        "for (bool close : {false, true}) {",
+        "for (const char *boundary :",
+        "for (const char *boundary :"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_sources::source_probe_dependency_lifetimes_drain_after_every_terminal_path",
+        "controlled::scenarios_sources::source_reentry_running_close_and_preparation_matrix"
+      ],
+      "reconciliations": [
+        "Running versus close reentry, preparation boundaries, terminal dependency drainage."
+      ]
+    },
+    {
+      "id": "tests.SourceServiceSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "SourceServiceSchedules",
+      "line": 3961,
+      "sourceSha256": "c7a6ed254ee37e7e015a1a42939b04c9f403eaaf23188e4100375cdcae759cd3",
+      "loopHeaders": [
+        "for (bool input : {false, true}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_sources::source_service_exact_termination_and_interfering_finish"
+      ],
+      "reconciliations": [
+        "With and without interfering input, actual service lifecycle and source activation."
+      ]
+    },
+    {
+      "id": "tests.ShutdownPredicateSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "ShutdownPredicateSchedules",
+      "line": 4045,
+      "sourceSha256": "acf5f3523da6bee6e93c8426961cccc63018a2c6d61bc189b77e6b8b635d40a6",
+      "loopHeaders": [
+        "for (const auto verdict :",
+        "for (int scenario = 0; scenario != 25; ++scenario) {",
+        "for (auto kind : {LifecycleKind::ExactTermination, LifecycleKind::FinishVerified}) {",
+        "for (auto kind : {LifecycleKind::DifferentTermination, LifecycleKind::TerminationWithoutOwned}) {",
+        "for (size_t count : {lifecycle_capacity, lifecycle_capacity + 1}) {",
+        "for (size_t i = 0; i != lifecycle_capacity; ++i)",
+        "for (size_t i = 2; i != count; ++i)",
+        "for (bool serial : {false, true}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_shutdown::shutdown_predicate_exact_rejection_matrix_and_exit_codes",
+        "controlled::scenarios_shutdown::shutdown_predicate_terminal_order_stale_capture_and_capacity"
+      ],
+      "reconciliations": [
+        "Twenty-five negative cases, every verdict exit code, terminal ordering, serial/sequence saturation, and sixteen/seventeen capacity boundary."
+      ]
+    },
+    {
+      "id": "tests.ShutdownProbeSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "ShutdownProbeSchedules",
+      "line": 4211,
+      "sourceSha256": "e7e13a986ead9d5f816f9edd090c54b5a2b281615c5146b0337b8d707bebb362",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 21; ++scenario) {",
+        "for (const char *boundary :",
+        "for (int phase = 0; phase != 4; ++phase) {",
+        "for (const auto &boundary :"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_shutdown::shutdown_probe_capture_finish_and_provider_failures",
+        "controlled::scenarios_shutdown::shutdown_probe_reentry_at_all_native_phases"
+      ],
+      "reconciliations": [
+        "Twenty-one provider/capture cases, native boundaries crossed with four phases, plus retained identity/interface release boundaries."
+      ]
+    },
+    {
+      "id": "tests.ShutdownServiceSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "ShutdownServiceSchedules",
+      "line": 4360,
+      "sourceSha256": "ed8f95026ab3840ef489f1a57b9ff194c2556d67dbfb2a10df6a28c57340fb03",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 4; ++scenario) {",
+        "for (bool endpoint : {false, true}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_service_publication::shutdown_service_busy_capture_or_endpoint_is_permanently_rejected",
+        "controlled::scenarios_service_publication::shutdown_service_requires_exact_terminal_evidence_before_deactivation"
+      ],
+      "reconciliations": [
+        "Four terminal outcomes and busy at capture versus endpoint."
+      ]
+    },
+    {
+      "id": "tests.ShutdownReaderLifetimeSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "ShutdownReaderLifetimeSchedules",
+      "line": 4434,
+      "sourceSha256": "49f1db3b0032333756c2dd494db0bbaf98af1eda1eaf806530cb548227bb312e",
+      "loopHeaders": [
+        "for (bool old_first : {false, true}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_shutdown::shutdown_reader_lifetime_both_release_orders"
+      ],
+      "reconciliations": [
+        "Old-first and new-first releases."
+      ]
+    },
+    {
+      "id": "tests.ShutdownWindowSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "ShutdownWindowSchedules",
+      "line": 4489,
+      "sourceSha256": "2da720552b86dddba3ec2b36b3b7d505f0748d70229a436601fe2a785865be6b",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 3; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "proof::editor::shutdown_tests::shutdown_window_close_direct_destroy_and_empty_capture"
+      ],
+      "reconciliations": [
+        "Three real window schedules, live capture during close, direct destroy, empty owned snapshot, WM_QUIT, once-only destruction, dependency drainage, and zero text effects. The module is included by editor.rs under its test configuration."
+      ]
+    },
+    {
+      "id": "tests.DiagnosticPublicationSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "DiagnosticPublicationSchedules",
+      "line": 4538,
+      "sourceSha256": "7af37ec20fb607cf22793702df65c0f63c26948a55e5c5efec71c01b9308aa0b",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 4; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_service_publication::diagnostic_poller_nested_native_callbacks_keep_the_newer_publication",
+        "controlled::scenarios_service_publication::diagnostic_poller_publishes_before_final_release_and_preserves_release_reentry",
+        "controlled::scenarios_service_publication::diagnostic_publication_replaces_failed_and_changed_provider_evidence",
+        "controlled::scenarios_service_publication::diagnostic_registered_service_busy_and_activation_intervals_are_explicit"
+      ],
+      "reconciliations": [
+        "Provider absence/failure/inactive/busy, changed source and activation, nested publication, and release-order retention."
+      ]
+    },
+    {
+      "id": "tests.DiagnosticLifetimeSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "DiagnosticLifetimeSchedules",
+      "line": 4604,
+      "sourceSha256": "5f2a03c31f4e9124fec3c9b313cf1d5fee52ad2bdaf6bd9b65d1177ece64b7c7",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 9; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_diagnostics::diagnostic_copy_refuses_busy_versions_sizes_and_foreign_threads",
+        "controlled::scenarios_diagnostics::diagnostic_lifetime_counters_survive_activation_but_not_other_instances",
+        "controlled::scenarios_diagnostics::optional_diagnostic_registration_drains_each_captured_ownership_once"
+      ],
+      "reconciliations": [
+        "Nine optional acquisition/cleanup cases, exact output sizes/versions, lifetime counters, inactive and unavailable profile refusals."
+      ]
+    },
+    {
+      "id": "tests.HostMetadataSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "HostMetadataSchedules",
+      "line": 4746,
+      "sourceSha256": "2bb9f7509a8455421d356f8b0bb9516b688fa99af8d0fe00c505b0a109a99c00",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 12; ++scenario) {",
+        "for (int compartment = 0; compartment != 3; ++compartment) {",
+        "for (const auto outcome :",
+        "for (const char *query : queries) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_metadata::metadata_all_compartments_preserve_variant_and_hresult_meaning",
+        "controlled::scenarios_metadata::metadata_duplicate_callback_cannot_overwrite_completed_observation",
+        "controlled::scenarios_metadata::metadata_late_callback_never_reads_the_expired_caller_flag",
+        "controlled::scenarios_metadata::metadata_liveness_is_rechecked_at_every_native_query",
+        "controlled::scenarios_metadata::metadata_refusals_are_read_only_and_preserve_exact_reason"
+      ],
+      "reconciliations": [
+        "Twelve reasons, three compartments crossed with six outputs, each query liveness boundary, duplicate and late callback lifetimes."
+      ]
+    },
+    {
+      "id": "tests.HostPublicationEquivalence",
+      "source": "native/windows/tests.cpp",
+      "symbol": "HostPublicationEquivalence",
+      "line": 4961,
+      "sourceSha256": "7dec65228078197c03f715d9ab5f4065f1adc345ce8446d81bef682f1ce537b4",
+      "loopHeaders": [],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_service_publication::host_mapping_publication_preserves_complete_edit_and_command_snapshots"
+      ],
+      "reconciliations": [
+        "Actual DLL diagnostic readers and named mapping snapshots are compared across edit/command effects."
+      ]
+    },
+    {
+      "id": "tests.CommandObservationSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "CommandObservationSchedules",
+      "line": 5058,
+      "sourceSha256": "5abd456ea70d6cc81c9270a556b107cf86ccb09afa07584dca4ff574fdb96124",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 6; ++scenario) {",
+        "for (unsigned mask = 0; mask != 512; ++mask) {",
+        "for (unsigned bit = 0; bit != 9; ++bit)",
+        "for (int variation = 0; variation != 2; ++variation) {",
+        "for (const auto &[key, extended, expected] :",
+        "for (bool actual : {false, true}) {",
+        "for (int extra : {0, 1, VK_RCONTROL, VK_RMENU, VK_LSHIFT, VK_RSHIFT, VK_LWIN, VK_RWIN}) {",
+        "for (int scenario = 0; scenario != 6; ++scenario) {",
+        "for (int scenario = 0; scenario != 10; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_protocol::command_observation_admission_dispatch_and_reentry",
+        "controlled::scenarios_protocol::command_observation_content_independence_and_ordinary_text",
+        "controlled::scenarios_protocol::command_observation_exclusions_and_lifecycle_anchors",
+        "controlled::scenarios_protocol::command_observation_executor_completions_and_release_witness",
+        "controlled::scenarios_protocol::command_observation_modifier_projection_all_512_masks",
+        "controlled::scenarios_protocol::command_observation_modifier_refusals",
+        "controlled::scenarios_protocol::command_observation_routes_release_sides_and_thread_arguments",
+        "runtime::production::diagnostics::tests::command_ticket_keeps_arrival_through_dispatch_and_completion",
+        "runtime::production::diagnostics::tests::observation_saturation_freezes_events_and_new_tickets",
+        "runtime::test-api::diagnostics::tests::command_ticket_keeps_arrival_through_dispatch_and_completion",
+        "runtime::test-api::diagnostics::tests::observation_saturation_freezes_events_and_new_tickets"
+      ],
+      "reconciliations": [
+        "All 512 modifier masks, delivery routes, release side/extended flag, exact modifier refusals, command reentry identity, observed lifecycle anchors, and zero-text exclusions."
+      ]
+    },
+    {
+      "id": "tests.DiagnosticCodecSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "DiagnosticCodecSchedules",
+      "line": 5424,
+      "sourceSha256": "3b6814660bbdef109753fa2ddba44eda364b793797398cdfb258417b1ee92f81",
+      "loopHeaders": [
+        "for (const auto &bad : {good + L\"; unexpected=1\", good.substr(1), good + L\" \",",
+        "for (const auto &replacement :"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_commands::preserved_activation_sink_failure_and_cancellation_matrix",
+        "controlled::scenarios_diagnostics::optional_diagnostic_registration_drains_each_captured_ownership_once",
+        "controlled::scenarios_editing::stale_edit_across_reactivation_cannot_stop_new_ownership",
+        "controlled::scenarios_protocol::diagnostic_codec_canonical_refusal_and_negative_matrix",
+        "runtime::production::diagnostics::tests::counter_saturation_and_first_refusal_are_preserved",
+        "runtime::test-api::diagnostics::tests::counter_saturation_and_first_refusal_are_preserved"
+      ],
+      "reconciliations": [
+        "Canonical native S_FALSE, malformed text/numeric fields, and saturation-flag validity are checked by the independent codec. Both runtime variants exercise the real counter/first-refusal implementation.",
+        "SameActivation five-tuple reconciliation uses native/windows/rust/src/service.rs::Service::same_activation, activate, and register_diagnostics. (true,1,1) accepts equal private epoch on an unpoisoned Active service. (false,1,1) refuses inactive ownership. (true,2,1) refuses a stale private epoch. Optional diagnostic registration checks reentry/deactivation and once-only cleanup, while stale-edit and activation-cancellation schedules exercise surviving ownership boundaries.",
+        "(true,0,0) is structurally unreachable because a fresh service is inactive and activate increments its private u64 epoch before Preparing/Active. The old (true,UINT32_MAX,UINT32_MAX) rejection coupled diagnostic exhaustion to ownership. Rust uses a separate private u64 epoch, refuses activation at u64::MAX before increment, and checks equality before acquisition, after ITfSourceSingle query, and after AdviseSingleSink. These final two tuples are source-level structural reconciliation, without direct private-epoch exhaustion assertions. Public u32 diagnostic saturation is preserved by runtime counter tests."
+      ]
+    },
+    {
+      "id": "tests.LifecycleCodecSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "LifecycleCodecSchedules",
+      "line": 5480,
+      "sourceSha256": "c5281b8316199db5dfa5b88a79f448eda5939c28d173b19c6fdb92292e3b9bce",
+      "loopHeaders": [
+        "for (size_t i = 0; i != lifecycle_capacity; ++i)",
+        "for (int scenario = 0; scenario != 9; ++scenario) {",
+        "for (auto replacement :",
+        "for (size_t i = 0; i != lifecycle_capacity; ++i)"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_protocol::lifecycle_codec_complete_window_and_negative_matrix",
+        "runtime::production::diagnostics::tests::lifecycle_allocation_and_sequence_saturate_independently",
+        "runtime::production::diagnostics::tests::lifecycle_retains_the_newest_sixteen_events",
+        "runtime::test-api::diagnostics::tests::lifecycle_allocation_and_sequence_saturate_independently",
+        "runtime::test-api::diagnostics::tests::lifecycle_retains_the_newest_sixteen_events"
+      ],
+      "reconciliations": [
+        "Nine malformed event-window cases, overlap continuity, oldest-retained boundary, sparse slots, canonical text, maximum-size records, and real writer saturation."
+      ]
+    },
+    {
+      "id": "tests.StaleTerminationException",
+      "source": "native/windows/tests.cpp",
+      "symbol": "StaleTerminationException",
+      "line": 5626,
+      "sourceSha256": "d254d9c2e9cf7734751a2857e1d152c57e51ae2c99a6d3c82b8fe1f7c90807f1",
+      "loopHeaders": [],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_lifecycle::stale_failed_identity_cannot_stop_a_reactivated_service"
+      ],
+      "reconciliations": [
+        "Failed old native identity returns after reactivation cannot stop the new owner."
+      ]
+    },
+    {
+      "id": "tests.LifecycleServiceSchedules",
+      "source": "native/windows/tests.cpp",
+      "symbol": "LifecycleServiceSchedules",
+      "line": 5651,
+      "sourceSha256": "7a17a7e97bfea6c44a193f3a8679d8956f79d838aa6703667afb148c24211339",
+      "loopHeaders": [
+        "for (bool alias : {false, true}) {",
+        "for (bool reentry : {false, true}) {",
+        "for (int scenario = 0; scenario != 5; ++scenario) {",
+        "for (bool reentry : {false, true}) {",
+        "for (size_t i = before.lifecycle.count; i < after.lifecycle.count; ++i)",
+        "for (bool observe : {false, true}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_lifecycle::lifecycle_alias_and_unowned_callbacks_use_canonical_identity",
+        "controlled::scenarios_lifecycle::lifecycle_end_reentry_cannot_publish_verified_finish_or_new_acquisition",
+        "controlled::scenarios_lifecycle::lifecycle_exact_and_late_termination_preserve_distinct_serials",
+        "controlled::scenarios_lifecycle::lifecycle_identity_reentry_replaces_only_the_captured_serial",
+        "controlled::scenarios_lifecycle::lifecycle_identity_release_stays_inside_the_publication_guard",
+        "controlled::scenarios_lifecycle::lifecycle_invalidation_and_detach_are_distinct_from_termination",
+        "controlled::scenarios_lifecycle::lifecycle_readers_preserve_payload_canaries_and_exact_legacy_payload",
+        "controlled::scenarios_lifecycle::lifecycle_reads_at_every_edit_boundary_leave_the_complete_trace_unchanged",
+        "controlled::scenarios_lifecycle::lifecycle_unresolved_identity_classifies_hresult_null_and_reentry",
+        "controlled::scenarios_lifecycle::lifecycle_wrong_thread_does_not_query_or_change_ownership"
+      ],
+      "reconciliations": [
+        "Canonical aliases, absent ownership, unresolved identity, stale callback, read-only observation, reentry, and payload canaries."
+      ]
+    },
+    {
+      "id": "tests.ApplicationInputScope",
+      "source": "native/windows/tests.cpp",
+      "symbol": "ApplicationInputScope",
+      "line": 5932,
+      "sourceSha256": "a9b0da57e4fa404d776f1b2f2a452cdfaa4e819b2af38128fbe1bb9436b8948c",
+      "loopHeaders": [
+        "for (const wchar_t *p = L\"ghbdtn \"; *p; ++p) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_admission::explicit_ordinary_application_scopes_admit_one_owned_mark"
+      ],
+      "reconciliations": [
+        "Both IS_DEFAULT and IS_TEXT, complete correction, one acquired mark, seven writes."
+      ]
+    },
+    {
+      "id": "tests.UncertainApplicationInputScope",
+      "source": "native/windows/tests.cpp",
+      "symbol": "UncertainApplicationInputScope",
+      "line": 5947,
+      "sourceSha256": "a9253770c6c481a8a977e6dfb52ec67727f810e09f448961c49ad3590cf7d3fa",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 22; ++scenario) {",
+        "for (size_t version = 0; version != 4; ++version)",
+        "for (int node = 0; node != 3; ++node) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_admission::notepad_field_fact_mutations_refuse_before_acp",
+        "controlled::scenarios_admission::uncertain_application_scope_refuses_before_acp_or_text"
+      ],
+      "reconciliations": [
+        "Both proof and Notepad targets, 22 result/type/null/count/scope combinations. notepad_field_fact_mutations_refuse_before_acp adds version words and all three native window nodes.",
+        "Notepad identity mutation schedules use E_FAIL plus VT_EMPTY scope explicitly. Mutations must revoke the bounded exception before ACP or text; exact ordinary TSF scope may independently admit a generic candidate."
+      ]
+    },
+    {
+      "id": "tests.NoAdmissionEffects",
+      "source": "native/windows/tests.cpp",
+      "symbol": "NoAdmissionEffects",
+      "line": 6083,
+      "sourceSha256": "854009b7402407ce8134235fccda9233b9f9845f59156bdf511255049e8ca2ee",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [
+        "controlled::scenarios_admission::notepad_field_fact_mutations_refuse_before_acp",
+        "controlled::scenarios_admission::notepad_native_policy_uncertainty_has_no_admission_effects",
+        "controlled::scenarios_admission::uncertain_application_scope_refuses_before_acp_or_text"
+      ],
+      "reconciliations": [
+        "Shared admission refusal oracle for zero ACP, text, edit, and composition effects. The admission successor matrices own its caller schedules.",
+        "Notepad identity mutation schedules use E_FAIL plus VT_EMPTY scope explicitly. Mutations must revoke the bounded exception before ACP or text; exact ordinary TSF scope may independently admit a generic candidate."
+      ]
+    },
+    {
+      "id": "tests.NotepadNativeAdmission",
+      "source": "native/windows/tests.cpp",
+      "symbol": "NotepadNativeAdmission",
+      "line": 6088,
+      "sourceSha256": "89cde7e1f94b55eff940af681bc50425c12ed69b7b5dc76f3dfe133342f82d42",
+      "loopHeaders": [
+        "for (const auto &mutate : NotepadFieldRefusals()) {",
+        "for (int scenario = 0; scenario != 18; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_admission::notepad_field_fact_mutations_refuse_before_acp",
+        "controlled::scenarios_admission::notepad_native_policy_uncertainty_has_no_admission_effects"
+      ],
+      "reconciliations": [
+        "Forty-four field mutations cover identity, window styles, version, parent hierarchy, class, and enabled/completeness facts. Native policy uncertainty is separate.",
+        "Notepad identity mutation schedules use E_FAIL plus VT_EMPTY scope explicitly. Mutations must revoke the bounded exception before ACP or text; exact ordinary TSF scope may independently admit a generic candidate."
+      ]
+    },
+    {
+      "id": "tests.NotepadScopeAdmission",
+      "source": "native/windows/tests.cpp",
+      "symbol": "NotepadScopeAdmission",
+      "line": 6145,
+      "sourceSha256": "518425ecad89c5cae566086df18dfb81673286955ad67699d47d50e78cc2f85d",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 5; ++scenario) {",
+        "for (bool unavailable : {false, true}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_admission::exceptional_notepad_scope_requires_fresh_exact_failure",
+        "controlled::scenarios_admission::notepad_exact_unavailable_scope_has_bounded_authority"
+      ],
+      "reconciliations": [
+        "Exact unavailable scope and explicit scope both work for the admitted Notepad field. the same unavailable result on the proof target refuses."
+      ]
+    },
+    {
+      "id": "tests.NotepadExecutorRefusals",
+      "source": "native/windows/tests.cpp",
+      "symbol": "NotepadExecutorRefusals",
+      "line": 6194,
+      "sourceSha256": "4b24b86d4598f8ee42372d4205edc32c97c467f8e33fb8241a9d6e004ed225e3",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 8; ++scenario) {",
+        "for (int scenario = 0; scenario != 11; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_admission::notepad_executor_refusals_expire_retained_callbacks",
+        "controlled::scenarios_admission::notepad_selection_and_scope_failures_are_metadata_only"
+      ],
+      "reconciliations": [
+        "Eight executor refusals, retained callback expiration, and selection/scope metadata refusal cases."
+      ]
+    },
+    {
+      "id": "tests.NotepadFieldDriftBeforeText",
+      "source": "native/windows/tests.cpp",
+      "symbol": "NotepadFieldDriftBeforeText",
+      "line": 6273,
+      "sourceSha256": "628c7df9fc68ede864613b1624e25947c9ccf14893158f675f8529aa69ec6687",
+      "loopHeaders": [
+        "for (const auto *boundary : {\"range.ACP\", \"GetExtent\", \"enumerator.Next\", \"Clone\", \"ShiftStart\"})",
+        "for (bool readonly : {false, true}) {",
+        "for (const auto *boundary : {\"GetRange\", \"GetExtent\", \"enumerator.Next\"})",
+        "for (bool readonly : {false, true}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_admission::notepad_field_drift_blocks_boundary_and_owned_text_reads"
+      ],
+      "reconciliations": [
+        "Empty versus owned text, readonly versus scope failure, and the baseline ACP/extent/enumerator/clone/shift boundaries."
+      ]
+    },
+    {
+      "id": "tests.FinishContractRegressions",
+      "source": "native/windows/tests.cpp",
+      "symbol": "FinishContractRegressions",
+      "line": 6311,
+      "sourceSha256": "f68912aa8c60d0205de694f00e44ae53637b7bb0e85148ab80586ac07dd3ee47",
+      "loopHeaders": [
+        "for (const auto &selection :",
+        "for (bool readonly : {false, true}) {",
+        "for (wchar_t unit : text)",
+        "for (const char *boundary : {\"none\", \"SetText.after\", \"EndComposition.after\"}) {",
+        "for (const auto &selection : selections) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_finish::finish_post_end_exclusion_stops_reads_and_continuation",
+        "controlled::scenarios_finish::finish_unchanged_range_preserves_moved_or_selected_caret",
+        "controlled::scenarios_finish::unchanged_end_unknown_never_writes_retries_or_replans",
+        "controlled::scenarios_finish::unchanged_end_precondition_refusal_has_no_effect"
+      ],
+      "reconciliations": [
+        "Three moved/selected caret spans preserve unchanged finish authority with zero text writes and one EndComposition. Fourteen attempted-unknown end cases and five pre-effect refusal cases stop without replay or recovery writes. The post-end matrix covers proof and Notepad targets with scope failure, readonly, and disabled policy."
+      ]
+    },
+    {
+      "id": "tests.FinishSelectionGravity",
+      "source": "native/windows/tests.cpp",
+      "symbol": "FinishSelectionGravity",
+      "line": 6494,
+      "sourceSha256": "20600da8799566aed25f82615dfaba352f57e8004990dea7a21f4b8ea543c9d7",
+      "loopHeaders": [
+        "for (bool gravity : {false, true})",
+        "for (const auto target : {Span{14, 0}, Span{3, 0}, Span{9, 3}, Span{6, 10}, Span{0, 20}})",
+        "for (auto active : {TF_AE_NONE, TF_AE_START, TF_AE_END}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_finish::finish_clone_gravity_never_reads_unowned_selection",
+        "controlled::scenarios_finish::finish_matching_selection_requires_no_selection_effect"
+      ],
+      "reconciliations": [
+        "Two clone-gravity modes, five spans, three active-selection-end styles, and exact text-read bounds."
+      ]
+    },
+    {
+      "id": "tests.FinishSelectionFailures",
+      "source": "native/windows/tests.cpp",
+      "symbol": "FinishSelectionFailures",
+      "line": 6537,
+      "sourceSha256": "5265146030550405bdb102ab6a8b4416e6774bfd81159ad637ae1c37942f8088",
+      "loopHeaders": [
+        "for (const auto failure : failures) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_finish::finish_selection_failures_stop_without_replan_or_retry"
+      ],
+      "reconciliations": [
+        "Thirty-one cases cover capture/clone, shift truncation/HRESULT, exact selection/style/caret/mark failures, exclusion and reentry. Assertions distinguish pre-effect refusal from attempted unknown and forbid later repair."
+      ]
+    },
+    {
+      "id": "tests.FinishSelectionPolicyBoundaries",
+      "source": "native/windows/tests.cpp",
+      "symbol": "FinishSelectionPolicyBoundaries",
+      "line": 6728,
+      "sourceSha256": "253d45fe3227692b4067cf1b0b7902b362ffa439062a77ac7e914dae9c64b733",
+      "loopHeaders": [
+        "for (const char *effect :",
+        "for (int policy = 0; policy != 8; ++policy) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_finish::finish_selection_policy_is_rechecked_after_native_preparation"
+      ],
+      "reconciliations": [
+        "Five effects crossed with eight policies. Trace-derived preparation locations preserve the callback window despite implementation call-count changes."
+      ]
+    },
+    {
+      "id": "tests.FinishSelectionOwnedScope",
+      "source": "native/windows/tests.cpp",
+      "symbol": "FinishSelectionOwnedScope",
+      "line": 6829,
+      "sourceSha256": "e18c3ac9ba3d995c718543c682519d6e572a489a8ac84e416649a99088fcb51a",
+      "loopHeaders": [],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_finish::owned_scope_drift_cannot_borrow_selection_authority"
+      ],
+      "reconciliations": [
+        "Owned range scope drift while the selection crosses that range, with no write or additional character read."
+      ]
+    },
+    {
+      "id": "tests.WritablePolicyResults",
+      "source": "native/windows/tests.cpp",
+      "symbol": "WritablePolicyResults",
+      "line": 6855,
+      "sourceSha256": "d214f3b922f7108cc15b4ea99450a8f674fe7c8dc9653368ecda4fe8fefb7074",
+      "loopHeaders": [
+        "for (const auto result : {S_FALSE, E_FAIL}) {",
+        "for (bool thread : {false, true})",
+        "for (int failure = 0; failure != 6; ++failure) {",
+        "for (int compartment = 0; compartment != 3; ++compartment)",
+        "for (const auto value :"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_admission::compartment_variant_signatures_distinguish_unset_from_malformed",
+        "controlled::scenarios_admission::writable_policy_requires_exact_status_and_interfaces"
+      ],
+      "reconciliations": [
+        "S_FALSE and failure status. thread/context compartment interfaces. null outputs. three compartments crossed with eight HRESULT/VARIANT combinations."
+      ]
+    },
+    {
+      "id": "tests.FinishReplacementFailures",
+      "source": "native/windows/tests.cpp",
+      "symbol": "FinishReplacementFailures",
+      "line": 6925,
+      "sourceSha256": "c59e8d4234248bc28e1bb318cf73236c7b982912560db220dc2c1b0b60375d21",
+      "loopHeaders": [
+        "for (int failure = 0; failure != 10; ++failure) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_finish::finish_replacement_failures_stop_after_one_write"
+      ],
+      "reconciliations": [
+        "Ten changed-finish postwrite cases, exact unknown count, no second write/start, and no further reads when excluded."
+      ]
+    },
+    {
+      "id": "tests.EmptyStartExclusion",
+      "source": "native/windows/tests.cpp",
+      "symbol": "EmptyStartExclusion",
+      "line": 6992,
+      "sourceSha256": "97ab823523eda295694b96cde2c7373f0d0e9efa2cbd19f281effec8d516d837",
+      "loopHeaders": [
+        "for (bool readonly : {false, true}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_finish::empty_start_exclusion_stops_before_character_access"
+      ],
+      "reconciliations": [
+        "Readonly and scope failure after composition interface acquisition."
+      ]
+    },
+    {
+      "id": "tests.FreshPolicyBoundaries",
+      "source": "native/windows/tests.cpp",
+      "symbol": "FreshPolicyBoundaries",
+      "line": 7025,
+      "sourceSha256": "81e294361506a7b3bd93011a607614096773f584ebc3a034bd9640050b20d19d",
+      "loopHeaders": [
+        "for (const auto boundary : {Boundary{\"GetText\", \"ShiftStart\", false, false},",
+        "for (int policy = 0; policy != 8; ++policy) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_finish::fresh_policy_blocks_all_character_access_and_effects"
+      ],
+      "reconciliations": [
+        "Six effect/preparation/owned/finish tuples crossed with eight policies. Per-boundary counts are frozen after refusal."
+      ]
+    },
+    {
+      "id": "tests.NotepadReplanAdmission",
+      "source": "native/windows/tests.cpp",
+      "symbol": "NotepadReplanAdmission",
+      "line": 7125,
+      "sourceSha256": "9af73c1bf1bbec94cf38bdbca7547dcd7d783aa265534cdae61bfd8f98bb814d",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 3; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_finish::finish_post_end_exclusion_stops_reads_and_continuation"
+      ],
+      "reconciliations": [
+        "Both proof and Client::notepad targets cross scope failure, TF_SD_READONLY, and manager.disabled mutations at EndComposition.after. Each asserts fresh GetStatus, no ACP or character access after post-end exclusion, no replan, and no subsequent write."
+      ]
+    },
+    {
+      "id": "tests.CorrectionAndReversal",
+      "source": "native/windows/tests.cpp",
+      "symbol": "CorrectionAndReversal",
+      "line": 7160,
+      "sourceSha256": "a38dfb503218e1ea5c2e467bc60c440e979da9e1ba227bc8a09e268af7beb75b",
+      "loopHeaders": [],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_editing::correction_and_reversal_preserve_owned_range"
+      ],
+      "reconciliations": [
+        "Exact full documents and Escape receipt behavior."
+      ]
+    },
+    {
+      "id": "tests.NativeWhitespaceBoundary",
+      "source": "native/windows/tests.cpp",
+      "symbol": "NativeWhitespaceBoundary",
+      "line": 7170,
+      "sourceSha256": "9c28232c0d58e58ccf199c797b6556f884b32c7cc318fa64644cbb7124be9c24",
+      "loopHeaders": [
+        "for (wchar_t letter : std::wstring(L\"ghbdtn \"))"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_editing::native_whitespace_uses_ucrt_boundary_classification"
+      ],
+      "reconciliations": [
+        "UCRT classification of U+180E determines admission and expected complete documents."
+      ]
+    },
+    {
+      "id": "tests.ChangingFinishCaret",
+      "source": "native/windows/tests.cpp",
+      "symbol": "ChangingFinishCaret",
+      "line": 7185,
+      "sourceSha256": "f3d61b71b7f83981ef73e79811375759108d89ecf52d5f9d5ecdf9524834b1af",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 6; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_editing::changing_finish_caret_requires_verified_restoration"
+      ],
+      "reconciliations": [
+        "Six selection restoration, failure, post-end movement, and nested-key cases."
+      ]
+    },
+    {
+      "id": "tests.Continuation",
+      "source": "native/windows/tests.cpp",
+      "symbol": "Continuation",
+      "line": 7238,
+      "sourceSha256": "dff42c786968fe443453ba6d775e57483d60c0da787fe1f18e93ddb92c38fd4b",
+      "loopHeaders": [],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::correction_preserves_complete_documents",
+        "controlled::scenarios_finish::finish_continuation_replans_with_one_write_per_composition"
+      ],
+      "reconciliations": [
+        "Ordered unchanged old-mark finish with zero text writes and new-mark acquisition with exactly one character write."
+      ]
+    },
+    {
+      "id": "tests.Denials",
+      "source": "native/windows/tests.cpp",
+      "symbol": "Denials",
+      "line": 7260,
+      "sourceSha256": "ee90163c6294aee4b97bdd6bdee5dde1afe3cd373c8624f42032716c91435191",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 4; ++scenario) {",
+        "for (bool continuation : {false, true}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_editing::denied_requests_and_rejected_compositions_preserve_key_order",
+        "controlled::scenarios_editing::failed_outer_request_after_mark_keeps_consumption_and_expires_callback",
+        "controlled::scenarios_editing::owned_denial_stops_without_cleanup_or_later_repair"
+      ],
+      "reconciliations": [
+        "Denied/deferred/no callback, null composition, already-owned denial, outer result failure after the actual write, and late callback refusal."
+      ]
+    },
+    {
+      "id": "tests.Exclusions",
+      "source": "native/windows/tests.cpp",
+      "symbol": "Exclusions",
+      "line": 7308,
+      "sourceSha256": "1319b7e2e779c6393ed7a81541da39acb2bab4ee078a7eac66ae496d1514504a",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 8; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_admission::notepad_native_policy_uncertainty_has_no_admission_effects",
+        "controlled::scenarios_admission::uncertain_application_scope_refuses_before_acp_or_text",
+        "controlled::scenarios_commands::preserved_dispatch_pointer_guid_thread_and_exclusion_matrix",
+        "controlled::scenarios_protocol::command_observation_exclusions_and_lifecycle_anchors"
+      ],
+      "reconciliations": [
+        "Secure, readonly, disabled, unknown field, foreign composition, and foreign context preserve zero text effects. Admission and command observation are checked separately."
+      ]
+    },
+    {
+      "id": "tests.DriftAndUnknown",
+      "source": "native/windows/tests.cpp",
+      "symbol": "DriftAndUnknown",
+      "line": 7343,
+      "sourceSha256": "15ca9f280c42c2a1a05d6342a754e1673bb56556a41e1db73aabd73d1514de6e",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 5; ++scenario) {",
+        "for (int scenario = 0; scenario != 3; ++scenario) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_editing::composition_drift_refuses_without_document_changes",
+        "controlled::scenarios_editing::unknown_mark_consumes_once_and_never_repairs"
+      ],
+      "reconciliations": [
+        "Both proof and Notepad targets. Five prewrite drift cases and three unknown-write cases."
+      ]
+    },
+    {
+      "id": "tests.FinishOutcomes",
+      "source": "native/windows/tests.cpp",
+      "symbol": "FinishOutcomes",
+      "line": 7386,
+      "sourceSha256": "c3ac826ad9b85102cb52b5a491b17bc9da1ee796b3749276596676f7c0812d0d",
+      "loopHeaders": [
+        "for (int scenario = 0; scenario != 5; ++scenario) {",
+        "for (int scenario = 0; scenario != 3; ++scenario) {",
+        "for (const char *boundary : {\"GetRange\", \"SetText.before\", \"SetText.after\"}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_editing::hresult_before_and_after_native_effect_replaces_throw_schedules",
+        "controlled::scenarios_editing::unknown_finish_passes_ordinary_keys_without_replan",
+        "controlled::scenarios_editing::unknown_reserved_escape_stays_consumed"
+      ],
+      "reconciliations": [
+        "Five finish outcomes, three reserved Escape outcomes, and three native failure boundaries."
+      ]
+    },
+    {
+      "id": "tests.FocusAndTermination",
+      "source": "native/windows/tests.cpp",
+      "symbol": "FocusAndTermination",
+      "line": 7460,
+      "sourceSha256": "9ee8a7419f6fc3b5b8663b0d4d60d4012a043758edec342a066a691dfe4dec66",
+      "loopHeaders": [],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_editing::late_old_termination_and_focus_roundtrip_cannot_revive_authority",
+        "controlled::scenarios_lifecycle::lifecycle_exact_and_late_termination_preserve_distinct_serials"
+      ],
+      "reconciliations": [
+        "A-to-B-to-A focus and exact/late termination callbacks cannot revive old authority."
+      ]
+    },
+    {
+      "id": "tests.StaleEditAcrossActivation",
+      "source": "native/windows/tests.cpp",
+      "symbol": "StaleEditAcrossActivation",
+      "line": 7485,
+      "sourceSha256": "02efadf6651e513da06318866d6f5173bf0b3f19b2e940a5c567b32601c8401d",
+      "loopHeaders": [
+        "for (bool throw_after_callback : {false, true}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_editing::stale_edit_across_reactivation_cannot_stop_new_ownership"
+      ],
+      "reconciliations": [
+        "Old completion is separated from the new activation. native HRESULT replaces foreign throw."
+      ]
+    },
+    {
+      "id": "tests.ReentrantBoundaries",
+      "source": "native/windows/tests.cpp",
+      "symbol": "ReentrantBoundaries",
+      "line": 7526,
+      "sourceSha256": "a9895fb502a9e45a36453fd22777d6e4bc5089fc000ddeb63dc79785b4bd3e1b",
+      "loopHeaders": [
+        "for (const auto &[name, count] : h.a.calls)",
+        "for (const auto &boundary : boundaries) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_editing::every_exercised_native_boundary_stops_writes_after_nested_input"
+      ],
+      "reconciliations": [
+        "The test captures the actual executed native trace and injects nested input at every occurrence. It checks zero later writes after authority is invalidated. Trace-derived locations reconcile implementation-dependent callback counts."
+      ]
+    },
+    {
+      "id": "tests.Keyboard",
+      "source": "native/windows/tests.cpp",
+      "symbol": "Keyboard",
+      "line": 7558,
+      "sourceSha256": "a4e6f8e9b06173b8db40b1ff7172955ffe6fe8915fdd9498a2b66927b2771153",
+      "loopHeaders": [
+        "for (HKL layout : {en, ru}) {",
+        "for (const auto &entry : oem) {",
+        "for (bool shift : {false, true}) {",
+        "for (bool caps : {false, true}) {",
+        "for (WPARAM key : {static_cast<WPARAM>(VK_TAB), static_cast<WPARAM>(VK_RETURN),",
+        "for (WPARAM key :"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_keyboard::keyboard_actual_layout_shift_caps_repeat_and_modifier_axes",
+        "controlled::scenarios_keyboard::keyboard_synthetic_tip_requires_exact_profile_and_substitute"
+      ],
+      "reconciliations": [
+        "Actual EN/RU layouts, twelve OEM keys, Shift/Caps cross-product, repeat encoding, native nontext keys, modifier-only classification, exact TIP substitute. Russian-layout availability remains an explicit environmental limit."
+      ]
+    },
+    {
+      "id": "tests.OemCommandSequences",
+      "source": "native/windows/tests.cpp",
+      "symbol": "OemCommandSequences",
+      "line": 7650,
+      "sourceSha256": "4157f5ef2bba82ce067af203417441cee2c47993e383b9fbf7877909180965d6",
+      "loopHeaders": [
+        "for (bool shifted : {false, true}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_keyboard::keyboard_loaded_russian_oem_manual_noop_preserves_first_receipt",
+        "controlled::scenarios_keyboard::keyboard_oem_ordinary_punctuation_finishes_before_native_passthrough",
+        "controlled::scenarios_keyboard::keyboard_oem_owned_words_convert_and_reverse_exact_case_and_punctuation"
+      ],
+      "reconciliations": [
+        "Shifted/unshifted provisional bracket, PC backtick, punctuation pass-through, loaded RU manual no-op and receipt preservation."
+      ]
+    },
+    {
+      "id": "tests.TeardownAndConstructorExceptions",
+      "source": "native/windows/tests.cpp",
+      "symbol": "TeardownAndConstructorExceptions",
+      "line": 7705,
+      "sourceSha256": "760a6404fadae2b27571f08427ca4095c04b08bc61d8296242ac88b6c2f57dce",
+      "loopHeaders": [
+        "for (const char *boundary : {\"UnadviseKeySink\", \"UnadviseThreadSink\", \"UnadviseProfileSink\"}) {",
+        "for (bool throwing : {false, true}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_boundary::boundary_failed_constructor_query_releases_context_and_service_owners",
+        "controlled::scenarios_boundary::boundary_teardown_reentry_and_hresult_failure_detach_each_sink_once"
+      ],
+      "reconciliations": [
+        "HRESULT failures and reentrant teardown preserve ownership and once-only detach. The C++-throw-specific quarantine behavior is retired under the accepted no-throw COM contract."
+      ]
+    },
+    {
+      "id": "runtime_schedules.RuntimeCodecSchedules",
+      "source": "native/windows/runtime_schedules.h",
+      "symbol": "RuntimeCodecSchedules",
+      "line": 90,
+      "sourceSha256": "1821a9cad871d6dcd54bafa3ea3a25378679c0ffce006fde34b83281a40e79f5",
+      "loopHeaders": [
+        "for (const auto &bad : {std::wstring(text) + L\" trailing\", std::wstring(text) + L\"; extra=1\","
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_workers::runtime_binary_reader_rejects_invalid_envelopes_atomically",
+        "controlled::scenarios_workers::runtime_text_codec_preserves_maximum_revision_and_rejects_partial_rows"
+      ],
+      "reconciliations": [
+        "Exact payload/version/canaries and canonical maximum u64 revision, malformed rows and enum fields."
+      ]
+    },
+    {
+      "id": "runtime_schedules.RuntimeWindowReentrySchedules",
+      "source": "native/windows/runtime_schedules.h",
+      "symbol": "RuntimeWindowReentrySchedules",
+      "line": 130,
+      "sourceSha256": "d7faeb32fd4be5b433d1d2407d1006f281a68b2cebf42f70f5160e60d1792169",
+      "loopHeaders": [],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_workers::runtime_hidden_window_creation_destruction_reentry_and_timer_readiness",
+        "controlled::scenarios_workers::runtime_nested_message_pumping_defers_snapshot_adoption"
+      ],
+      "reconciliations": [
+        "Creation/destruction reentry and nested message pumping preserve publication ownership."
+      ]
+    },
+    {
+      "id": "runtime_schedules.RuntimeServiceSchedules",
+      "source": "native/windows/runtime_schedules.h",
+      "symbol": "RuntimeServiceSchedules",
+      "line": 188,
+      "sourceSha256": "7eb9356cbb6601f18c61163c1e2148c4ced47e2eba0fe9c56236a51725700907",
+      "loopHeaders": [
+        "for (uint32_t mode : {KR_EN, KR_RU}) {",
+        "for (const wchar_t *p = word; *p; ++p) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_workers::runtime_service_model_vocabulary_receipts_and_configuration"
+      ],
+      "reconciliations": [
+        "EN/RU model behavior, vocabulary adoption, live receipt retention, configuration and last-good state."
+      ]
+    },
+    {
+      "id": "runtime_schedules.RuntimeGlobalHookSchedules",
+      "source": "native/windows/runtime_schedules.h",
+      "symbol": "RuntimeGlobalHookSchedules",
+      "line": 352,
+      "sourceSha256": "747b3435b7ccef1ef1caad76c6170cf8bc07aa91cf2b942ceceb461a627e4343",
+      "loopHeaders": [],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_workers::runtime_worker_absent_sources_and_global_hook_owner"
+      ],
+      "reconciliations": [
+        "Explicit hooks versus inherited global hooks, both null source paths, model preparation, detached hooks, cancellation/drain."
+      ]
+    },
+    {
+      "id": "runtime_schedules.RuntimeAbsentSourceSchedules",
+      "source": "native/windows/runtime_schedules.h",
+      "symbol": "RuntimeAbsentSourceSchedules",
+      "line": 378,
+      "sourceSha256": "77bcaf1721115d02c5d3ac4a0a8f37a6e9f8d0c3516de650e05d74f9a195f0e9",
+      "loopHeaders": [
+        "for (HANDLE event : {entered, cancelled, draining, release, finished})"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_workers::runtime_worker_absent_sources_and_global_hook_owner"
+      ],
+      "reconciliations": [
+        "Explicit hooks versus inherited global hooks, both null source paths, model preparation, detached hooks, cancellation/drain."
+      ]
+    },
+    {
+      "id": "runtime_schedules.RuntimeNativeSchedules",
+      "source": "native/windows/runtime_schedules.h",
+      "symbol": "RuntimeNativeSchedules",
+      "line": 568,
+      "sourceSha256": "4826fb7f87fb25a7a738cdf9bcfcf54e5e9a5b1bacdcc00d8712b6f915a484a8",
+      "loopHeaders": [
+        "for (auto failure : {NativeSchedule::Failure::Root, NativeSchedule::Failure::Verification}) {",
+        "for (bool remap : {false, true}) {",
+        "for (auto io : {NativeSchedule::Io::Immediate, NativeSchedule::Io::Pending}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_workers::runtime_native_open_association_event_and_completion_axes",
+        "controlled::scenarios_workers::runtime_worker_cancellation_and_detached_mailboxes"
+      ],
+      "reconciliations": [
+        "Root/verification failures crossed with remap, component remap, I/O event failure, immediate/pending completion counts, and old/new activation mailboxes."
+      ]
+    },
+    {
+      "id": "runtime_schedules.RuntimeReparseSchedules",
+      "source": "native/windows/runtime_schedules.h",
+      "symbol": "RuntimeReparseSchedules",
+      "line": 689,
+      "sourceSha256": "bf6642ed5294705a91fd6971ed5a9308b6af6987f0f4fdde6a09a484a73226ca",
+      "loopHeaders": [
+        "for (int observation = 0; observation != 2; ++observation) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_workers::runtime_parent_reparse_race_and_preexisting_junction_read_no_payload"
+      ],
+      "reconciliations": [
+        "Real junction creation after parent open, followed by preexisting junction observation. Both require zero payload reads."
+      ]
+    },
+    {
+      "id": "runtime_schedules.RuntimeStabilitySchedules",
+      "source": "native/windows/runtime_schedules.h",
+      "symbol": "RuntimeStabilitySchedules",
+      "line": 752,
+      "sourceSha256": "d584078b09e56417a151cd24d131383012f07845260bb10f08e92013f3f17277",
+      "loopHeaders": [
+        "for (auto change : {Change::Truncate, Change::Grow, Change::RestoreTimes}) {",
+        "for (auto boundary : {vocabulary::Boundary::BeforeParse, vocabulary::Boundary::BeforePublish}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_workers::runtime_real_file_changes_settle_exact_bytes_and_metadata",
+        "controlled::scenarios_workers::runtime_worker_cancellation_and_detached_mailboxes"
+      ],
+      "reconciliations": [
+        "Truncate/grow/restore timestamps, exact last-good dictionary retention, and cancellation before parse/publish."
+      ]
+    },
+    {
+      "id": "runtime_schedules.RuntimeFileSchedules",
+      "source": "native/windows/runtime_schedules.h",
+      "symbol": "RuntimeFileSchedules",
+      "line": 849,
+      "sourceSha256": "7316c35c410e279dd0f64b9095ef4156ce9e4410f7e877d46d67d294bb09ed61",
+      "loopHeaders": [
+        "for (const wchar_t *path :",
+        "for (const auto &bytes : {std::string(\"bad\\0data\", 8), std::string(\"/encoding=latin1\\nword\\n\"),"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_workers::runtime_worker_real_files_settle_parse_retain_and_absence",
+        "controlled::scenarios_workers::runtime_worker_replacement_and_parent_handles"
+      ],
+      "reconciliations": [
+        "Invalid path forms, two-equal settling, invalid UTF-8 skipped-line evidence, NUL/encoding/oversize refusal, deletion, default versus explicit absence, replacement identity, and denied parent rename."
+      ]
+    },
+    {
+      "id": "runtime_schedules.RuntimeDllNativeSchedules",
+      "source": "native/windows/runtime_schedules.h",
+      "symbol": "RuntimeDllNativeSchedules",
+      "line": 986,
+      "sourceSha256": "e5c6c594865e7197ffb14fa297600a69ae0ace70de8254c813681fdf0e7f57c6",
+      "loopHeaders": [
+        "for (auto failure : {NativeSchedule::Failure::Event, NativeSchedule::Failure::Pin,"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_workers::runtime_actual_dll_worker_startup_drain_and_unload_axes"
+      ],
+      "reconciliations": [
+        "Child cases boundary-0, boundary-2, boundary-7, boundary-8, startup-event, startup-pin, startup-submit, startup-long, drain, production. Assertions cover actual module pinning after external references retire and actual unmapping after worker drain."
+      ]
+    },
+    {
+      "id": "runtime_schedules.RuntimeDllSchedules",
+      "source": "native/windows/runtime_schedules.h",
+      "symbol": "RuntimeDllSchedules",
+      "line": 1072,
+      "sourceSha256": "06df75de19fc4a4d0f2eb1fa1daf94975aa2a69a0cfab6f27ee374fac5a3ba88",
+      "loopHeaders": [
+        "for (auto boundary : {vocabulary::Boundary::BeforeWork, vocabulary::Boundary::BeforeRead,"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_workers::runtime_actual_dll_worker_startup_drain_and_unload_axes"
+      ],
+      "reconciliations": [
+        "Child cases boundary-0, boundary-2, boundary-7, boundary-8, startup-event, startup-pin, startup-submit, startup-long, drain, production. Assertions cover actual module pinning after external references retire and actual unmapping after worker drain."
+      ]
+    },
+    {
+      "id": "host_field_tests.Require",
+      "source": "native/windows/host_field_tests.cpp",
+      "symbol": "Require",
+      "line": 9,
+      "sourceSha256": "4046eac3b5557471cc487ca6029eadae6c13cad39d8d52cc940f5880017cd6bc",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [],
+      "reconciliations": [
+        "Shared assertion/abort helper. Its callers own the baseline executable assertions and their concrete successors are recorded by family and suiteCoverage."
+      ]
+    },
+    {
+      "id": "host_field_tests.RefusedWithoutRead",
+      "source": "native/windows/host_field_tests.cpp",
+      "symbol": "RefusedWithoutRead",
+      "line": 77,
+      "sourceSha256": "f6d0e8ac7c98ad51bd9738cba0bed78486175d122546340ed71d9e2c1f1103af",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [
+        "proof::field::baseline_tests::exact_public_cases_suffixes_and_all_six_selection_axes",
+        "proof::field::baseline_tests::identity_and_exclusions_all_baseline_axes",
+        "proof::field::baseline_tests::metadata_only",
+        "proof::field::baseline_tests::null_and_returned_text_boundary_all_baseline_axes",
+        "proof::field::baseline_tests::revalidation_before_after_text_and_before_success",
+        "proof::field::baseline_tests::writability_all_baseline_channels_and_boolean_results"
+      ],
+      "reconciliations": [
+        "Shared field refusal oracle checks exact reason, zero character reads, and zero selection checks. The field unit matrices own its callers."
+      ]
+    },
+    {
+      "id": "host_field_tests.MetadataOnly",
+      "source": "native/windows/host_field_tests.cpp",
+      "symbol": "MetadataOnly",
+      "line": 82,
+      "sourceSha256": "ef49e6e4739163a080b793b5ae235be76911fab1598c2efd7115a5fe4acc168f",
+      "loopHeaders": [],
+      "disposition": "ported",
+      "rustTests": [
+        "proof::field::baseline_tests::metadata_only"
+      ],
+      "reconciliations": [
+        "Metadata-only observation refuses character and selection access."
+      ]
+    },
+    {
+      "id": "host_field_tests.IdentityAndExclusions",
+      "source": "native/windows/host_field_tests.cpp",
+      "symbol": "IdentityAndExclusions",
+      "line": 90,
+      "sourceSha256": "9a0116d0ea4ec9d3d185ebce99b9220d109243604e97f1359b81aeaa23727de6",
+      "loopHeaders": [
+        "for (unsigned schedule = 0; schedule != 7; ++schedule) {",
+        "for (unsigned schedule = 0; schedule != 16; ++schedule) {",
+        "for (unsigned schedule = 0; schedule != 4; ++schedule) {",
+        "for (auto reason : {Refusal::Target, Refusal::NativeFocus, Refusal::Stale, Refusal::Provider}) {",
+        "for (unsigned schedule = 0; schedule != 6; ++schedule) {",
+        "for (unsigned schedule = 0; schedule != 4; ++schedule) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "proof::field::baseline_tests::identity_and_exclusions_all_baseline_axes"
+      ],
+      "reconciliations": [
+        "Identity loops 7/16/4, four refusal reasons, six exclusion mutations, and four field-fact mutations retain metadata-only refusal."
+      ]
+    },
+    {
+      "id": "host_field_tests.Writability",
+      "source": "native/windows/host_field_tests.cpp",
+      "symbol": "Writability",
+      "line": 223,
+      "sourceSha256": "da73b60d234c9bbbedddba9988a4f776e2332737acd702088ee1bc2d1105ddc0",
+      "loopHeaders": [
+        "for (auto value : {ReadOnly::Unavailable, ReadOnly::Unsupported, ReadOnly::Writable})",
+        "for (auto text : {ReadOnly::Unavailable, ReadOnly::Unsupported, ReadOnly::Writable}) {",
+        "for (auto veto : {ReadOnly::Unknown, ReadOnly::ReadOnly, ReadOnly::Mixed})",
+        "for (bool value_channel : {false, true}) {",
+        "for (auto control : std::array<int, 3>{0, UIA_EditControlTypeId, UIA_ButtonControlTypeId}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "proof::field::baseline_tests::writability_all_baseline_channels_and_boolean_results"
+      ],
+      "reconciliations": [
+        "Three-by-three writability channels and a veto on each preserve exact boolean and HRESULT meaning."
+      ]
+    },
+    {
+      "id": "host_field_tests.Revalidation",
+      "source": "native/windows/host_field_tests.cpp",
+      "symbol": "Revalidation",
+      "line": 263,
+      "sourceSha256": "f6a130e867e31215ca2346cd313e672f8722c75130105a888861da4ffe484caf",
+      "loopHeaders": [
+        "for (unsigned observation : {2u, 3u, 4u}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "proof::field::baseline_tests::revalidation_before_after_text_and_before_success"
+      ],
+      "reconciliations": [
+        "Revalidation at observations two, three, and four refuses drift before/after text and before success."
+      ]
+    },
+    {
+      "id": "host_field_tests.ExactPublicCases",
+      "source": "native/windows/host_field_tests.cpp",
+      "symbol": "ExactPublicCases",
+      "line": 288,
+      "sourceSha256": "50792c82b5b97d32d18706ff6cc61f1ae3e15d1081627dc62f07da1292fe18d6",
+      "loopHeaders": [
+        "for (const auto &expected : detail::cases) {",
+        "for (wchar_t suffix : {L'x', L'\\0', L'\\r'}) {",
+        "for (auto selection : {detail::Selection{false, 1, 0, 0}, detail::Selection{true, 0, 0, 0},",
+        "for (const auto &[actual, expected] : {std::pair{detail::cases[2].text, detail::cases[3]},"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "proof::field::baseline_tests::exact_public_cases_suffixes_and_all_six_selection_axes"
+      ],
+      "reconciliations": [
+        "Every named public case crosses x, embedded NUL, and CR suffixes, followed by all six selection failures."
+      ]
+    },
+    {
+      "id": "host_field_tests.NullTextResult",
+      "source": "native/windows/host_field_tests.cpp",
+      "symbol": "NullTextResult",
+      "line": 335,
+      "sourceSha256": "efa65e269491e12fa153e9b66e35be10937dec72685d4d3c499b274c90b7fd64",
+      "loopHeaders": [],
+      "disposition": "ported",
+      "rustTests": [
+        "proof::field::baseline_tests::null_and_returned_text_boundary_all_baseline_axes"
+      ],
+      "reconciliations": [
+        "The independent provider returns None for unavailable text. The test asserts TextUnavailable after exactly one read and before selection. This represents the baseline S_OK/null BSTR observation at the Rust provider boundary.",
+        "native/windows/proof/src/uia.rs::NativeProvider::document calls the raw GetText slot, retains the BSTR owner, and passes None exactly when its returned pointer is null. This source bridge preserves the distinct null and allocated-empty native observations used by the pure boundary tests."
+      ]
+    },
+    {
+      "id": "host_field_tests.ReturnedTextBoundary",
+      "source": "native/windows/host_field_tests.cpp",
+      "symbol": "ReturnedTextBoundary",
+      "line": 349,
+      "sourceSha256": "296d533047c63f66a3026251c35f29eaad31a3ab5c5ff9719f8a8a249470a04b",
+      "loopHeaders": [
+        "for (HRESULT result : {E_FAIL, S_FALSE}) {",
+        "for (const auto &text :"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "proof::field::baseline_tests::null_and_returned_text_boundary_all_baseline_axes"
+      ],
+      "reconciliations": [
+        "Empty returned text, failed/nonexact HRESULT with plausible text, exact UTF-16 suffixes, and exceeded requested bounds preserve atomic returned-text semantics. The baseline allocated BSTR test values are represented as Option<&[u16]> in the pure Rust text-boundary assertions.",
+        "native/windows/proof/src/uia.rs::NativeProvider::document calls the raw GetText slot, retains the BSTR owner, and passes None exactly when its returned pointer is null. This source bridge preserves the distinct null and allocated-empty native observations used by the pure boundary tests."
+      ]
+    },
+    {
+      "id": "host_probe_tests.Require",
+      "source": "native/windows/host_probe_tests.cpp",
+      "symbol": "Require",
+      "line": 9,
+      "sourceSha256": "988a1fa8a999c71e3214f5b123c02a64bfee13bbc420ff34ec2b999c4a6a8d7d",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [],
+      "reconciliations": [
+        "Shared assertion/abort helper. Its callers own the baseline executable assertions and their concrete successors are recorded by family and suiteCoverage."
+      ]
+    },
+    {
+      "id": "host_probe_tests.ReaderProcess",
+      "source": "native/windows/host_probe_tests.cpp",
+      "symbol": "ReaderProcess",
+      "line": 62,
+      "sourceSha256": "63eeb577a4d4f163cb504a7b0da4c79ce72e7e168e98c271c2497b4093e3166a",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [
+        "proof::mapping::tests::host_probe_read_only_child"
+      ],
+      "reconciliations": [
+        "Child-process helper is launched by host_probe_main_mapping_claims_sequences_hostile_headers_and_independent_process and independently reads the mapping read-only."
+      ]
+    },
+    {
+      "id": "host_probe_tests.ObservationCodecSchedules",
+      "source": "native/windows/host_probe_tests.cpp",
+      "symbol": "ObservationCodecSchedules",
+      "line": 83,
+      "sourceSha256": "6e35756ef1ece1c94b66ce48c88ab6cf153858e600f8cbdfe47698e553580c4b",
+      "loopHeaders": [
+        "for (const auto &[field, value] : std::initializer_list<std::pair<size_t, DWORD>>{",
+        "for (size_t i = 0; i != observation_capacity; ++i)",
+        "for (size_t i = 0; i != 33; ++i)",
+        "for (bool ordinary : {false, true}) {",
+        "for (size_t first = 0; first != progress.size(); ++first) {",
+        "for (size_t second = 0; second <= progress.size(); ++second) {",
+        "for (size_t i = 0; i != lifecycle_capacity + 1; ++i)",
+        "for (const auto outcome : {CommandCompletion::Refused, CommandCompletion::Unknown,",
+        "for (bool witnessed : {false, true}) {",
+        "for (const auto &[field, value] : std::initializer_list<std::pair<size_t, DWORD>>{",
+        "for (size_t field = 0; field != std::size(page->header); ++field) {",
+        "for (DWORD value = 1; value != 2001; ++value)"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_protocol::observation_codec_complete_terminal_grammar",
+        "controlled::scenarios_protocol::observation_codec_golden_rows_and_hostile_fields",
+        "controlled::scenarios_protocol::observation_codec_rejects_frozen_mapping_headers",
+        "controlled::scenarios_protocol::observation_codec_retention_completions_and_negative_matrix",
+        "controlled::scenarios_protocol::observation_codec_windows_saturation_and_interval_continuity",
+        "runtime::production::diagnostics::tests::command_ticket_keeps_arrival_through_dispatch_and_completion",
+        "runtime::production::diagnostics::tests::observation_saturation_freezes_events_and_new_tickets",
+        "runtime::test-api::diagnostics::tests::command_ticket_keeps_arrival_through_dispatch_and_completion",
+        "runtime::test-api::diagnostics::tests::observation_saturation_freezes_events_and_new_tickets"
+      ],
+      "reconciliations": [
+        "Independent decoder tests preserve ordinary/preserved terminal grammar, 32/33 windows, completion/witness combinations, hostile field substitutions, overflow, and protocol-1/protocol-2 header refusal. Companion runtime tests exercise real journal ticket retention and sequence exhaustion in each feature variant."
+      ]
+    },
+    {
+      "id": "host_threads_tests.Require",
+      "source": "native/windows/host_threads_tests.cpp",
+      "symbol": "Require",
+      "line": 8,
+      "sourceSha256": "6d2644d51dac5f0f239e1c3463945a4669fda21a495f64b28ba71528d91c8b90",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [],
+      "reconciliations": [
+        "Shared assertion/abort helper. Its callers own the baseline executable assertions and their concrete successors are recorded by family and suiteCoverage."
+      ]
+    },
+    {
+      "id": "host_threads_tests.Report",
+      "source": "native/windows/host_threads_tests.cpp",
+      "symbol": "Report",
+      "line": 17,
+      "sourceSha256": "73fd4b12886cfbeae4b1debcb7121f74f854fb22d502f587c525e610bdd24211",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [],
+      "reconciliations": [
+        "Content-free thread evidence reporting helper. Executable startup and identity assertions are mapped by host_thread_startup_schedules."
+      ]
+    },
+    {
+      "id": "host_threads_tests.DeniedThread",
+      "source": "native/windows/host_threads_tests.cpp",
+      "symbol": "DeniedThread",
+      "line": 22,
+      "sourceSha256": "a212b33603708547a06c29da4adee78e3f35e528f2db414d88b83476142e68ed",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [
+        "proof::native::baseline_tests::host_threads_live_exited_missing_invalid_and_denied"
+      ],
+      "reconciliations": [
+        "Helper schedule checks actual thread handles and protected DACL denial. The baseline environment-dependent inconclusive result is retained when the caller bypasses denial."
+      ]
+    },
+    {
+      "id": "host_threads_tests.ChildProcess",
+      "source": "native/windows/host_threads_tests.cpp",
+      "symbol": "ChildProcess",
+      "line": 46,
+      "sourceSha256": "9cf1570989e76caeb8a85f8dcefdf0891c5580eba689aa9204fd01576f985d55",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [
+        "proof::native::baseline_tests::host_threads_child_wait_worker",
+        "proof::native::baseline_tests::host_threads_foreign_owner_wrong_process_and_dead_process"
+      ],
+      "reconciliations": [
+        "Helper schedule starts the gated child and checks foreign owner, wrong process, and dead-process evidence with actual native handles."
+      ]
+    },
+    {
+      "id": "host_inspect_options_tests.Require",
+      "source": "native/windows/host_inspect_options_tests.cpp",
+      "symbol": "Require",
+      "line": 8,
+      "sourceSha256": "99cab71358a5534b975843eee4c52a95de1e5c58dd6bff79064b83ea9590209e",
+      "loopHeaders": [
+        "for (const auto *command : {L\"host\", L\"service\", L\"field\"})",
+        "for (const auto *name :",
+        "for (const auto *name : {L\"\", L\"anything\", L\"ghbdtn \", L\"EMPTY\", L\"empty \"})",
+        "for (const auto *invalid :",
+        "for (const auto *invalid : {L\"0\", L\"3601\", L\"-1\", L\"1x\"})",
+        "for (const auto *invalid :",
+        "for (const auto *command : {L\"host\", L\"field\", L\"public-case\", L\"build\"})"
+      ],
+      "disposition": "helper",
+      "rustTests": [],
+      "reconciliations": [
+        "Shared assertion/abort helper. Its callers own the baseline executable assertions and their concrete successors are recorded by family and suiteCoverage."
+      ]
+    },
+    {
+      "id": "routing_tests.Check",
+      "source": "native/windows/routing_tests.cpp",
+      "symbol": "Check",
+      "line": 7,
+      "sourceSha256": "42bea340e7140a6b3fbf3440a028dac69a35992d53a3f5bfd5e90916aaaa7d67",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [],
+      "reconciliations": [
+        "Shared assertion/abort helper. Main-only executable scenarios are mapped explicitly by suiteCoverage."
+      ]
+    },
+    {
+      "id": "routing_tests.Route",
+      "source": "native/windows/routing_tests.cpp",
+      "symbol": "Route",
+      "line": 14,
+      "sourceSha256": "95b504ba7146874d9582e8d320eadecf2d3a0d93f1cfb11713ef479feef07363",
+      "loopHeaders": [
+        "for (size_t i = 0; i != Count; ++i) {"
+      ],
+      "disposition": "helper",
+      "rustTests": [
+        "proof::routing::tests::routing_baseline_outcome_counters_first_error_and_saturation",
+        "proof::routing::tests::routing_tests_dispatch_only_after_successful_interest"
+      ],
+      "reconciliations": [
+        "Parameterized assertion helper invoked by the ten tuples in main. Rust unit tests assert false initialized outputs, dispatch call order and counts, completed outcomes, first HRESULT, publication, and saturation."
+      ]
+    },
+    {
+      "id": "routing_tests.Rejected",
+      "source": "native/windows/routing_tests.cpp",
+      "symbol": "Rejected",
+      "line": 50,
+      "sourceSha256": "dbf72bbe8353eda86fd78670bbab0297b9ebc7ab673605fe6a1652413f41c7fd",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [
+        "proof::routing::tests::canonical_routing_rejects_extra_and_noncanonical_numbers",
+        "proof::routing::tests::routing_baseline_parser_negative_matrix"
+      ],
+      "reconciliations": [
+        "Malformed-text assertion helper invoked by main. Rust parser-negative tests check canonical forms and reject malformed status without producing a snapshot."
+      ]
+    },
+    {
+      "id": "routing_tests.Replaced",
+      "source": "native/windows/routing_tests.cpp",
+      "symbol": "Replaced",
+      "line": 56,
+      "sourceSha256": "aca0c7a0f9bba1a0ac5662ae7f46d5b865cedc9b058d1f4810f44b453345f314",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [
+        "proof::routing::tests::canonical_routing_rejects_extra_and_noncanonical_numbers",
+        "proof::routing::tests::routing_baseline_parser_negative_matrix"
+      ],
+      "reconciliations": [
+        "Mutation helper invoked by main replaces individual canonical tokens before calling Rejected. The Rust negative matrices preserve the corresponding field mutations."
+      ]
+    },
+    {
+      "id": "routing_tests.RoundTrip",
+      "source": "native/windows/routing_tests.cpp",
+      "symbol": "RoundTrip",
+      "line": 63,
+      "sourceSha256": "a828b31c869f2b47d3b650cf72a0be716fde2711cf836cb357b7897c397eaa86",
+      "loopHeaders": [
+        "for (int i = 0; i != 3; ++i) {",
+        "for (uint32_t count : snapshot.counts)"
+      ],
+      "disposition": "helper",
+      "rustTests": [
+        "proof::routing::tests::routing_baseline_outcome_counters_first_error_and_saturation"
+      ],
+      "reconciliations": [
+        "Canonical roundtrip assertion helper invoked by main. Rust tests compare exact parsed fields, counters, publication and first HRESULT across representative and saturated snapshots."
+      ]
+    },
+    {
+      "id": "register_tests.Check",
+      "source": "native/windows/register_tests.cpp",
+      "symbol": "Check",
+      "line": 14,
+      "sourceSha256": "300c167ae85769a73b3e119a129ee06a63cfb721de4c321c850030e3bcdc84c4",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [],
+      "reconciliations": [
+        "Shared assertion/abort helper. Main-only executable scenarios are mapped explicitly by suiteCoverage."
+      ]
+    },
+    {
+      "id": "register_tests.Refuses",
+      "source": "native/windows/register_tests.cpp",
+      "symbol": "Refuses",
+      "line": 144,
+      "sourceSha256": "6f4132c81a1d971c3f910198d0905b1b42b88bfd51e05e87b02d6f460d793bd9",
+      "loopHeaders": [
+        "for (size_t missing = 0; missing < 2; ++missing) {",
+        "for (size_t failed = 0; failed < 2; ++failed) {",
+        "for (HRESULT result : nonexact_results) {"
+      ],
+      "disposition": "helper",
+      "rustTests": [
+        "controlled::scenarios_registration::registrar_exact_outputs_and_after_effect_reentry",
+        "controlled::scenarios_registration::registrar_presence_preflight_and_acknowledgement_axes"
+      ],
+      "reconciliations": [
+        "Parameterized assertion helper for registrar preflight. Both profiles are inspected before refusal and no enablement write occurs. Main-only presence, enumeration, description, enable/readback and after-effect reentry cases are owned by registration_preflight in suiteCoverage."
+      ]
+    },
+    {
+      "id": "boundary_tests.Require",
+      "source": "native/windows/rust/tests/boundary_tests.cpp",
+      "symbol": "Require",
+      "line": 11,
+      "sourceSha256": "27aa9adfda513124fccdc4858b0fe48d42b0a017bc276e9f49bd76c838eb2739",
+      "loopHeaders": [],
+      "disposition": "helper",
+      "rustTests": [],
+      "reconciliations": [
+        "Shared assertion/abort helper. Its callers own the baseline executable assertions and their concrete successors are recorded by family and suiteCoverage."
+      ]
+    },
+    {
+      "id": "boundary_tests.DependencyLifetime",
+      "source": "native/windows/rust/tests/boundary_tests.cpp",
+      "symbol": "DependencyLifetime",
+      "line": 187,
+      "sourceSha256": "a83146bb6175056d5e97c617ae7b586e00a26087470d051232c97db6d273929a",
+      "loopHeaders": [],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_boundary::boundary_dependency_capsule_outlives_external_service_owners"
+      ],
+      "reconciliations": [
+        "Retained dependency capsule outlives external service ownership and drains after callback/reference release."
+      ]
+    },
+    {
+      "id": "boundary_tests.PureNative",
+      "source": "native/windows/rust/tests/boundary_tests.cpp",
+      "symbol": "PureNative",
+      "line": 243,
+      "sourceSha256": "1c91940fa75cd62b275efae53d0374ffb1b6527c2adc550f5ef3f297a744d812",
+      "loopHeaders": [],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_boundary::boundary_pure_native_field_match_and_secure_refusal",
+        "controlled::scenarios_boundary::boundary_pure_native_keyboard_and_binding_exports"
+      ],
+      "reconciliations": [
+        "Independent export checks preserve native keyboard/binding values, field-match bytes, and secure refusal."
+      ]
+    },
+    {
+      "id": "boundary_tests.Basic",
+      "source": "native/windows/rust/tests/boundary_tests.cpp",
+      "symbol": "Basic",
+      "line": 299,
+      "sourceSha256": "69872b76832ebd5c4ae5b5ee865a42ac517217f24c4c1800e59a2d610ae897b2",
+      "loopHeaders": [
+        "for (auto *entry : identity)",
+        "for (auto method : {&ITfKeyEventSink::OnTestKeyDown, &ITfKeyEventSink::OnKeyDown,",
+        "for (HRESULT status : {S_FALSE, static_cast<HRESULT>(2), E_FAIL}) {",
+        "for (HRESULT status : {S_FALSE, static_cast<HRESULT>(2), E_FAIL}) {",
+        "for (uint32_t at : {1U, 2U, 3U}) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_boundary::boundary_dependency_capsule_outlives_external_service_owners",
+        "controlled::scenarios_boundary::boundary_inactive_events_do_not_inspect_host",
+        "controlled::scenarios_boundary::boundary_invalid_dependency_table_clears_outputs_before_retention",
+        "controlled::scenarios_boundary::boundary_pure_native_field_match_and_secure_refusal",
+        "controlled::scenarios_boundary::boundary_pure_native_keyboard_and_binding_exports",
+        "controlled::scenarios_boundary::boundary_query_exact_hresult_and_reference_balance",
+        "controlled::scenarios_boundary::boundary_requests_complete_once_and_expire",
+        "controlled::scenarios_boundary::boundary_rust_panics_preserve_effect_and_poison",
+        "controlled::scenarios_boundary::boundary_service_identity_and_output_contracts",
+        "controlled::scenarios_boundary::boundary_wrong_thread_outputs_and_handle_ownership"
+      ],
+      "reconciliations": [
+        "The basic boundary suite preserves exact HRESULT/null outputs, canonical COM identity, no agility, dependency ownership, completed/expired edit sessions, and containment at three Rust panic sites."
+      ]
+    },
+    {
+      "id": "boundary_tests.Throw",
+      "source": "native/windows/rust/tests/boundary_tests.cpp",
+      "symbol": "Throw",
+      "line": 431,
+      "sourceSha256": "55d649f24a1484e9a53f659a999f8fb7f25dca3ffb8974d8c88af20a8877fe30",
+      "loopHeaders": [],
+      "disposition": "retired-contract",
+      "rustTests": [
+        "controlled::scenarios_boundary::boundary_add_after_reentry_is_balanced",
+        "controlled::scenarios_boundary::boundary_add_before_reentry_is_balanced",
+        "controlled::scenarios_boundary::boundary_final_release_callback_keeps_host_context_alive",
+        "controlled::scenarios_boundary::boundary_query_after_success_allows_lifecycle_reentry",
+        "controlled::scenarios_boundary::boundary_query_before_failure_has_no_authority",
+        "controlled::scenarios_boundary::boundary_release_after_reentry_is_balanced",
+        "controlled::scenarios_boundary::boundary_release_before_reentry_is_balanced",
+        "controlled::scenarios_boundary::boundary_request_after_hresult_preserves_completed_effect",
+        "controlled::scenarios_boundary::boundary_request_before_hresult_preserves_unattempted"
+      ],
+      "reconciliations": [
+        "The parameterized C++ foreign-throw driver is retired under the no-throw COM boundary contract. Its eight query/request/AddRef/Release before/after routes retain authority, effect, reentry, once-only release, and ownership assertions through native HRESULTs and legal COM callbacks. C++ exception containment is retired with that driver."
+      ]
+    },
+    {
+      "id": "tests.PreservedCommandSequences",
+      "source": "native/windows/tests.cpp",
+      "symbol": "PreservedCommandSequences",
+      "line": 1307,
+      "sourceSha256": "3f11be711341d15fcca61d31dabc38d39484cc47363650b98b7fe1ccc1724faa",
+      "loopHeaders": [
+        "for (int activation = 0; activation != 2; ++activation) {",
+        "for (UINT key : {static_cast<UINT>('K'), static_cast<UINT>('Z')}) {",
+        "for (const auto &binding : command_bindings) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_advised_sink::preserved_commands_use_actual_advised_sink_across_activations"
+      ],
+      "reconciliations": [
+        "Successful activation registers exact K, Z, and Alt observer GUID/key/modifier/client tuples with the actual advised foreground sink. Two activations preserve stable bindings, unknown GUID has zero text effects, actual advised-sink dispatch makes one verified requested write per command, exact whole documents/caret and mark identity survive, and normal/repeated detach clears the captured sink and unregisters each acquired binding exactly once.",
+        "Added non-void aggregate metadata uses SHA-256 of the exact brace-balanced bool definition from baselineCommit, including its trailing newline, encoded as LF UTF-8. loopHeaders for this added row are restricted to that definition."
+      ]
+    },
+    {
+      "id": "tests.UnchangedFinishSelectionEffects",
+      "source": "native/windows/tests.cpp",
+      "symbol": "UnchangedFinishSelectionEffects",
+      "line": 6380,
+      "sourceSha256": "b0f182f19ed4fec059071228f4ac366facb027d67c4596c7ad62298cf5a29c18",
+      "loopHeaders": [
+        "for (wchar_t unit : text)",
+        "for (const char *boundary : {\"none\", \"SetText.after\", \"EndComposition.after\"}) {",
+        "for (const auto &selection : selections) {"
+      ],
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_finish::finish_continuation_replans_with_one_write_per_composition",
+        "controlled::scenarios_finish::finish_native_effects_restore_exact_selection_and_style"
+      ],
+      "reconciliations": [
+        "No movement, SetText.after, and EndComposition.after cross six exact selections. Continuation asserts ordered text/end/start/text operations and distinct composition IDs with one write per composition. The baseline target used Notepad native facts and this selection-style matrix uses the proof target. Shared executor coverage and the separate proof/Notepad post-end policy matrix reconcile that target substitution without claiming an identical cross-product.",
+        "Added non-void aggregate metadata uses SHA-256 of the exact brace-balanced bool definition from baselineCommit, including its trailing newline, encoded as LF UTF-8. loopHeaders for this added row are restricted to that definition."
+      ]
+    }
+  ],
+  "suiteCoverage": [
+    {
+      "id": "host_routing_schedules",
+      "disposition": "ported",
+      "rustTests": [
+        "proof::routing::tests::canonical_routing_rejects_extra_and_noncanonical_numbers",
+        "proof::routing::tests::routing_baseline_outcome_counters_first_error_and_saturation",
+        "proof::routing::tests::routing_baseline_parser_negative_matrix",
+        "proof::routing::tests::routing_tests_dispatch_only_after_successful_interest"
+      ],
+      "reconciliations": [
+        "Ten main routing tuples, false initialized outputs, exact call order/counts, first HRESULT, publication increment, saturation, and canonical parser negatives are retained."
+      ]
+    },
+    {
+      "id": "host_diagnostic_mapping_schedules",
+      "disposition": "ported",
+      "rustTests": [
+        "proof::mapping::tests::host_probe_main_mapping_claims_sequences_hostile_headers_and_independent_process",
+        "proof::mapping::tests::host_probe_read_only_child",
+        "proof::mapping::tests::mapping_reader_checks_frozen_layout_and_unpublished_busy_stale_payloads",
+        "proof::mapping::tests::real_logon_secured_mapping_rejects_collision_and_has_read_only_view"
+      ],
+      "reconciliations": [
+        "Actual mapping tests cover missing arm, collision, ownership, independent read-only child, reclaim identity, eight hostile header words, metadata/reserved negatives, 2,000 concurrent writes, exhaustion, and truncation. The combined host_probe_main_mapping_claims_sequences_hostile_headers_and_independent_process test asserts Availability::Missing immediately after a successful nonzero first.instance claim and before the first publish, preserving the baseline claim-one/sequence-zero schedule."
+      ]
+    },
+    {
+      "id": "host_thread_startup_schedules",
+      "disposition": "ported",
+      "rustTests": [
+        "proof::native::baseline_tests::host_threads_child_wait_worker",
+        "proof::native::baseline_tests::host_threads_foreign_owner_wrong_process_and_dead_process",
+        "proof::native::baseline_tests::host_threads_live_exited_missing_invalid_and_denied"
+      ],
+      "reconciliations": [
+        "Actual thread/process handles and a gated child preserve live/exited/foreign/wrong/dead identity axes. Protected-DACL denial retains the baseline environment-dependent inconclusive outcome when denial is bypassed."
+      ]
+    },
+    {
+      "id": "host_inspector_argument_schedules",
+      "disposition": "ported",
+      "rustTests": [
+        "proof::options::tests::host_inspector_arguments"
+      ],
+      "reconciliations": [
+        "All public cases, mixed-case digest, option ordering, PID/duration/digest negatives, service-only options, and missing/duplicate/unknown options are asserted."
+      ]
+    },
+    {
+      "id": "host_field_evidence_schedules",
+      "disposition": "ported",
+      "rustTests": [
+        "proof::field::baseline_tests::exact_public_cases_suffixes_and_all_six_selection_axes",
+        "proof::field::baseline_tests::identity_and_exclusions_all_baseline_axes",
+        "proof::field::baseline_tests::metadata_only",
+        "proof::field::baseline_tests::null_and_returned_text_boundary_all_baseline_axes",
+        "proof::field::baseline_tests::revalidation_before_after_text_and_before_success",
+        "proof::field::baseline_tests::writability_all_baseline_channels_and_boolean_results"
+      ],
+      "reconciliations": [
+        "Independent provider tests preserve identity/exclusions, all writability channels, revalidation, named public cases and suffixes, six selection failures, null BSTR, and bounded returned-text semantics."
+      ]
+    },
+    {
+      "id": "registration_preflight",
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_registration::registrar_exact_outputs_and_after_effect_reentry",
+        "controlled::scenarios_registration::registrar_presence_preflight_and_acknowledgement_axes"
+      ],
+      "reconciliations": [
+        "Main-only registrar cases preserve both profile presence checks, enumeration/description failures, exact write/readback acknowledgement, mismatches, disappearance, and after-effect reentry with reference accounting."
+      ]
+    },
+    {
+      "id": "controlled_com_schedules",
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::correction_preserves_complete_documents",
+        "controlled::scenarios_admission::compartment_variant_signatures_distinguish_unset_from_malformed",
+        "controlled::scenarios_admission::early_key_test_leaves_native_typing_to_unrecognized_fields",
+        "controlled::scenarios_admission::exceptional_notepad_scope_requires_fresh_exact_failure",
+        "controlled::scenarios_admission::explicit_ordinary_application_scopes_admit_one_owned_mark",
+        "controlled::scenarios_admission::notepad_exact_unavailable_scope_has_bounded_authority",
+        "controlled::scenarios_admission::notepad_executor_refusals_expire_retained_callbacks",
+        "controlled::scenarios_admission::notepad_field_drift_blocks_boundary_and_owned_text_reads",
+        "controlled::scenarios_admission::notepad_field_fact_mutations_refuse_before_acp",
+        "controlled::scenarios_admission::notepad_native_policy_uncertainty_has_no_admission_effects",
+        "controlled::scenarios_admission::notepad_selection_and_scope_failures_are_metadata_only",
+        "controlled::scenarios_admission::uncertain_application_scope_refuses_before_acp_or_text",
+        "controlled::scenarios_admission::writable_policy_requires_exact_status_and_interfaces",
+        "controlled::scenarios_advised_sink::preserved_commands_use_actual_advised_sink_across_activations",
+        "controlled::scenarios_boundary::boundary_failed_constructor_query_releases_context_and_service_owners",
+        "controlled::scenarios_boundary::boundary_teardown_reentry_and_hresult_failure_detach_each_sink_once",
+        "controlled::scenarios_commands::command_key_sequences_conversion_idle_and_receipt",
+        "controlled::scenarios_commands::command_key_sequences_failure_and_exclusion_matrix",
+        "controlled::scenarios_commands::command_key_sequences_modifier_and_special_key_matrix",
+        "controlled::scenarios_commands::command_modifier_identity_caps_and_missing_layout",
+        "controlled::scenarios_commands::command_release_balanced_reference_reentry_matrix",
+        "controlled::scenarios_commands::command_retention_authority_invalidation_matrix",
+        "controlled::scenarios_commands::command_retention_focus_gain_direct_and_reentrant",
+        "controlled::scenarios_commands::command_retention_missing_observer_host_contract_boundary",
+        "controlled::scenarios_commands::command_retention_missing_or_refused_witness_matrix",
+        "controlled::scenarios_commands::command_retention_nonverified_command_never_arms",
+        "controlled::scenarios_commands::command_retention_reentrant_cancellation_matrix",
+        "controlled::scenarios_commands::command_retention_regression_and_release_order_matrix",
+        "controlled::scenarios_commands::dedicated_layout_reentry_at_every_profile_and_layout_boundary",
+        "controlled::scenarios_commands::dedicated_layout_regression_and_negative_matrix",
+        "controlled::scenarios_commands::preserved_activation_cleanup_failure_and_rollback_matrix",
+        "controlled::scenarios_commands::preserved_activation_provisional_observer_and_profile_notifications",
+        "controlled::scenarios_commands::preserved_activation_registration_failure_prefix_matrix",
+        "controlled::scenarios_commands::preserved_activation_sink_failure_and_cancellation_matrix",
+        "controlled::scenarios_commands::preserved_dispatch_both_modes_caps_repeat_and_receipt",
+        "controlled::scenarios_commands::preserved_dispatch_continuation_and_release_reactivation",
+        "controlled::scenarios_commands::preserved_dispatch_pointer_guid_thread_and_exclusion_matrix",
+        "controlled::scenarios_commands::preserved_dispatch_refusal_and_unknown_matrix",
+        "controlled::scenarios_commands::preserved_dispatch_termination_and_retained_callback",
+        "controlled::scenarios_commands::preserved_dispatch_wrong_modifiers_do_not_touch_owned_text",
+        "controlled::scenarios_diagnostics::diagnostic_attempted_verified_and_unknown_are_distinct",
+        "controlled::scenarios_diagnostics::diagnostic_copy_refuses_busy_versions_sizes_and_foreign_threads",
+        "controlled::scenarios_diagnostics::diagnostic_lifetime_counters_survive_activation_but_not_other_instances",
+        "controlled::scenarios_diagnostics::diagnostic_native_hresult_successors_preserve_effect_evidence",
+        "controlled::scenarios_diagnostics::diagnostic_refusals_report_exact_stage_cause_and_result",
+        "controlled::scenarios_diagnostics::diagnostic_request_and_session_denial_are_distinct",
+        "controlled::scenarios_diagnostics::optional_diagnostic_registration_drains_each_captured_ownership_once",
+        "controlled::scenarios_editing::changing_finish_caret_requires_verified_restoration",
+        "controlled::scenarios_editing::composition_drift_refuses_without_document_changes",
+        "controlled::scenarios_editing::correction_and_reversal_preserve_owned_range",
+        "controlled::scenarios_editing::denied_requests_and_rejected_compositions_preserve_key_order",
+        "controlled::scenarios_editing::every_exercised_native_boundary_stops_writes_after_nested_input",
+        "controlled::scenarios_editing::canonical_composition_refusal_allows_a_later_fresh_word",
+        "controlled::scenarios_editing::late_composition_start_cannot_stop_a_new_activation",
+        "controlled::scenarios_editing::uncertain_composition_start_passes_unwritten_key_and_stops_without_repair",
+        "controlled::scenarios_editing::failed_outer_request_after_mark_keeps_consumption_and_expires_callback",
+        "controlled::scenarios_editing::hresult_before_and_after_native_effect_replaces_throw_schedules",
+        "controlled::scenarios_editing::late_old_termination_and_focus_roundtrip_cannot_revive_authority",
+        "controlled::scenarios_editing::native_whitespace_uses_ucrt_boundary_classification",
+        "controlled::scenarios_editing::owned_denial_stops_without_cleanup_or_later_repair",
+        "controlled::scenarios_editing::stale_edit_across_reactivation_cannot_stop_new_ownership",
+        "controlled::scenarios_editing::unknown_finish_passes_ordinary_keys_without_replan",
+        "controlled::scenarios_editing::unknown_mark_consumes_once_and_never_repairs",
+        "controlled::scenarios_editing::unknown_reserved_escape_stays_consumed",
+        "controlled::scenarios_finish::empty_start_exclusion_stops_before_character_access",
+        "controlled::scenarios_finish::finish_clone_gravity_never_reads_unowned_selection",
+        "controlled::scenarios_finish::finish_continuation_replans_with_one_write_per_composition",
+        "controlled::scenarios_finish::finish_matching_selection_requires_no_selection_effect",
+        "controlled::scenarios_finish::finish_native_effects_restore_exact_selection_and_style",
+        "controlled::scenarios_finish::finish_post_end_exclusion_stops_reads_and_continuation",
+        "controlled::scenarios_finish::finish_replacement_failures_stop_after_one_write",
+        "controlled::scenarios_finish::finish_selection_failures_stop_without_replan_or_retry",
+        "controlled::scenarios_finish::finish_selection_policy_is_rechecked_after_native_preparation",
+        "controlled::scenarios_finish::finish_unchanged_range_preserves_moved_or_selected_caret",
+        "controlled::scenarios_finish::fresh_policy_blocks_all_character_access_and_effects",
+        "controlled::scenarios_finish::owned_scope_drift_cannot_borrow_selection_authority",
+        "controlled::scenarios_keyboard::keyboard_actual_layout_shift_caps_repeat_and_modifier_axes",
+        "controlled::scenarios_keyboard::keyboard_loaded_russian_oem_manual_noop_preserves_first_receipt",
+        "controlled::scenarios_keyboard::keyboard_oem_ordinary_punctuation_finishes_before_native_passthrough",
+        "controlled::scenarios_keyboard::keyboard_oem_owned_words_convert_and_reverse_exact_case_and_punctuation",
+        "controlled::scenarios_keyboard::keyboard_synthetic_tip_requires_exact_profile_and_substitute",
+        "controlled::scenarios_lifecycle::lifecycle_alias_and_unowned_callbacks_use_canonical_identity",
+        "controlled::scenarios_lifecycle::lifecycle_end_reentry_cannot_publish_verified_finish_or_new_acquisition",
+        "controlled::scenarios_lifecycle::lifecycle_exact_and_late_termination_preserve_distinct_serials",
+        "controlled::scenarios_lifecycle::lifecycle_identity_reentry_replaces_only_the_captured_serial",
+        "controlled::scenarios_lifecycle::lifecycle_identity_release_stays_inside_the_publication_guard",
+        "controlled::scenarios_lifecycle::lifecycle_invalidation_and_detach_are_distinct_from_termination",
+        "controlled::scenarios_lifecycle::lifecycle_readers_preserve_payload_canaries_and_exact_legacy_payload",
+        "controlled::scenarios_lifecycle::lifecycle_reads_at_every_edit_boundary_leave_the_complete_trace_unchanged",
+        "controlled::scenarios_lifecycle::lifecycle_unresolved_identity_classifies_hresult_null_and_reentry",
+        "controlled::scenarios_lifecycle::lifecycle_wrong_thread_does_not_query_or_change_ownership",
+        "controlled::scenarios_lifecycle::stale_failed_identity_cannot_stop_a_reactivated_service",
+        "controlled::scenarios_metadata::metadata_all_compartments_preserve_variant_and_hresult_meaning",
+        "controlled::scenarios_metadata::metadata_duplicate_callback_cannot_overwrite_completed_observation",
+        "controlled::scenarios_metadata::metadata_late_callback_never_reads_the_expired_caller_flag",
+        "controlled::scenarios_metadata::metadata_liveness_is_rechecked_at_every_native_query",
+        "controlled::scenarios_metadata::unknown_notepad_metadata_has_scope_without_acp_or_editing_authority",
+        "controlled::scenarios_metadata::metadata_refusals_are_read_only_and_preserve_exact_reason",
+        "controlled::scenarios_protocol::command_observation_admission_dispatch_and_reentry",
+        "controlled::scenarios_protocol::command_observation_content_independence_and_ordinary_text",
+        "controlled::scenarios_protocol::command_observation_exclusions_and_lifecycle_anchors",
+        "controlled::scenarios_protocol::command_observation_executor_completions_and_release_witness",
+        "controlled::scenarios_protocol::command_observation_modifier_projection_all_512_masks",
+        "controlled::scenarios_protocol::command_observation_modifier_refusals",
+        "controlled::scenarios_protocol::command_observation_routes_release_sides_and_thread_arguments",
+        "controlled::scenarios_protocol::diagnostic_codec_canonical_refusal_and_negative_matrix",
+        "controlled::scenarios_protocol::lifecycle_codec_complete_window_and_negative_matrix",
+        "controlled::scenarios_service_publication::diagnostic_poller_nested_native_callbacks_keep_the_newer_publication",
+        "controlled::scenarios_service_publication::diagnostic_poller_publishes_before_final_release_and_preserves_release_reentry",
+        "controlled::scenarios_service_publication::diagnostic_publication_replaces_failed_and_changed_provider_evidence",
+        "controlled::scenarios_service_publication::diagnostic_registered_service_busy_and_activation_intervals_are_explicit",
+        "controlled::scenarios_service_publication::host_mapping_publication_preserves_complete_edit_and_command_snapshots",
+        "controlled::scenarios_service_publication::shutdown_service_busy_capture_or_endpoint_is_permanently_rejected",
+        "controlled::scenarios_service_publication::shutdown_service_requires_exact_terminal_evidence_before_deactivation",
+        "controlled::scenarios_shutdown::shutdown_predicate_exact_rejection_matrix_and_exit_codes",
+        "controlled::scenarios_shutdown::shutdown_predicate_terminal_order_stale_capture_and_capacity",
+        "controlled::scenarios_shutdown::shutdown_probe_capture_finish_and_provider_failures",
+        "controlled::scenarios_shutdown::shutdown_probe_reentry_at_all_native_phases",
+        "controlled::scenarios_shutdown::shutdown_reader_lifetime_both_release_orders",
+        "controlled::scenarios_sources::source_history_complete_interval_and_unsafe_history_matrix",
+        "controlled::scenarios_sources::source_probe_dependency_lifetimes_drain_after_every_terminal_path",
+        "controlled::scenarios_sources::source_probe_language_and_activation_failure_matrix",
+        "controlled::scenarios_sources::source_probe_success_status_and_publication_contract",
+        "controlled::scenarios_sources::source_probe_word_readiness_and_armed_interference_matrix",
+        "controlled::scenarios_sources::source_readiness_callback_and_initial_setup_matrix",
+        "controlled::scenarios_sources::source_readiness_public_word_exact_utf16_matrix",
+        "controlled::scenarios_sources::source_reentry_running_close_and_preparation_matrix",
+        "controlled::scenarios_sources::source_review_cross_thread_public_b_refuses_before_text_queries",
+        "controlled::scenarios_sources::source_review_deadline_clock_and_read_eligibility_matrix",
+        "controlled::scenarios_sources::source_service_exact_termination_and_interfering_finish",
+        "proof::editor::fixture_tests::fixture_lifecycle_class_reuse_refuses_different_window_procedure_before_scopes",
+        "proof::editor::fixture_tests::fixture_lifecycle_exact_scopes_and_live_owning_thread_cleanup",
+        "proof::editor::fixture_tests::fixture_lifecycle_reset_failure_and_panic_continue_all_children_and_keep_first_error",
+        "proof::editor::fixture_tests::fixture_lifecycle_setup_failure_and_panic_at_each_of_four_assignments",
+        "proof::editor::shutdown_tests::shutdown_window_close_direct_destroy_and_empty_capture",
+        "proof::editor::tests::actual_rich_edit_fixture_preserves_ids_exclusion_styles_and_tsf_setup",
+        "proof::options::tests::editor_mode_arguments",
+        "proof::proof_inspect::denial_tests::native_denial_accepts_failed_request_and_failed_session_evidence",
+        "proof::proof_inspect::denial_tests::native_denial_rejects_absent_busy_and_saturated_publications",
+        "proof::proof_inspect::denial_tests::native_denial_rejects_all_six_effects_in_either_sample",
+        "proof::proof_inspect::denial_tests::native_denial_rejects_identity_freshness_mode_and_native_result_drift",
+        "proof::proof_inspect::denial_tests::native_denial_startup_modes_and_exact_setup_confirmation",
+        "runtime::production::diagnostics::tests::command_ticket_keeps_arrival_through_dispatch_and_completion",
+        "runtime::production::diagnostics::tests::counter_saturation_and_first_refusal_are_preserved",
+        "runtime::production::diagnostics::tests::lifecycle_allocation_and_sequence_saturate_independently",
+        "runtime::production::diagnostics::tests::lifecycle_retains_the_newest_sixteen_events",
+        "runtime::production::diagnostics::tests::observation_saturation_freezes_events_and_new_tickets",
+        "runtime::test-api::diagnostics::tests::command_ticket_keeps_arrival_through_dispatch_and_completion",
+        "runtime::test-api::diagnostics::tests::counter_saturation_and_first_refusal_are_preserved",
+        "runtime::test-api::diagnostics::tests::lifecycle_allocation_and_sequence_saturate_independently",
+        "runtime::test-api::diagnostics::tests::lifecycle_retains_the_newest_sixteen_events",
+        "runtime::test-api::diagnostics::tests::observation_saturation_freezes_events_and_new_tickets",
+        "controlled::scenarios_admission::generic_default_scope_has_no_sensitive_field_authority",
+        "controlled::scenarios_admission::generic_native_classes_pass_normal_keys_without_document_access",
+        "controlled::scenarios_admission::generic_native_identity_and_sensitive_scope_refuse_without_text",
+        "controlled::scenarios_admission::bounded_scope_and_focus_changes_revoke_range_permission",
+        "controlled::scenarios_admission::bounded_exclusion_after_write_stops_readback_and_replay",
+        "controlled::scenarios_admission::bounded_native_failures_preserve_content_free_refusal_evidence",
+        "controlled::scenarios_admission::bounded_reentrant_context_callbacks_revoke_pending_admission",
+        "controlled::scenarios_admission::unknown_notepad_versions_refuse_even_explicit_ordinary_scope",
+        "controlled::scenarios_admission_watch::admission_notifications_revoke_every_late_metadata_occurrence",
+        "controlled::scenarios_admission_watch::partial_watch_acquisition_and_failed_retirement_stop_authority",
+        "controlled::scenarios_admission_watch::missing_admission_watch_refuses_without_text_or_composition",
+        "controlled::scenarios_admission_watch::successful_watch_without_cookie_is_terminal_until_reactivation",
+        "controlled::scenarios_admission_watch::scope_revocation_at_every_late_getter_and_release_precedes_next_operation",
+        "controlled::scenarios_admission_watch::advised_context_notifications_revoke_every_late_metadata_occurrence",
+        "controlled::scenarios_configuration::generic_field_policy_and_command_routes_never_grant_authority",
+        "controlled::scenarios_configuration::persisted_defaults_manual_automatic_and_off_use_advised_entry",
+        "controlled::scenarios_configuration::persisted_invalid_and_rebound_dictionary_keep_complete_revision",
+        "controlled::scenarios_configuration::persisted_preparation_latest_save_wins_and_revoked_worker_cannot_publish",
+        "controlled::scenarios_configuration::persisted_off_waits_for_verified_owned_finish_and_reentrant_deactivate_wins",
+        "controlled::scenarios_configuration::restrictive_retirement_replaces_unchanged_text_and_unknown_end_blocks_retirement",
+        "controlled::scenarios_configuration::explicit_policy_validates_only_its_dictionary_bindings",
+        "controlled::scenarios_configuration::pending_off_survives_exact_host_termination",
+        "controlled::scenarios_configuration::pending_off_survives_focus_invalidation",
+        "controlled::scenarios_configuration::pending_off_survives_source_invalidation",
+        "controlled::scenarios_configuration::pending_off_survives_unknown_retirement",
+        "controlled::scenarios_configuration::pending_off_is_cancelled_by_new_activation",
+        "controlled::scenarios_configuration::source_handoff::source_both_directions_defer_until_verified_finish_and_retranslate_same_key",
+        "controlled::scenarios_configuration::source_handoff::source_boundary_reversal_escape_manual_and_abstention_never_switch",
+        "controlled::scenarios_configuration::source_handoff::source_shift_caps_and_nonqualifying_physical_keys_are_bounded",
+        "controlled::scenarios_configuration::source_handoff::source_first_finish_denial_unknown_and_request_mismatch_never_authorize_source",
+        "controlled::scenarios_configuration::source_handoff::source_failures_stop_without_retry_rollback_or_new_mark",
+        "controlled::scenarios_configuration::source_handoff::source_reentry_focus_activation_and_callbacks_cancel_irrevocably",
+        "controlled::scenarios_configuration::source_handoff::source_pending_disable_vetoes_before_mutation_and_during_language_call",
+        "controlled::scenarios_configuration::source_handoff::source_target_already_selected_skips_activation_and_late_callbacks_expire_authority",
+        "controlled::scenarios_configuration::source_handoff::source_second_lock_denial_and_attempted_unknown_keep_effect_derived_disposition",
+        "controlled::scenarios_configuration::source_handoff::source_sensitive_or_uncertain_controls_have_zero_new_reads_and_mutations",
+        "controlled::scenarios_configuration::source_handoff::source_scope_change_inside_native_call_grants_no_character_authority",
+        "controlled::scenarios_configuration::source_handoff::source_unavailable_layout_repeats_keyboard_drift_and_expired_callbacks_do_not_switch",
+        "controlled::scenarios_configuration::source_handoff::source_matching_observations_require_actual_readback_and_fresh_authority",
+        "controlled::scenarios_configuration::source_handoff::source_unchanged_worker_publications_keep_intent_and_pending_snapshot",
+        "controlled::scenarios_configuration::source_handoff::source_callback_capable_retirement_revokes_before_source_mutation",
+        "controlled::scenarios_configuration::source_handoff::source_pc_oem_letters_use_actual_finish_and_target_translation",
+        "controlled::scenarios_configuration::source_handoff::source_changed_complete_configuration_cancels_prepared_staged_and_inflight_intent",
+        "controlled::scenarios_configuration::source_handoff::source_preexisting_target_binding_refuses_before_source_mutation",
+        "controlled::scenarios_configuration::source_handoff::source_target_metadata_callbacks_revoke_before_source_mutation"
+      ],
+      "reconciliations": [
+        "Family mappings enumerate composition/admission/commands, diagnostics/metadata/publication, lifecycle, source, and shutdown schedules. Fixture and native denial proof unit successors are required alongside controlled DLL tests. Foreign C++ throw mechanics are reconciled to native HRESULT, legal reentry, or contained Rust panic in the corresponding families.",
+        "Editing requires a compiled bounded proof-editor or exact-version Notepad field contract and a fresh range permit. Normal advised key entry refuses generic hosts and unrecognized Notepad versions even with ordinary scope, with zero character reads, ACP or composition effects. Admitted bounded fields retain late scope, status, compartment, context and reference-release revocation schedules, exact diagnostics and post-write exclusion without readback or replay. Notepad native-fact mutations refuse under both ordinary and exact unavailable scope. Read-only metadata observation reports Unsupported for ordinary scope without ACP.",
+        "Complete persisted configuration schedules use advised entry and isolated native stores. They cover Manual, Automatic, Off, invalid revisions, source rebinding, latest-save publication, bounded retirement, focus/source/termination invalidation, unknown effects, and activation replacement.",
+        "Deferred source handoff uses the actual advised DLL entry and independent raw COM providers. Exact whole documents, carets, key dispositions, one write per proposal, source identities, and complete applied configuration identities cover both EN/RU directions. Source-only metadata uses the scope last verified at FINISH with the supported host metadata-coherence and notification prerequisite. Silent private-scope drift can leave the OS source changed, while the second fresh executor refuses character reads, starts and writes under that scope. The physical key class covers nonrepeat A-Z and seven PC OEM positions when target translation yields one alphabetic scalar, with Shift/Caps on loaded exact EN/RU substitute layouts. Both directions retain the actual core FINISH/REPLAN gate. Broader PC keyboard and installed Rust host qualification remain pending for x64 and x86."
+      ]
+    },
+    {
+      "id": "worker_filesystem_schedules",
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_workers::runtime_binary_reader_rejects_invalid_envelopes_atomically",
+        "controlled::scenarios_workers::runtime_hidden_window_creation_destruction_reentry_and_timer_readiness",
+        "controlled::scenarios_workers::runtime_native_open_association_event_and_completion_axes",
+        "controlled::scenarios_workers::runtime_nested_message_pumping_defers_snapshot_adoption",
+        "controlled::scenarios_workers::runtime_parent_reparse_race_and_preexisting_junction_read_no_payload",
+        "controlled::scenarios_workers::runtime_real_file_changes_settle_exact_bytes_and_metadata",
+        "controlled::scenarios_workers::runtime_service_model_vocabulary_receipts_and_configuration",
+        "controlled::scenarios_workers::runtime_text_codec_preserves_maximum_revision_and_rejects_partial_rows",
+        "controlled::scenarios_workers::runtime_worker_absent_sources_and_global_hook_owner",
+        "controlled::scenarios_workers::runtime_worker_cancellation_and_detached_mailboxes",
+        "controlled::scenarios_workers::runtime_worker_real_files_settle_parse_retain_and_absence",
+        "controlled::scenarios_workers::runtime_worker_replacement_and_parent_handles"
+      ],
+      "reconciliations": [
+        "Independent providers, real owned temporary files/junctions, native completion axes, settling, cancellation, replacement identity, and detached activation mailboxes preserve worker schedules."
+      ]
+    },
+    {
+      "id": "worker_actual_dll",
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_workers::runtime_actual_dll_worker_startup_drain_and_unload_axes"
+      ],
+      "reconciliations": [
+        "The controlled parent launches isolated actual-DLL children for boundary-0/2/7/8, startup-event/pin/submit/long, drain, and production. Actual pinning, reference retirement, worker drainage, and module unmapping are asserted. The production child requires its separate production DLL path and the test child requires the test API DLL path."
+      ]
+    },
+    {
+      "id": "worker_production_dll",
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_workers::runtime_actual_dll_worker_startup_drain_and_unload_axes"
+      ],
+      "reconciliations": [
+        "The controlled parent launches isolated actual-DLL children for boundary-0/2/7/8, startup-event/pin/submit/long, drain, and production. Actual pinning, reference retirement, worker drainage, and module unmapping are asserted. The production child requires its separate production DLL path and the test child requires the test API DLL path."
+      ]
+    },
+    {
+      "id": "registration_free_factory",
+      "disposition": "ported",
+      "rustTests": [
+        "smoke::factory"
+      ],
+      "reconciliations": [
+        "Actual LoadLibrary/factory/service lifetime, initial/final unload state, FreeLibrary, and module-unmapped evidence are checked by the factory smoke executable."
+      ]
+    },
+    {
+      "id": "registration_free_activation",
+      "disposition": "ported",
+      "rustTests": [
+        "smoke::activation"
+      ],
+      "reconciliations": [
+        "Actual registration-free manifest COM activation verifies loaded implementation file identity against the adjacent production DLL."
+      ]
+    },
+    {
+      "id": "registration_free_activation_missing_dll",
+      "disposition": "ported",
+      "rustTests": [
+        "smoke::missing-adjacent"
+      ],
+      "reconciliations": [
+        "An isolated negative directory contains the manifest without its adjacent DLL. Actual activation must fail with null service output and no loaded Keyrill DLL."
+      ]
+    },
+    {
+      "id": "c11_abi_smoke",
+      "disposition": "ported",
+      "rustTests": [
+        "abi::all_eight_original_c_abi_editing_scenarios",
+        "abi::immutable_dictionary_ownership_preserves_model_and_reversal",
+        "abi::published_c_layouts_and_version_remain_exact"
+      ],
+      "reconciliations": [
+        "Independent extern C declarations and repr(C) layouts preserve ABI sizes/offsets/version, all eight original editing scenarios, and dictionary/model ownership. C11 compiler execution is retired for the full-Rust Windows build. These Rust tests preserve the binary boundary and semantic assertions without claiming C11 compilation."
+      ]
+    },
+    {
+      "id": "rust_com_boundary_basic",
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_boundary::boundary_dependency_capsule_outlives_external_service_owners",
+        "controlled::scenarios_boundary::boundary_inactive_events_do_not_inspect_host",
+        "controlled::scenarios_boundary::boundary_invalid_dependency_table_clears_outputs_before_retention",
+        "controlled::scenarios_boundary::boundary_pure_native_field_match_and_secure_refusal",
+        "controlled::scenarios_boundary::boundary_pure_native_keyboard_and_binding_exports",
+        "controlled::scenarios_boundary::boundary_query_exact_hresult_and_reference_balance",
+        "controlled::scenarios_boundary::boundary_requests_complete_once_and_expire",
+        "controlled::scenarios_boundary::boundary_rust_panics_preserve_effect_and_poison",
+        "controlled::scenarios_boundary::boundary_service_identity_and_output_contracts",
+        "controlled::scenarios_boundary::boundary_wrong_thread_outputs_and_handle_ownership"
+      ],
+      "reconciliations": [
+        "Independent COM providers assert exact HRESULT/null outputs, canonical identity, threading, dependency ownership, completed/expired edit sessions, native exports, and three Rust panic containment sites."
+      ]
+    },
+    {
+      "id": "rust_com_boundary_query-before",
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_boundary::boundary_query_before_failure_has_no_authority"
+      ],
+      "reconciliations": [
+        "The baseline query-before CTest route injected a C++ throw. That foreign exception mechanism is retired under the no-throw COM contract. The named Rust successor preserves the corresponding HRESULT/effect/authority or balanced-reference/reentry behavior through an actual COM boundary."
+      ]
+    },
+    {
+      "id": "rust_com_boundary_query-after",
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_boundary::boundary_query_after_success_allows_lifecycle_reentry"
+      ],
+      "reconciliations": [
+        "The baseline query-after CTest route injected a C++ throw. That foreign exception mechanism is retired under the no-throw COM contract. The named Rust successor preserves the corresponding HRESULT/effect/authority or balanced-reference/reentry behavior through an actual COM boundary."
+      ]
+    },
+    {
+      "id": "rust_com_boundary_request-before",
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_boundary::boundary_request_before_hresult_preserves_unattempted"
+      ],
+      "reconciliations": [
+        "The baseline request-before CTest route injected a C++ throw. That foreign exception mechanism is retired under the no-throw COM contract. The named Rust successor preserves the corresponding HRESULT/effect/authority or balanced-reference/reentry behavior through an actual COM boundary."
+      ]
+    },
+    {
+      "id": "rust_com_boundary_request-after",
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_boundary::boundary_request_after_hresult_preserves_completed_effect"
+      ],
+      "reconciliations": [
+        "The baseline request-after CTest route injected a C++ throw. That foreign exception mechanism is retired under the no-throw COM contract. The named Rust successor preserves the corresponding HRESULT/effect/authority or balanced-reference/reentry behavior through an actual COM boundary."
+      ]
+    },
+    {
+      "id": "rust_com_boundary_add-before",
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_boundary::boundary_add_before_reentry_is_balanced"
+      ],
+      "reconciliations": [
+        "The baseline add-before CTest route injected a C++ throw. That foreign exception mechanism is retired under the no-throw COM contract. The named Rust successor preserves the corresponding HRESULT/effect/authority or balanced-reference/reentry behavior through an actual COM boundary."
+      ]
+    },
+    {
+      "id": "rust_com_boundary_add-after",
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_boundary::boundary_add_after_reentry_is_balanced"
+      ],
+      "reconciliations": [
+        "The baseline add-after CTest route injected a C++ throw. That foreign exception mechanism is retired under the no-throw COM contract. The named Rust successor preserves the corresponding HRESULT/effect/authority or balanced-reference/reentry behavior through an actual COM boundary."
+      ]
+    },
+    {
+      "id": "rust_com_boundary_release-before",
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_boundary::boundary_final_release_callback_keeps_host_context_alive",
+        "controlled::scenarios_boundary::boundary_release_before_reentry_is_balanced"
+      ],
+      "reconciliations": [
+        "The baseline release-before CTest route injected a C++ throw. That foreign exception mechanism is retired under the no-throw COM contract. The named Rust successor preserves the corresponding HRESULT/effect/authority or balanced-reference/reentry behavior through an actual COM boundary."
+      ]
+    },
+    {
+      "id": "rust_com_boundary_release-after",
+      "disposition": "ported",
+      "rustTests": [
+        "controlled::scenarios_boundary::boundary_final_release_callback_keeps_host_context_alive",
+        "controlled::scenarios_boundary::boundary_release_after_reentry_is_balanced"
+      ],
+      "reconciliations": [
+        "The baseline release-after CTest route injected a C++ throw. That foreign exception mechanism is retired under the no-throw COM contract. The named Rust successor preserves the corresponding HRESULT/effect/authority or balanced-reference/reentry behavior through an actual COM boundary."
+      ]
+    },
+    {
+      "id": "rust_diagnostic_roundtrip_production",
+      "disposition": "ported",
+      "rustTests": [
+        "runtime::production::observation::tests::sdk_decoder_roundtrips_rust_payloads_through_logon_secured_mapping"
+      ],
+      "reconciliations": [
+        "The ignored-by-default test must run explicitly for this runtime feature variant. The actual producer publishes a logon-secured mapping and the independent KeyrillDiagnosticDecoder checks literal offsets and re-encodes all 512 words across command routes/stages, release deliveries/sides, completions, observer stages, and the zero reserved tail."
+      ]
+    },
+    {
+      "id": "rust_diagnostic_roundtrip_test-api",
+      "disposition": "ported",
+      "rustTests": [
+        "runtime::test-api::observation::tests::sdk_decoder_roundtrips_rust_payloads_through_logon_secured_mapping"
+      ],
+      "reconciliations": [
+        "The ignored-by-default test must run explicitly for this runtime feature variant. The actual producer publishes a logon-secured mapping and the independent KeyrillDiagnosticDecoder checks literal offsets and re-encodes all 512 words across command routes/stages, release deliveries/sides, completions, observer stages, and the zero reserved tail."
+      ]
+    },
+    {
+      "id": "rust_configure_sdk_production",
+      "disposition": "ported",
+      "rustTests": [
+        "runtime::production::com::configure_tests::configure_sdk_factory_inheritance_and_provider_preserve_identity_and_reference_ownership",
+        "runtime::production::com::configure_tests::configure_sdk_rejects_bad_profiles_before_unavailable_package_and_initializes_outputs",
+        "runtime::production::com::configure_tests::configure_sdk_checks_thread_reentry_and_panic_fence"
+      ],
+      "reconciliations": [
+        "Native SDK and local-only resource checks run against bounded synthetic package files and isolated settings/dictionaries. Live host adoption and installed-candidate physical checks remain separate."
+      ]
+    },
+    {
+      "id": "rust_configure_package_production",
+      "disposition": "ported",
+      "rustTests": [
+        "runtime::production::configure::tests::package_identity_paths_and_retained_leases_refuse_replacement",
+        "runtime::production::configure::tests::package_launch_refuses_changed_build_missing_files_and_wrong_pe",
+        "runtime::production::configure::tests::package_reparse_and_lower_integrity_writable_peer_are_refused",
+        "runtime::production::configure::tests::native_launch_failure_keeps_the_callers_quit_message"
+      ],
+      "reconciliations": [
+        "Native SDK and local-only resource checks run against bounded synthetic package files and isolated settings/dictionaries. Live host adoption and installed-candidate physical checks remain separate."
+      ]
+    },
+    {
+      "id": "rust_configure_preview_production",
+      "disposition": "ported",
+      "rustTests": [
+        "runtime::production::configure::tests::native_settings_preview_child_waits_for_close_and_preserves_host_quit"
+      ],
+      "reconciliations": [
+        "Actual same-architecture Settings --preview process via a private native helper verifies child lifetime, pumped host callbacks, preserved host WM_QUIT and abnormal child status. Ordinary SDK Show success remains a separate complete-package assertion."
+      ]
+    },
+    {
+      "id": "rust_settings_local_readiness_production",
+      "disposition": "ported",
+      "rustTests": [
+        "runtime::production::settings_ui::readiness::tests::native_preflight_uses_verified_saved_snapshot_and_restarts_only_after_save_or_reload",
+        "runtime::production::settings_ui::readiness::tests::native_preflight_conflict_keeps_prior_revision_report_and_preview_is_isolated",
+        "runtime::production::settings_ui::readiness::tests::preflight_mailbox_rejects_stale_generation_and_revision"
+      ],
+      "reconciliations": [
+        "Native SDK and local-only resource checks run against bounded synthetic package files and isolated settings/dictionaries. Live host adoption and installed-candidate physical checks remain separate."
+      ]
+    },
+    {
+      "id": "rust_configure_sdk_test-api",
+      "disposition": "ported",
+      "rustTests": [
+        "runtime::test-api::com::configure_tests::configure_sdk_factory_inheritance_and_provider_preserve_identity_and_reference_ownership",
+        "runtime::test-api::com::configure_tests::configure_sdk_rejects_bad_profiles_before_unavailable_package_and_initializes_outputs",
+        "runtime::test-api::com::configure_tests::configure_sdk_checks_thread_reentry_and_panic_fence"
+      ],
+      "reconciliations": [
+        "Native SDK and local-only resource checks run against bounded synthetic package files and isolated settings/dictionaries. Live host adoption and installed-candidate physical checks remain separate."
+      ]
+    },
+    {
+      "id": "rust_configure_package_test-api",
+      "disposition": "ported",
+      "rustTests": [
+        "runtime::test-api::configure::tests::package_identity_paths_and_retained_leases_refuse_replacement",
+        "runtime::test-api::configure::tests::package_launch_refuses_changed_build_missing_files_and_wrong_pe",
+        "runtime::test-api::configure::tests::package_reparse_and_lower_integrity_writable_peer_are_refused",
+        "runtime::test-api::configure::tests::native_launch_failure_keeps_the_callers_quit_message"
+      ],
+      "reconciliations": [
+        "Native SDK and local-only resource checks run against bounded synthetic package files and isolated settings/dictionaries. Live host adoption and installed-candidate physical checks remain separate."
+      ]
+    },
+    {
+      "id": "rust_configure_preview_test-api",
+      "disposition": "ported",
+      "rustTests": [
+        "runtime::test-api::configure::tests::native_settings_preview_child_waits_for_close_and_preserves_host_quit"
+      ],
+      "reconciliations": [
+        "Actual same-architecture Settings --preview process via a private native helper verifies child lifetime, pumped host callbacks, preserved host WM_QUIT and abnormal child status. Ordinary SDK Show success remains a separate complete-package assertion."
+      ]
+    },
+    {
+      "id": "rust_settings_local_readiness_test-api",
+      "disposition": "ported",
+      "rustTests": [
+        "runtime::test-api::settings_ui::readiness::tests::native_preflight_uses_verified_saved_snapshot_and_restarts_only_after_save_or_reload",
+        "runtime::test-api::settings_ui::readiness::tests::native_preflight_conflict_keeps_prior_revision_report_and_preview_is_isolated",
+        "runtime::test-api::settings_ui::readiness::tests::preflight_mailbox_rejects_stale_generation_and_revision"
+      ],
+      "reconciliations": [
+        "Native SDK and local-only resource checks run against bounded synthetic package files and isolated settings/dictionaries. Live host adoption and installed-candidate physical checks remain separate."
+      ]
+    }
+  ],
+  "inventoryNotes": [
+    "The original 109 family records preserve their frozen baseline source metadata. The inventory includes assertion helpers and parameterized drivers as well as schedules. Main-only executable assertions have explicit suiteCoverage records.",
+    "The original loopHeaders were extracted by a limited void-function source pattern. Their slices can include later helper or non-void definitions, including FixtureLifecycle and FinishContractRegressions. They are approximate historical source inventory and do not establish expanded case counts.",
+    "rustTests identifiers name concrete source successors required by the execution coverage gate. This ledger alone records source mapping and reconciliation. Successful execution, sanitizer verification, and physical application acceptance are separate gates."
+  ]
+}

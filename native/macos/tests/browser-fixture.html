@@ -20,9 +20,11 @@
 resources. It checks only what this browser reports for its own text field. It cannot tell
 whether input came through Keyrill, from another input source or from automation.</p>
 <p>Choose a scenario, press <b>Reset field</b>, then follow the steps without clicking in the
-field. Reset places the caret. The result updates as you type.</p>
+field. Reset places the caret. After composition finishes, click <b>Refresh results</b> to
+update the report without moving focus. Results show the last reset or refresh.</p>
 <p><label>Scenario <select id="scenario"></select></label>
-  <button id="reset" type="button">Reset field</button></p>
+  <button id="reset" type="button">Reset field</button>
+  <button id="refresh" type="button">Refresh results</button></p>
 <ol id="steps"></ol>
 <textarea id="field" rows="5" spellcheck="false" autocorrect="off" autocapitalize="off"
           autocomplete="off" aria-label="Fixture field"></textarea>
@@ -80,8 +82,10 @@ const INPUT_TYPES = ['insertText', 'insertCompositionText', 'insertFromCompositi
 function advance(scenario, reached, value, start, end) {
   if (reached >= scenario.checkpoints.length) return reached;
   const typed = scenario.checkpoints[reached];
-  const caret = PREFIX.length + typed.length;
-  return value === PREFIX + typed + SUFFIX && start === caret && end === caret ? reached + 1
+  const prefix = scenario.prefix ?? PREFIX;
+  const suffix = scenario.suffix ?? SUFFIX;
+  const caret = prefix.length + typed.length;
+  return value === prefix + typed + suffix && start === caret && end === caret ? reached + 1
                                                                                 : reached;
 }
 
@@ -90,9 +94,11 @@ function advance(scenario, reached, value, start, end) {
 // flags, positions and counts, never field text.
 function evaluate(scenario, run, value, start, end) {
   const final = scenario.checkpoints[scenario.checkpoints.length - 1];
-  const caret = PREFIX.length + final.length;
+  const prefix = scenario.prefix ?? PREFIX;
+  const suffix = scenario.suffix ?? SUFFIX;
+  const caret = prefix.length + final.length;
   const checks = {
-    field: value === PREFIX + final + SUFFIX,
+    field: value === prefix + final + suffix,
     caret: start === caret && end === caret,
     checkpoints: run.reached === scenario.checkpoints.length,
     composition_observed: run.counts.compositionstart > 0,
@@ -107,7 +113,7 @@ function evaluate(scenario, run, value, start, end) {
     checks,
     checkpoints_reached: run.reached + '/' + scenario.checkpoints.length,
     caret_utf16: {expected: caret, start, end},
-    field_length_utf16: {expected: (PREFIX + final + SUFFIX).length, observed: value.length},
+    field_length_utf16: {expected: (prefix + final + suffix).length, observed: value.length},
     counts: Object.assign({}, run.counts),
   };
 }
@@ -148,7 +154,6 @@ function observe(event) {
     run.counts[event.type === 'input' ? 'checkpoint_advances_input' :
                                       'checkpoint_advances_composition']++;
   run.reached = reached;
-  render();
 }
 
 for (const type of ['compositionstart', 'compositionupdate', 'compositionend', 'input'])
@@ -159,15 +164,17 @@ document.addEventListener('selectionchange', () => {
                           field.selectionEnd);
   if (reached > run.reached) run.counts.checkpoint_advances_selectionchange++;
   run.reached = reached;
-  render();
+});
+
+const refresh = document.getElementById('refresh');
+refresh.addEventListener('pointerdown', event => event.preventDefault());
+refresh.addEventListener('click', () => {
+  if (!run.composing) render();
 });
 
 // The only programmatic edit or caret placement; refused while a composition is open
 function reset() {
-  if (run.composing) {
-    document.getElementById('summary').textContent = 'Finish the composition before resetting';
-    return;
-  }
+  if (run.composing) return;
   scenario = SCENARIOS.find(s => s.id === select.value) || SCENARIOS[0];
   const steps = document.getElementById('steps');
   steps.replaceChildren(...scenario.steps.map(text => {
@@ -235,6 +242,150 @@ function selfTest() {
 
 selfTest();
 reset();
+
+if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('platform') === 'windows') {
+  document.title = 'Keyrill public fixture v1';
+  document.querySelector('h1').textContent = document.title;
+  const original = document.getElementById('field');
+  original.hidden = true;
+  const controlNames = ['input', 'textarea', 'plain', 'rich', 'field-b'];
+  const controls = new Map();
+  const panel = document.createElement('section');
+  for (const id of controlNames) {
+    const node = document.createElement(id === 'input' ? 'input' : id === 'textarea' || id === 'field-b' ? 'textarea' : 'div');
+    node.id = 'keyrill-public-v1-' + id;
+    node.setAttribute('aria-label', 'Keyrill public fixture v1 ' + id);
+    node.spellcheck = false;
+    node.setAttribute('autocomplete', 'off');
+    node.setAttribute('autocorrect', 'off');
+    node.setAttribute('autocapitalize', 'off');
+    if (id === 'plain' || id === 'rich') {
+      node.contentEditable = id === 'plain' ? 'plaintext-only' : 'true';
+      node.setAttribute('role', 'textbox');
+      node.style.cssText = 'min-height: 3em; border: 1px solid GrayText; white-space: pre-wrap';
+    }
+    const label = document.createElement('label');
+    label.textContent = id;
+    label.append(node);
+    panel.append(label, document.createElement('br'));
+    controls.set(id, node);
+  }
+  for (const [id, type, autocomplete] of [['readonly', 'text', 'off'], ['password', 'password', 'off'], ['sensitive', 'text', 'cc-number']]) {
+    const node = document.createElement('input');
+    node.id = 'keyrill-public-v1-' + id;
+    node.type = type;
+    node.autocomplete = autocomplete;
+    node.readOnly = id === 'readonly';
+    node.setAttribute('aria-label', 'Keyrill excluded fixture v1 ' + id);
+    const label = document.createElement('label');
+    label.htmlFor = node.id;
+    label.textContent = id === 'sensitive' ? 'Synthetic payment field' : id;
+    panel.append(label, node, document.createElement('br'));
+  }
+  original.after(panel);
+  const chooser = document.createElement('select');
+  chooser.setAttribute('aria-label', 'Public fixture control');
+  for (const id of controlNames) chooser.add(new Option(id, id));
+  document.getElementById('reset').before(chooser);
+  const queryControl = new URLSearchParams(location.search).get('control');
+  if (controls.has(queryControl)) chooser.value = queryControl;
+  const windowsPrefix = PREFIX;
+  const windowsSuffix = ' Fixture end.';
+  let selectedName = chooser.value;
+  let selected = controls.get(selectedName);
+  let active = null;
+  let windowsRun = newRun();
+  function snapshot(node) {
+    if ('value' in node) return [node.value, node.selectionStart, node.selectionEnd];
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount !== 1 || !node.contains(selection.anchorNode) || !node.contains(selection.focusNode)) return [node.textContent, -1, -1];
+    const range = selection.getRangeAt(0);
+    const before = document.createRange();
+    before.selectNodeContents(node);
+    before.setEnd(range.startContainer, range.startOffset);
+    const through = document.createRange();
+    through.selectNodeContents(node);
+    through.setEnd(range.endContainer, range.endOffset);
+    return [node.textContent, before.toString().length, through.toString().length];
+  }
+  function show() {
+    if (!active) return;
+    const [text, start, end] = snapshot(selected);
+    const result = evaluate(active, windowsRun, text, start, end);
+    result.fixture = 'keyrill-windows-public-fixture-1';
+    result.control = selectedName;
+    result.focus = document.activeElement === selected;
+    result.pass = result.pass && result.focus;
+    document.getElementById('summary').textContent = result.pass ? 'PASS' : 'Not passed';
+    document.getElementById('report').textContent = JSON.stringify(result, null, 2);
+  }
+  function capture(event) {
+    if (!active || event.target !== selected) return;
+    if (!event.isTrusted) windowsRun.untrusted++;
+    if (event.type in windowsRun.counts) windowsRun.counts[event.type]++;
+    if (event.type === 'compositionstart') windowsRun.composing++;
+    if (event.type === 'compositionend') windowsRun.composing = Math.max(0, windowsRun.composing - 1);
+    if (event.type === 'input') {
+      if (INPUT_TYPES.includes(event.inputType)) windowsRun.counts[event.inputType]++;
+      else windowsRun.counts.other_input++;
+    }
+    const [text, start, end] = snapshot(selected);
+    const reached = advance(active, windowsRun.reached, text, start, end);
+    if (reached > windowsRun.reached) windowsRun.counts[event.type === 'input' ? 'checkpoint_advances_input' : 'checkpoint_advances_composition']++;
+    windowsRun.reached = reached;
+  }
+  for (const node of controls.values()) for (const type of ['compositionstart', 'compositionupdate', 'compositionend', 'input']) node.addEventListener(type, capture);
+  document.addEventListener('selectionchange', () => {
+    if (!active) return;
+    const [text, start, end] = snapshot(selected);
+    const reached = advance(active, windowsRun.reached, text, start, end);
+    if (reached > windowsRun.reached) windowsRun.counts.checkpoint_advances_selectionchange++;
+    windowsRun.reached = reached;
+  });
+  refresh.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (!windowsRun.composing) show();
+  }, true);
+  function resetWindows(event) {
+    if (event) { event.preventDefault(); event.stopImmediatePropagation(); }
+    if (windowsRun.composing) {
+      chooser.value = selectedName;
+      select.value = active.id;
+      return;
+    }
+    selectedName = chooser.value;
+    selected = controls.get(selectedName);
+    const base = SCENARIOS.find(item => item.id === select.value) || SCENARIOS[0];
+    active = Object.assign({}, base, {prefix: windowsPrefix, suffix: windowsSuffix, checkpoints: base.checkpoints.map(value => value.replace(/\n$/, '')).filter((value, index, values) => index === 0 || value !== values[index - 1])});
+    windowsRun = newRun();
+    for (const node of controls.values()) {
+      if ('value' in node) node.value = windowsPrefix + windowsSuffix;
+      else node.textContent = windowsPrefix + windowsSuffix;
+    }
+    const steps = document.getElementById('steps');
+    steps.replaceChildren(...base.steps.map(text => {
+      const item = document.createElement('li');
+      item.textContent = text.replace('Press Space, then Return.', 'Press Space.').replace('Press Return.', 'Stop here.').replaceAll('Control-Option', 'Control-Alt');
+      return item;
+    }));
+    selected.focus();
+    if ('value' in selected) selected.setSelectionRange(windowsPrefix.length, windowsPrefix.length);
+    else {
+      const range = document.createRange();
+      range.setStart(selected.firstChild, windowsPrefix.length);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    show();
+  }
+  document.getElementById('reset').addEventListener('click', resetWindows, true);
+  select.addEventListener('change', resetWindows, true);
+  chooser.addEventListener('change', resetWindows);
+  resetWindows();
+}
 </script>
 </body>
 </html>
