@@ -238,6 +238,36 @@
         "Finish only a valid owned old mark; drain callbacks before freeing the engine.",
         "No mutation of the new field, no private input persisted and no unexpected test cleanup."
       ]
+    },
+    {
+      "id": "R17",
+      "name": "tsf_changing_finish_caret",
+      "classification": "windows",
+      "schedule": [
+        "Correct an owned ghbdtn Space mark, then request Escape restoration.",
+        "Let SetText move the caret to the mark start; fail or misapply SetSelection, move the selection during EndComposition, or reenter while setting the caret."
+      ],
+      "assertions": [
+        "Restoration preserves the whole document and ends with a collapsed caret at the restored mark end before verified acknowledgement.",
+        "Failed caret readback, end-time selection drift and stale reentry stop correction after one text write without replay or text/selection repair.",
+        "An unchanged finish remains independent of the caret and preserves an unrelated selection."
+      ]
+    },
+    {
+      "id": "R18",
+      "name": "tsf_observer_snapshot_thread_exit",
+      "classification": "windows",
+      "schedule": [
+        "Record the TID of an actual event-gated thread while its owning process is held live.",
+        "Release the event and join the thread before inspecting its snapshotted TID, both with and without an original thread handle.",
+        "Inspect an owned live thread with a protected denial DACL, a live child-process thread under the wrong PID, and a held child process after its exit."
+      ],
+      "assertions": [
+        "A signaled thread is Exited; a vanished TID with OpenThread error 87 is Missing. Either may be omitted without rejecting remaining live target threads.",
+        "A closed exited thread may still have kernel references, so its TID may remain openable and signaled. No timing delay or retry is needed to classify either outcome.",
+        "Access denial is OpenFailed with error 5 and is fatal; wrong-owner and dead-process results remain fatal. No mapping is created under uncertain authority.",
+        "Live thread handles prevent TID reuse throughout arming and observation. No document characters, input source changes, registration or desktop automation are involved."
+      ]
     }
   ]
 }

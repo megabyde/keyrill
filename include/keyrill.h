@@ -72,6 +72,7 @@ extern "C" {
 #define KR_MAX_DICTIONARY_BYTES UINT32_C(1048576)
 
 typedef struct kr_engine kr_engine;
+typedef struct kr_dictionary kr_dictionary;
 
 enum {
   KR_OK = 0,
@@ -217,6 +218,11 @@ uint32_t kr_reset(kr_engine *engine);
  * still permit manual conversion. Reset preserves configuration.
  */
 uint32_t kr_set_automatic_policy(kr_engine *engine, uint32_t policy);
+/* Prepare the same process-wide model cache used by MODEL, without an engine.
+ * Run on a worker before enabling MODEL on the engine owner. Concurrent preparation
+ * may wait. Repeated successful calls are OK; failure is MODEL_ASSET or POISONED,
+ * and a mismatched abi is VERSION. This changes no engine or policy. */
+uint32_t kr_prepare_model(uint32_t abi);
 /* The keyboard is APPLE initially and maps manual conversion and MODEL inference.
  * Configure outside input callbacks, while Idle with no pending plan; other
  * values are BAD_TAG. A change keeps word history, which holds finished text,
@@ -250,6 +256,31 @@ uint32_t kr_clear_dictionary(kr_engine *engine, uint32_t language);
  * written only on OK. The count carries no line numbers or content.
  */
 uint32_t kr_dictionary_skipped_lines(kr_engine *engine, uint32_t language, uint32_t *skipped_out);
+
+/* Portable immutable dictionaries. Parse on a worker after bounded/stable source
+ * acquisition, using the same parser and errors as kr_set_dictionary_utf8. No
+ * engine, filesystem I/O or caller buffer is retained. NULL+0 is ready empty data;
+ * len > KR_MAX_DICTIONARY_BYTES is BOUNDS before reading. A non-NULL out is set to
+ * NULL before validation; version mismatch is VERSION and a caught panic is
+ * POISONED with no allocation published and no engine poisoned.
+ *
+ * Transfer ownership across threads or borrow immutable handles concurrently,
+ * keeping each handle alive until all borrows drain. Free exactly once; NULL is
+ * allowed. Adoption only borrows handles and retains independent references, so
+ * adopted engines remain valid after handles are freed.
+ *
+ * Adopt on the serialized engine owner, outside input callbacks. Both languages
+ * change together. A NULL language handle explicitly means missing; a parsed
+ * zero-byte source means ready empty. Any pending proposal returns STATE and
+ * leaves its exact token and both dictionaries unchanged. Adoption preserves
+ * policy, keyboard, word history, receipt and editing authority. It is allowed
+ * while Owned, and never revives invalidated authority. Both NULL clears the pair.
+ */
+uint32_t kr_dictionary_parse_utf8(uint32_t abi, const uint8_t *bytes, uint32_t len,
+                                  kr_dictionary **out);
+void kr_dictionary_free(kr_dictionary *dictionary);
+uint32_t kr_adopt_dictionaries(kr_engine *engine, const kr_dictionary *english,
+                               const kr_dictionary *russian);
 
 /* Dictionary files. A kr_vocabulary reads up to six vocabulary sources, the two Vim languages
  * and four learned-word slots, and publishes each as an immutable snapshot. It owns no client,

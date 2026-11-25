@@ -6,10 +6,17 @@ permissions:
   contents: read
 jobs:
   behavior:
+    name: behavior (${{ matrix.platform }})
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, windows-2025, ubuntu-24.04]
+        include:
+          - os: macos-15
+            platform: macos
+          - os: windows-2025
+            platform: windows-x64
+          - os: ubuntu-24.04
+            platform: linux
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -30,6 +37,10 @@ jobs:
       - name: Verify
         shell: bash
         run: ./tools/verify
+      - name: Windows C ABI smoke test
+        if: runner.os == 'Windows'
+        shell: bash
+        run: ./tools/verify abi-smoke
       - name: Native sanitizers
         if: runner.os == 'macOS'
         run: ./tools/verify sanitize
@@ -38,6 +49,105 @@ jobs:
         run: |
           pipx install uv==0.13.7
           ./tools/verify markdown
+  windows-x86:
+    name: behavior (windows-x86)
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: rustup toolchain install 1.99.1 --profile minimal --component clippy,rustfmt --target i686-pc-windows-msvc
+      - run: cargo fetch --locked
+      - name: Verify x86 clients on Windows x64
+        run: cargo xtask windows check --arch x86
+  windows-sanitize:
+    name: sanitize (windows-x64)
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: rustup toolchain install 1.99.1 --profile minimal --component clippy,rustfmt
+      - run: cargo fetch --locked
+      - name: Verify x64 with experimental Rust AddressSanitizer and required memory-error canary
+        run: cargo xtask windows sanitize
+  windows-package:
+    name: package (windows-x64+x86)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [behavior, windows-x86, windows-sanitize, audit, coverage, core-analysis]
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Toolchain
+        run: rustup toolchain install 1.99.1 --profile minimal --component clippy,rustfmt --target i686-pc-windows-msvc
+      - run: cargo fetch --locked
+      - name: Build both production architectures
+        run: cargo xtask windows package-build --arch all
+      - name: Stage first unsigned candidate
+        run: cargo xtask windows package --candidate target/windows-ci-candidate-first
+      - name: Verify first unsigned candidate
+        run: cargo xtask windows package-verify --candidate target/windows-ci-candidate-first
+      - name: Clean both release target outputs
+        shell: pwsh
+        run: |
+          $workspace = [System.IO.Path]::GetFullPath($env:GITHUB_WORKSPACE)
+          $workspacePrefix = $workspace.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+          $builds = @(
+            @{ Directory = 'target/windows-package-cargo-x64'; Target = 'x86_64-pc-windows-msvc' }
+            @{ Directory = 'target/windows-package-cargo-x86'; Target = 'i686-pc-windows-msvc' }
+          )
+          foreach ($build in $builds) {
+            $build.Directory = [System.IO.Path]::GetFullPath((Join-Path $workspace $build.Directory))
+            if (!$build.Directory.StartsWith($workspacePrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+              throw 'Release cleanup target escapes the workspace'
+            }
+          }
+          foreach ($build in $builds) {
+            cargo clean --locked --release --target $build.Target --target-dir $build.Directory
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Rebuild both production architectures
+        run: cargo xtask windows package-build --arch all
+      - name: Stage second unsigned candidate
+        run: cargo xtask windows package --candidate target/windows-ci-candidate-second
+      - name: Verify second unsigned candidate
+        run: cargo xtask windows package-verify --candidate target/windows-ci-candidate-second
+      - name: Compare every candidate path and SHA-256 digest
+        shell: pwsh
+        run: |
+          function Get-CandidateHashes([string] $directory) {
+            $directory = [System.IO.Path]::GetFullPath($directory)
+            $hashes = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::Ordinal)
+            foreach ($file in Get-ChildItem -LiteralPath $directory -Recurse -File -Force) {
+              $relative = [System.IO.Path]::GetRelativePath($directory, $file.FullName).Replace('\', '/')
+              $hashes.Add($relative, (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash)
+            }
+            if (!$hashes.ContainsKey('package.json')) {
+              throw 'Candidate package.json is missing'
+            }
+            return ,$hashes
+          }
+          $first = Get-CandidateHashes 'target/windows-ci-candidate-first'
+          $second = Get-CandidateHashes 'target/windows-ci-candidate-second'
+          if ($first.Count -ne $second.Count) {
+            throw 'Clean rebuild changed the candidate file count'
+          }
+          foreach ($entry in $first.GetEnumerator()) {
+            if (!$second.ContainsKey($entry.Key) -or $second[$entry.Key] -cne $entry.Value) {
+              throw "Clean rebuild changed candidate file $($entry.Key)"
+            }
+          }
+          Write-Output 'Both clean dual-architecture candidates have identical paths and SHA-256 digests.'
+      - name: Upload verified unsigned candidate
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: keyrill-windows-unsigned
+          path: target/windows-ci-candidate-first/
+          if-no-files-found: error
   audit:
     runs-on: macos-15
     steps:
