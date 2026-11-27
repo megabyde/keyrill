@@ -3,11 +3,13 @@
 #include <cstring>
 #include <initializer_list>
 
-// Menu bar and palette icons for the input method (KR) and its two modes (EN, RU). `--check`
-// confirms that Info.plist names each file and that each file has 16 and 32 pixel
-// representations of a 16-point image with transparent edges and the expected ink: black or
-// white for menu bar masters, gray levels with both black and white for the two modes' palette
-// badges.
+// Menu bar and palette icons for the input method (KR) and its two modes (EN, RU). The menu bar
+// masters are badges like the system's own sources: a rounded rectangle the full width of the
+// icon and about two thirds of its height, with the letters cut out, black for the template and
+// white for the selected variant. `--check` confirms that Info.plist names each file and that
+// each file has 16 and 32 pixel representations of a 16-point image with transparent top and
+// bottom rows and the expected ink: black or white for menu bar masters, gray levels with both
+// black and white for the two modes' palette badges.
 // `--write` and `--write-palette` regenerate them
 
 static NSString *const names[] = {@"Keyrill", @"KeyrillEnglish", @"KeyrillRussian"};
@@ -25,7 +27,7 @@ static BOOL writeIcons(NSString *directory, BOOL paletteOnly = NO) {
                                                 attributes:nil
                                                      error:nil])
     return NO;
-  NSFont *font = [NSFont fontWithName:@"Menlo-Bold" size:10];
+  NSFont *font = [NSFont systemFontOfSize:9 weight:NSFontWeightBold];
   if (!font)
     return NO;
   for (NSUInteger index = 0; index < 3; ++index) {
@@ -51,15 +53,14 @@ static BOOL writeIcons(NSString *directory, BOOL paletteOnly = NO) {
         NSGraphicsContext *context = [NSGraphicsContext graphicsContextWithBitmapImageRep:rep];
         [NSGraphicsContext saveGraphicsState];
         NSGraphicsContext.currentContext = context;
-        if (palette) {
-          [NSColor.whiteColor setFill];
-          [[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(1, 2, 14, 12) xRadius:2
-                                           yRadius:2] fill];
-        }
-        NSDictionary *attributes = @{
-          NSFontAttributeName : font,
-          NSForegroundColorAttributeName : selected ? NSColor.whiteColor : NSColor.blackColor
-        };
+        [(palette || selected ? NSColor.whiteColor : NSColor.blackColor) setFill];
+        [[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(0, 2.5, 16, 11) xRadius:3
+                                         yRadius:3] fill];
+        // A palette badge prints black letters on white; a menu bar master cuts them out
+        if (!palette)
+          context.compositingOperation = NSCompositingOperationDestinationOut;
+        NSDictionary *attributes =
+            @{NSFontAttributeName : font, NSForegroundColorAttributeName : NSColor.blackColor};
         NSSize size = [labels[index] sizeWithAttributes:attributes];
         [labels[index] drawAtPoint:NSMakePoint((16 - size.width) / 2, (16 - size.height) / 2)
                     withAttributes:attributes];
@@ -102,7 +103,7 @@ static BOOL validIcon(NSString *path, BOOL selected, BOOL palette = NO) {
           return NO;
         if (color.alphaComponent == 0)
           continue;
-        if (x == 0 || y == 0 || x == rep.pixelsWide - 1 || y == rep.pixelsHigh - 1)
+        if (y == 0 || y == rep.pixelsHigh - 1)
           return NO;
         CGFloat expected = selected ? 1 : 0;
         if (palette ? (std::fabs(color.redComponent - color.greenComponent) > 0.01 ||

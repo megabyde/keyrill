@@ -170,8 +170,8 @@ process-wide guard generation, which every rewrite rechecks before it posts. See
 wrong layout. It uses the frozen model, the user's dictionaries and recent context, and leaves the
 word alone whenever it is unsure. See [Engine](engine.md#inference).
 
-**Input mode.** Keyrill English or Keyrill Russian, the two input sources Keyrill installs; the mode
-decides which layout the keys type in.
+**Input mode.** Keyrill EN or Keyrill RU, the two input sources Keyrill installs; the mode decides
+which layout the keys type in.
 
 **Learned words.** Words the user taught the OS spell checker. They protect and forbid words like
 the Vim dictionaries, but automatic correction never waits for them.

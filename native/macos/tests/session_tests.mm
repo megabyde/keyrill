@@ -2615,8 +2615,11 @@ struct ControllerHarness {
 
   NSArray<NSString *> *menuTitles() {
     NSMutableArray<NSString *> *titles = [NSMutableArray array];
-    for (NSMenuItem *item in controller.menu.itemArray)
+    for (NSMenuItem *item in controller.menu.itemArray) {
       [titles addObject:item.title];
+      for (NSMenuItem *choice in item.submenu.itemArray)
+        [titles addObject:choice.title];
+    }
     return titles;
   }
 
@@ -2661,8 +2664,9 @@ void testControllerStatusLine() {
   NSArray<NSString *> *titles = h.menuTitles();
   CHECK([titles.firstObject
       isEqualToString:@"Automatic correction unavailable: English dictionary missing or invalid"]);
+  // Only the failing source gets a line; a ready one is left out
   CHECK([titles containsObject:@"English dictionary: missing or invalid"]);
-  CHECK([titles containsObject:@"Undo a correction before the next key: Control-Option-Z"]);
+  CHECK(![titles containsObject:@"Russian dictionary: ready"]);
 
   // A compatibility rewrite cut short stops correction until reactivation, whatever the
   // permissions on this machine
@@ -2833,8 +2837,6 @@ void testControllerTierRouting() {
       CHECK([titles.firstObject isEqualToString:@"Keyrill is off in this app"]);
     if (c.tier == KRTierComposition)
       CHECK([titles.firstObject isEqualToString:@"Automatic correction: off"]);
-    CHECK([titles containsObject:@"Convert the current word: Control-Option-K"] ==
-          (c.tier != KRTierOff));
     BOOL compatible = c.tier == KRTierManual || c.tier == KRTierAutomatic;
     CHECK(h.guardStarts == (compatible ? 1u : 0u));
     BOOL letter = [h.controller handleEvent:keyDown(@"g", kVK_ANSI_G) client:client];

@@ -24,6 +24,9 @@ typedef NS_ENUM(uint8_t, KRCompatibilityDispatch) {
   KRCompatibilityPartial,
 };
 
+/// `statusTitle` while the backend can post and observe keys and nothing went wrong
+extern NSString *const KRCompatibilityReady;
+
 /// The compatibility backend: correction for clients that can't host an owned composition. Keys
 /// pass to the client and are only observed, so the engine tracks the run typed since the last
 /// boundary in bounded memory; a correction rewrites that run by posting Backspace and Unicode
