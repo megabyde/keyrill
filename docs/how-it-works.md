@@ -159,8 +159,8 @@ for short words (4, 2 and 1 for one, two and three letters). `ghbdtn` clears it 
 > precision on real typing.
 
 Three-unit words with leading provisional punctuation get additional evidence when the Russian
-candidate has Zipf at least 4 and the context does not support English. This corrects `[eq` to `хуй`
-and `,kz` to `бля` after Space, even as a first word; [engine](engine.md#inference) gives the
+candidate has Zipf at least 4 and the context does not support English. This corrects `[jl` to `ход`
+and `,sk` to `был` after Space, even as a first word; [engine](engine.md#inference) gives the
 scoring rule and its limits.
 
 The harder case is a string that is a word in both layouts. `yf` is a rare English entry (Zipf 2.37)

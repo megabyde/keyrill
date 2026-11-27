@@ -1,7 +1,7 @@
 # tools/build-site.py copies this file next to the staged sources and runs mdBook there
 [book]
 title = "Keyrill"
-description = "Исправляет ошибки раскладки английского и русского текста при наборе"
+description = "Исправляет ошибки раскладки английского и русского текста при наборе. Автономный метод ввода для macOS и Windows (альфа-версия)."
 language = "ru"
 src = "src"
 
