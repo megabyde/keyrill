@@ -70,7 +70,18 @@ pub(crate) fn common_checks(root: &Path, target: Target) -> Result<()> {
         ],
         vec!["test", "--locked", "--workspace"],
         vec!["doc", "--locked", "--workspace", "--no-deps"],
-        vec!["build", "--locked", "--workspace", "--release"],
+        // The native artifact pass builds the TSF, setup and proof packages separately.
+        vec![
+            "build",
+            "--locked",
+            "--release",
+            "-p",
+            "keyrill-ffi",
+            "-p",
+            "inference-probe",
+            "-p",
+            "keyrill-xtask",
+        ],
     ] {
         let mut command = Command::new("cargo");
         if arguments.first() != Some(&"fmt") {
