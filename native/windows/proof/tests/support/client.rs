@@ -210,6 +210,23 @@ impl Client {
         assert!(matches!(eaten, 0 | 1));
         eaten != 0
     }
+    pub fn test_key_down(&self, key: u8) -> bool {
+        let sink = self.manager.key_sink.borrow().clone().unwrap().sink.clone();
+        let mut eaten = windows_core::BOOL(1);
+        unsafe {
+            assert_eq!(
+                (sink.vtable().OnTestKeyDown)(
+                    sink.as_raw(),
+                    self.context_a.as_raw(),
+                    WPARAM(key.into()),
+                    LPARAM(1),
+                    &mut eaten
+                ),
+                S_OK
+            );
+        }
+        eaten.as_bool()
+    }
     pub fn key(&self, unit: u16, pass: bool) -> bool {
         let eaten = self.event(Event::text(unit));
         if !eaten && pass {

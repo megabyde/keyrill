@@ -769,6 +769,7 @@ fn pending_off_survives_invalidation(cause: &str) {
         length: 0,
     });
     let before = (text_reads(&c), c.a.starts.get(), c.a.writes.get());
+    let claimed = c.test_key_down(b'G');
     let eaten = down(&c, b'G' as u16);
     wait(|| runtime(&c.service).effective == 0);
     assert_eq!(crate::support::dll::snapshot(&c.service).stopped, stopped);
@@ -780,7 +781,7 @@ fn pending_off_survives_invalidation(cause: &str) {
     events.finished.wait();
     events.check();
     assert!(
-        !eaten,
+        !claimed && !eaten,
         "known pending Off must remain restrictive after exact host termination; before={before:?}, after={after:?}"
     );
     assert_eq!(

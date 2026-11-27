@@ -103,10 +103,8 @@ fn diagnostic_refusals_report_exact_stage_cause_and_result() {
         assert_eq!(s.first, [1, stage, cause, result.0 as u32], "case{case}");
         assert_eq!(s.first, s.latest);
         assert_eq!(s.refusals[stage as usize], 1);
-        assert_eq!(
-            (s.counts[4], s.counts[6], s.counts[7], s.counts[8]),
-            (1, 1, 1, 0)
-        );
+        let session = u32::from(!matches!(case, 9 | 15 | 17));
+        assert_eq!(s.counts[4..9], [1, session, session, session, 0]);
         assert_eq!(*c.a.text.borrow(), before);
         assert_eq!(c.a.selection.get(), selection);
         oracle::no_effects(&c);

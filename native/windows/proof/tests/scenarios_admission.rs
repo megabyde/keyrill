@@ -9,30 +9,12 @@ fn no_admission(c: &Client) {
     assert!(!c.host.trace.borrow().contains(&"range.ACP"));
 }
 
-fn test_key_down(c: &Client, key: u8) -> bool {
-    let sink = c.manager.key_sink.borrow().clone().unwrap().sink.clone();
-    let mut eaten = windows_core::BOOL(1);
-    unsafe {
-        assert_eq!(
-            (sink.vtable().OnTestKeyDown)(
-                sink.as_raw(),
-                c.context_a.as_raw(),
-                WPARAM(key.into()),
-                LPARAM(1),
-                &mut eaten
-            ),
-            S_OK
-        );
-    }
-    eaten.as_bool()
-}
-
 #[test]
 fn early_key_test_leaves_native_typing_to_unrecognized_fields() {
     for class in ["Scintilla", "Edit"] {
         let c = Client::ordinary(class);
         for key in b"XYZ" {
-            if !test_key_down(&c, *key) {
+            if !c.test_key_down(*key) {
                 c.a.native_text(&[u16::from(key.to_ascii_lowercase())]);
             }
         }
@@ -43,10 +25,10 @@ fn early_key_test_leaves_native_typing_to_unrecognized_fields() {
     }
 
     let c = Client::notepad();
-    assert!(test_key_down(&c, b'G'));
+    assert!(c.test_key_down(b'G'));
     // A file dialog in a supported process has a different focused field.
     c.host.field_facts.borrow_mut().as_mut().unwrap().focus = HWND::default();
-    assert!(!test_key_down(&c, b'G'));
+    assert!(!c.test_key_down(b'G'));
     no_admission(&c);
     assert!(!c.host.trace.borrow().contains(&"RequestEditSession"));
 
@@ -60,12 +42,38 @@ fn early_key_test_leaves_native_typing_to_unrecognized_fields() {
                 S_OK
             );
         });
-        assert!(!test_key_down(&c, b'G'), "{boundary}");
+        assert!(!c.test_key_down(b'G'), "{boundary}");
         c.host.drained();
         no_admission(&c);
         assert!(!c.host.trace.borrow().contains(&"RequestEditSession"));
     }
 }
+#[test]
+fn nested_native_key_invalidates_the_interrupted_key() {
+    for boundary in ["GetActiveView", "GetWnd", "capture", "GetSelection"] {
+        let c = Rc::new(Client::notepad());
+        let nested = Rc::clone(&c);
+        c.host.on(boundary, 0, move || {
+            assert!(!nested.test_key_down(b'X'));
+            nested.a.native_text(&[u16::from(b'x')]);
+        });
+        let claimed = if boundary == "GetSelection" {
+            c.key(u16::from(b'g'), false)
+        } else {
+            c.test_key_down(b'G')
+        };
+        assert!(
+            !claimed,
+            "{boundary}: the interrupted key must go to the host"
+        );
+        c.a.native_text(&[u16::from(b'g')]);
+        c.host.drained();
+        oracle::document(&c, "xg", 9);
+        oracle::no_effects(&c);
+        assert_eq!(c.a.reads.get(), 0);
+    }
+}
+
 #[test]
 fn explicit_ordinary_application_scopes_admit_one_owned_mark() {
     for scope in [IS_DEFAULT, IS_TEXT] {
@@ -638,6 +646,33 @@ impl Drop for Keyboard {
 }
 
 #[test]
+fn direct_key_rechecks_a_changed_field_after_a_positive_key_test() {
+    let keyboard = Keyboard::new();
+    for boundary in [None, Some("AdviseAdmission"), Some("GetStatus")] {
+        let c = Client::notepad();
+        assert!(c.test_key_down(b'G'));
+        let host = Rc::clone(&c.host);
+        let lose_focus =
+            move || host.field_facts.borrow_mut().as_mut().unwrap().focus = HWND::default();
+        if let Some(boundary) = boundary {
+            c.host.on(boundary, 0, lose_focus);
+        } else {
+            lose_focus();
+        }
+        c.host.trace.borrow_mut().clear();
+        assert!(!keyboard.down(&c, b'G'));
+        c.host.drained();
+        assert!(
+            !c.host.trace.borrow().contains(&"RequestEditSession"),
+            "{boundary:?}"
+        );
+        no_admission(&c);
+        c.a.native_text(&[u16::from(b'g')]);
+        oracle::document(&c, "g", 8);
+    }
+}
+
+#[test]
 fn generic_default_scope_has_no_sensitive_field_authority() {
     let keyboard = Keyboard::new();
     let c = Client::ordinary("Chrome_WidgetWin_1");
@@ -664,6 +699,7 @@ fn generic_default_scope_has_no_sensitive_field_authority() {
 fn generic_native_classes_pass_normal_keys_without_document_access() {
     let keyboard = Keyboard::new();
     for class in [
+        "Scintilla",
         "ArbitraryTsfHost",
         "Chrome_WidgetWin_1",
         "Chrome_RenderWidgetHostHWND",
@@ -682,6 +718,7 @@ fn generic_native_classes_pass_normal_keys_without_document_access() {
                 .field
                 .style |= 0x820;
             assert!(!keyboard.down(&c, b'G'), "class {class}, scope {scope:?}");
+            assert!(!c.host.trace.borrow().contains(&"RequestEditSession"));
             no_admission(&c);
             assert!(!c.host.trace.borrow().contains(&"GetSelection"));
             assert!(c.a.active.borrow().is_none());

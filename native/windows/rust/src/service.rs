@@ -96,6 +96,16 @@ struct State {
 }
 
 impl State {
+    fn application_blocks_input(&self) -> bool {
+        self.application_off
+            || (self.owned.is_none()
+                && self.pending_ready.as_ref().is_some_and(|ready| {
+                    ready.configuration.as_ref().is_some_and(|configuration| {
+                        configuration.application == crate::settings::AppPolicy::Off
+                    })
+                }))
+    }
+
     fn pending_restricts(&self) -> bool {
         self.pending_ready
             .as_ref()
@@ -488,7 +498,7 @@ impl Service {
         }
         self.state.borrow_mut().busy = true;
         let busy = ExecutionCall(self);
-        let result = frame.request_editing();
+        let result = frame.request_retirement();
         if result.effect == crate::edit::Effect::Attempted {
             self.invalidate_if(guard, true);
         }
@@ -1459,14 +1469,7 @@ impl Service {
     ) -> Result<AdmittedKey, HRESULT> {
         use windows::Win32::UI::Input::KeyboardAndMouse::HKL;
         let state = self.state.borrow();
-        if state.application_off
-            || (state.owned.is_none()
-                && state.pending_ready.as_ref().is_some_and(|ready| {
-                    ready.configuration.as_ref().is_some_and(|configuration| {
-                        configuration.application == crate::settings::AppPolicy::Off
-                    })
-                }))
-        {
+        if state.application_blocks_input() {
             drop(state);
             self.refuse(Stage::Key, Cause::Predicate, S_OK);
             return Err(S_OK);
@@ -1878,6 +1881,13 @@ impl Service {
             self.refuse(Stage::Session, Cause::Stale, S_OK);
             return Execution::default();
         }
+        // TSF can deliver a key without testing it first. An unrecognized field keeps native input.
+        let Some(watch) = frame.prepare_input() else {
+            if self.current(guard) && self.owned().is_some() {
+                self.invalidate_word(true);
+            }
+            return Execution::default();
+        };
         frame.allow_source_handoff(source_candidate);
         self.count(Counter::Requested);
         {
@@ -1887,7 +1897,7 @@ impl Service {
             state.diagnostics.request_result = 0;
             state.diagnostics.session_result = 0;
         }
-        let result = frame.request_editing();
+        let result = frame.request_input(watch);
         {
             let mut state = self.state.borrow_mut();
             state.diagnostics.request_present = 1;
@@ -2347,9 +2357,13 @@ impl Service {
             Some(Cause::Inactive)
         } else if state.stopped {
             Some(Cause::Stopped)
-        } else if state.application_off || state.mode == 0 {
+        } else if state.application_blocks_input() || state.mode == 0 {
             Some(Cause::ModeUnset)
-        } else if state.busy || state.admitting_key || state.observing_host {
+        } else if state.busy
+            || state.admitting_key
+            || state.observing_host
+            || state.delivery.is_some()
+        {
             Some(Cause::Reentry)
         } else if context.is_null() {
             Some(Cause::Missing)
@@ -2358,6 +2372,11 @@ impl Service {
         };
         if let Some(cause) = cause {
             drop(state);
+            if cause == Cause::Reentry {
+                // The host can deliver this key before the interrupted request resumes.
+                self.source_input();
+                self.invalidate_word(self.owned().is_some());
+            }
             self.refuse(Stage::Test, cause, S_OK);
             return false;
         }
@@ -2392,7 +2411,7 @@ impl Service {
             if facts.call.exact()
                 && crate::field::classify(&facts.value).is_some()
                 && self.current(guard)
-                && !self.state.borrow().application_off
+                && !self.state.borrow().application_blocks_input()
             {
                 self.count(Counter::Interested);
                 return true;

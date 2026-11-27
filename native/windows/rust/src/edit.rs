@@ -1,3 +1,4 @@
+use crate::admission_watch::Watch;
 use crate::com::OwnServiceLease;
 use crate::diagnostics::{Cause, Counter, LifecycleCause, LifecycleKind, Stage, Unresolved};
 use crate::engine::{Action, Disposition, Plan};
@@ -547,7 +548,7 @@ impl Frame {
         !allowed || !self.check(self.alive(), Cause::Stale)
     }
 
-    fn writable(&self, editing: &Editing) -> bool {
+    fn writable_status(&self, editing: &Editing) -> bool {
         let _observe = self.observe(Stage::Status);
         if !self.alive() {
             return false;
@@ -558,6 +559,10 @@ impl Frame {
                 status.value.dwDynamicFlags & TF_SD_READONLY == 0,
                 Cause::Predicate,
             )
+    }
+
+    fn writable(&self, editing: &Editing) -> bool {
+        self.writable_status(editing)
             && !self.disabled(
                 &editing.context,
                 &GUID_COMPARTMENT_KEYBOARD_DISABLED,
@@ -628,6 +633,17 @@ impl Frame {
         })
     }
 
+    fn still_matches_field(&self, editing: &Editing, field: CandidateField) -> bool {
+        let facts = self
+            .service
+            .capture_field(field.identity.field, editing.authority.host_identity);
+        self.exact(facts.call)
+            && self.check(
+                field::classify(&facts.value) == Some(field) && self.alive(),
+                Cause::Stale,
+            )
+    }
+
     fn permit_range<'range>(
         &self,
         editing: &Editing,
@@ -651,18 +667,11 @@ impl Frame {
             return None;
         }
         let scope = self.ordinary_scope(editing, cookie, range, expected)?;
-        let facts = self
-            .service
-            .capture_field(expected.identity.field, editing.authority.host_identity);
-        let permitted = self.exact(facts.call)
-            && self.check(
-                field::classify(&facts.value) == Some(field) && self.alive(),
-                Cause::Stale,
-            );
-        permitted.then_some(RangePermit {
-            range,
-            _scope: scope,
-        })
+        self.still_matches_field(editing, field)
+            .then_some(RangePermit {
+                range,
+                _scope: scope,
+            })
     }
 
     fn selection(
@@ -1394,13 +1403,51 @@ impl Frame {
         result
     }
 
-    pub(crate) fn request(self: &Rc<Self>, context: &Lease<ITfContext>, client: u32) -> Request {
-        let mut watch = crate::admission_watch::Watch::new(Arc::clone(&self.admission_revoked));
+    fn watch(&self, context: &Lease<ITfContext>) -> Watch {
+        let mut watch = Watch::new(Arc::clone(&self.admission_revoked));
         if let Some(editing) = self.editing_work()
             && !watch.install(context, &editing.authority.manager)
         {
             self.admission_revoked.store(true, Ordering::Release);
         }
+        watch
+    }
+
+    pub(crate) fn prepare_input(&self) -> Option<Watch> {
+        let editing = self.editing_work()?;
+        let expected = self.fresh_field(editing)?;
+        if !self.alive() {
+            return None;
+        }
+        let mut watch = self.watch(&editing.context);
+        if !self.alive() {
+            // The normal request path drains and accounts for a revoked or uncertain watch.
+            return Some(watch);
+        }
+        let matches = self.writable_status(editing) && {
+            let _observe = self.observe(Stage::ProofWindow);
+            self.still_matches_field(editing, expected)
+        };
+        if !matches {
+            if !watch.drain() {
+                self.invalidate(true);
+            }
+            return None;
+        }
+        self.field.set(Some(expected));
+        Some(watch)
+    }
+
+    pub(crate) fn request(self: &Rc<Self>, context: &Lease<ITfContext>, client: u32) -> Request {
+        self.request_watched(context, client, self.watch(context))
+    }
+
+    fn request_watched(
+        self: &Rc<Self>,
+        context: &Lease<ITfContext>,
+        client: u32,
+        mut watch: Watch,
+    ) -> Request {
         let session: ITfEditSession = EditSession {
             frame: Rc::clone(self),
         }
@@ -1430,7 +1477,12 @@ impl Frame {
         }
     }
 
-    pub(crate) fn request_editing(self: &Rc<Self>) -> Request {
+    pub(crate) fn request_input(self: &Rc<Self>, watch: Watch) -> Request {
+        let editing = self.editing_work().expect("incoming editing frame");
+        self.request_watched(&editing.context, editing.authority.client, watch)
+    }
+
+    pub(crate) fn request_retirement(self: &Rc<Self>) -> Request {
         let editing = self.editing_work().expect("editing frame request");
         self.request(&editing.context, editing.authority.client)
     }
