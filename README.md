@@ -3,68 +3,53 @@
 [Русская версия](README.ru.md)
 
 Keyrill fixes English/Russian keyboard-layout mistakes as you type: `ghbdtn` becomes `привет`,
-`руддщ` becomes `hello`. The alpha runs on macOS (InputMethodKit) and Windows (Text Services
-Framework). Both adapters use the same Rust engine through a versioned C ABI. Linux is planned.
+`руддщ` becomes `hello`. It runs offline and is available as an alpha for macOS and Windows. Linux
+is planned.
 
-The engine decides offline whether a word is in the wrong layout, using a frozen frequency model and
-your personal spelling lists. It can read Vim `.add` files and, on macOS, the words you taught the
-system with Learn Spelling if you enable that source. Keyrill does not log, save or send what you
-type.
+[Install on macOS](#macos-setup) · [Install on Windows](#windows-setup)
 
 ## How it works
 
-When automatic correction is on, press Space and Keyrill decides whether the word you just typed was
-meant for the other layout and, if the evidence is strong enough, replaces it. Unknown, technical,
-mixed-script, mixed-case and personally protected words stay as typed: the engine prefers a missed
-correction to a wrong one.
+Select a Keyrill input source for English or Russian. With automatic correction enabled, Space
+checks the word you just typed and converts it when the evidence points to the other layout. Keyrill
+uses a built-in frequency model and protects words in your personal dictionaries. It does not log,
+save or send what you type.
+
+| Action | macOS | Windows |
+| -- | -- | -- |
+| Convert the current word manually | Control+Option+K | Left Ctrl+Left Alt+K |
+| Reverse the correction immediately | Control+Option+Z | Left Ctrl+Left Alt+Z |
+| Restore the original and finish the marked word | Escape | Escape |
+
+The shortcuts work on the current word in supported fields. On Windows, use the physical K and Z
+keys even when typing in the Russian layout.
 
 ### macOS
 
-Select **Keyrill EN** or **Keyrill RU** in place of the stock U.S. and Russian layouts.
+Select **Keyrill EN** or **Keyrill RU**. The input menu shows whether correction is ready.
+**Correction in This App** changes the mode for the current application. Source switching after
+automatic correction can be turned off in Settings.
 
-| Action | Key |
-| -- | -- |
-| Convert the current word regardless of the model | Control+Option+K |
-| Undo a correction, right after it and before the next key | Control+Option+Z |
-| Restore the original and keep it | Escape, while the word is still marked |
+- **Composition** (TextEdit, Safari, Firefox) edits only the marked word after checking its text,
+  range and caret. See the [composition edit contract](docs/macos.md#composition).
+- **Compatibility** (terminals, editors, Microsoft Office and other unlisted applications) uses
+  simulated Backspaces and typing. Unlisted apps default to manual correction, with automatic
+  correction available in Settings. This mode needs Accessibility and Input Monitoring. Typing
+  during a rewrite, focus changes, autocompletion and terminal interfaces can lose keystrokes or
+  corrupt the word. See [ADR 006](docs/adr/006-compatibility-backend.md).
+- **Off** passes keys through in excluded apps such as password managers and remote desktops.
 
-The input menu leads with one line saying whether automatic correction is ready in the current
-application, and if not, why; the lines below it appear only when something needs attention.
-
-After an automatic correction, Keyrill switches to the input mode that matches the corrected
-language, so the next word is typed in the right layout; undoing the correction switches back. Turn
-this off in Settings if you prefer to switch yourself.
-
-Keyrill edits text in one of three ways, chosen per application when it gains focus:
-
-- **Composition** (TextEdit, Safari, Firefox): the word stays marked (underlined) while you type,
-  and Keyrill replaces only that mark after checking its exact text, range and caret. If a check
-  fails before the write, Keyrill writes nothing and leaves that word alone. If the application's
-  answer after the write doesn't match, the effect is unknown: Keyrill commits the marked text
-  exactly as the application reads it back, provided it still covers the marked range, and stops
-  correcting; nothing is guessed or replayed. Correction resumes with the next word only if an
-  earlier write in this activation was verified; otherwise, or after a second unknown outcome, it
-  stays off in that field until you switch away and back.
-- **Compatibility** (terminals, code editors, Microsoft Office and every application not listed):
-  Control+Option+K and Control+Option+Z rewrite the word by posting Backspaces and the replacement.
-  Automatic correction is off here unless you turn it on for unlisted applications in Settings.
-  Keyrill cannot see what the application actually deleted or inserted, so typing during a rewrite,
-  focus changes, autocompletion and TUIs can lose keystrokes or corrupt the word. This mode needs
-  Accessibility and Input Monitoring access. See [ADR 006](docs/adr/006-compatibility-backend.md)
-  for the trade-off.
-- **Off** (password managers, remote desktops, virtual machines): keys pass through untouched.
-
-**Correction in This App** in the input menu shows the current application's mode and changes it.
-The built-in lists are in [macOS adapter](docs/macos.md#application-tiers).
+The [macOS application tiers](docs/macos.md#application-tiers) list the built-in defaults.
 
 ### Windows
 
-Automatic correction is off by default on Windows. In supported fields, Left Ctrl+Left Alt+K
-converts the current word and Left Ctrl+Left Alt+Z reverses a correction while the composition is
-still active. The main editing field in the tested version of Notepad supports correction. Other
-applications can pass input through unchanged. See
-[Windows application qualification](docs/windows.md#application-qualification) for tested versions,
-fields and results.
+Select **Keyrill English** or **Keyrill Русский**. Automatic correction starts off. To turn it on,
+select **Enable automatic correction in admitted controls** in Keyrill Settings.
+
+Windows correction was verified in the main editing field of Notepad 11.2609.11.0 x64. Fields
+outside the supported set pass input through. See the
+[Windows application checks](docs/windows.md#application-qualification) for tested versions, fields
+and results.
 
 ## Install from source
 
@@ -116,11 +101,14 @@ To uninstall, remove both modes from Input Sources, quit the server, delete
 
 ### Windows setup
 
-Use an x64 Windows host. The package includes TSF adapters for both 64-bit and 32-bit applications.
-See the [build prerequisites](docs/windows.md#build-and-check-without-installation) and the
-[package guide](docs/windows-package.md) to build, verify, install or remove the alpha. Installation
-requires administrator rights and the standard U.S. and Russian keyboard layouts. After
-installation, enable and select a Keyrill input profile in Windows.
+Use an x64 Windows host with the
+[build prerequisites](docs/windows.md#build-and-check-without-installation). The package includes
+TSF adapters for 64-bit and 32-bit applications.
+
+1. [Build and verify the package](docs/windows-package.md#candidate-preparation).
+1. Add the standard U.S. and Russian keyboard layouts, then
+   [install the package as administrator](docs/windows-package.md#explicit-maintainer-commands).
+1. Enable and select a Keyrill input profile in Windows.
 
 ## Known limitations on macOS
 
@@ -131,12 +119,7 @@ installation, enable and select a Keyrill input profile in Windows.
 - In English mode, the keys that type `[ ] ; ' , .` and `\` count as letters, because they are х, ъ,
   ж, э, б, ю and ё in Russian: `[jhjij` becomes `хорошо`. While the word is marked, an editor's
   smart quotes and automatic bracket pairing may not apply to them.
-- Only Space triggers automatic correction, so a word followed directly by punctuation or Return
-  stays as typed; Control+Option+K still converts it.
-- In raw-key terminals, Control+Option+K and Control+Option+Z can reach the terminal as well.
-- Typing whole test-split sentences in the wrong layout, automatic correction fixes about 46% of
-  Russian and 60% of English tokens, with no false corrections on the same sentences typed
-  correctly; see [engine](docs/engine.md#evaluation).
+- In raw-key terminals, the manual shortcuts can reach the terminal as well.
 
 ## Documentation
 
@@ -144,7 +127,7 @@ The same documents, with the Rust API, are published at <https://megabyde.github
 
 - [How Keyrill works](docs/how-it-works.md): one word from key press to verified edit; start here
 - [Architecture](ARCHITECTURE.md): components, state ownership and safety invariants
-- [Engine](docs/engine.md): mapping, inference, personal vocabulary and the model
+- [Engine](docs/engine.md): mapping, inference, personal vocabulary and model evaluation
 - [macOS adapter](docs/macos.md): InputMethodKit integration, settings and build variants
 - [Windows adapter](docs/windows.md): TSF integration, verification and application coverage
 - [Porting](docs/porting.md): the requirements for native adapters, with the Windows work as an
