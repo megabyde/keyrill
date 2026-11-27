@@ -1,7 +1,7 @@
 # tools/build-site.py copies this file next to the staged sources and runs mdBook there
 [book]
 title = "Keyrill"
-description = "Fixes English/Russian keyboard-layout mistakes as you type"
+description = "Fixes English/Russian keyboard-layout mistakes as you type. An offline input method for macOS and Windows (alpha)."
 language = "en"
 src = "src"
 

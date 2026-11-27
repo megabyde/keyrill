@@ -3,25 +3,24 @@
 [Русская версия](README.ru.md)
 
 Keyrill fixes English/Russian keyboard-layout mistakes as you type: `ghbdtn` becomes `привет`,
-`руддщ` becomes `hello`. It is a local input method with a Rust engine, a versioned C ABI (the
-binary interface native code calls it through) and a native macOS InputMethodKit adapter. Inference,
-the decision whether a typed word is in the wrong layout, runs offline against a frozen frequency
-model and your own spelling lists: Vim `.add` files if you keep them and the words you taught macOS
-with Learn Spelling if you enable that source. Nothing is logged, persisted or sent over the
-network.
+`руддщ` becomes `hello`. The alpha runs on macOS (InputMethodKit) and Windows (Text Services
+Framework). Both adapters use the same Rust engine through a versioned C ABI. Linux is planned.
 
-This is an alpha. macOS has an adapter, and Windows has a Rust TSF runtime and proof tools. The
-Windows x64 and x86 native suites have passed locally. Application and physical input acceptance are
-in progress. Linux remains open work. See [porting](docs/porting.md) and
-[Windows application qualification](docs/windows.md#application-qualification).
+The engine decides offline whether a word is in the wrong layout, using a frozen frequency model and
+your personal spelling lists. It can read Vim `.add` files and, on macOS, the words you taught the
+system with Learn Spelling if you enable that source. Keyrill does not log, save or send what you
+type.
 
 ## How it works
 
-You select **Keyrill EN** or **Keyrill RU** as the input source in place of the stock U.S. and
-Russian layouts. When you press Space, Keyrill decides whether the word you just typed was meant for
-the other layout and, if the evidence is strong enough, replaces it. Unknown, technical,
+When automatic correction is on, press Space and Keyrill decides whether the word you just typed was
+meant for the other layout and, if the evidence is strong enough, replaces it. Unknown, technical,
 mixed-script, mixed-case and personally protected words stay as typed: the engine prefers a missed
 correction to a wrong one.
+
+### macOS
+
+Select **Keyrill EN** or **Keyrill RU** in place of the stock U.S. and Russian layouts.
 
 | Action | Key |
 | -- | -- |
@@ -58,7 +57,18 @@ Keyrill edits text in one of three ways, chosen per application when it gains fo
 **Correction in This App** in the input menu shows the current application's mode and changes it.
 The built-in lists are in [macOS adapter](docs/macos.md#application-tiers).
 
+### Windows
+
+Automatic correction is off by default on Windows. In supported fields, Left Ctrl+Left Alt+K
+converts the current word and Left Ctrl+Left Alt+Z reverses a correction while the composition is
+still active. The main editing field in the tested version of Notepad supports correction. Other
+applications can pass input through unchanged. See
+[Windows application qualification](docs/windows.md#application-qualification) for tested versions,
+fields and results.
+
 ## Install from source
+
+### macOS setup
 
 You need Apple Silicon macOS with Command Line Tools and Rust (rustup installs the exact toolchain
 from `rust-toolchain.toml` on first use).
@@ -104,7 +114,15 @@ To uninstall, remove both modes from Input Sources, quit the server, delete
 `~/Library/Input Methods/KeyrillAlpha.app` and, if you want the settings gone too, run
 `defaults delete org.keyrill.inputmethod.alpha`. Keyrill never modifies your dictionary files.
 
-## Known limitations
+### Windows setup
+
+Use an x64 Windows host. The package includes TSF adapters for both 64-bit and 32-bit applications.
+See the [build prerequisites](docs/windows.md#build-and-check-without-installation) and the
+[package guide](docs/windows-package.md) to build, verify, install or remove the alpha. Installation
+requires administrator rights and the standard U.S. and Russian keyboard layouts. After
+installation, enable and select a Keyrill input profile in Windows.
+
+## Known limitations on macOS
 
 - Secure Input stops correction, but Keyrill doesn't detect every password or hidden terminal
   prompt. With Secure Input off, compatibility mode can hold sensitive typing in memory.
@@ -128,7 +146,9 @@ The same documents, with the Rust API, are published at <https://megabyde.github
 - [Architecture](ARCHITECTURE.md): components, state ownership and safety invariants
 - [Engine](docs/engine.md): mapping, inference, personal vocabulary and the model
 - [macOS adapter](docs/macos.md): InputMethodKit integration, settings and build variants
-- [Porting](docs/porting.md): what a Windows or Linux adapter must implement
+- [Windows adapter](docs/windows.md): TSF integration, verification and application coverage
+- [Porting](docs/porting.md): the requirements for native adapters, with the Windows work as an
+  example
 - [Learning Rust and Objective-C++](docs/learn/README.md): the languages taught on this code, with
   exercises
 - [Development](docs/development.md) and [testing](docs/testing.md)
