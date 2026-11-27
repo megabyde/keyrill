@@ -19,7 +19,7 @@ jobs:
             platform: linux
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Toolchain
@@ -34,6 +34,13 @@ jobs:
             pipx install clang-format==23.1.3
             xcrun --show-sdk-version
           fi
+      - name: Cache Windows x64 Cargo dependencies
+        if: matrix.platform == 'windows-x64'
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}-x86_64-pc-windows-msvc
+          cache-bin: false
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - name: Verify
         shell: bash
         run: ./tools/verify
@@ -53,11 +60,17 @@ jobs:
     name: behavior (windows-x86)
     runs-on: windows-2025
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Toolchain
         run: rustup toolchain install 1.99.1 --profile minimal --component clippy,rustfmt --target i686-pc-windows-msvc
+      - name: Cache Windows x86 Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-2025-i686-pc-windows-msvc
+          cache-bin: false
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - run: cargo fetch --locked
       - name: Verify x86 clients on Windows x64
         run: cargo xtask windows check --arch x86
@@ -65,11 +78,17 @@ jobs:
     name: sanitize (windows-x64)
     runs-on: windows-2025
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Toolchain
         run: rustup toolchain install 1.99.1 --profile minimal --component clippy,rustfmt
+      - name: Cache Windows ASan Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-2025-x86_64-pc-windows-msvc-asan
+          cache-bin: false
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - run: cargo fetch --locked
       - name: Verify x64 with experimental Rust AddressSanitizer and required memory-error canary
         run: cargo xtask windows sanitize
@@ -79,11 +98,16 @@ jobs:
     needs: [behavior, windows-x86, windows-sanitize, audit, coverage, core-analysis]
     runs-on: windows-2025
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Toolchain
         run: rustup toolchain install 1.99.1 --profile minimal --component clippy,rustfmt --target i686-pc-windows-msvc
+      - name: Cache Cargo downloads for clean package builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+          cache-bin: false
       - run: cargo fetch --locked
       - name: Build both production architectures
         run: cargo xtask windows package-build --arch all
@@ -143,33 +167,49 @@ jobs:
           }
           Write-Output 'Both clean dual-architecture candidates have identical paths and SHA-256 digests.'
       - name: Upload verified unsigned candidate
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        uses: actions/upload-artifact@v7
         with:
           name: keyrill-windows-unsigned
           path: target/windows-ci-candidate-first/
           if-no-files-found: error
   audit:
     runs-on: macos-15
+    env:
+      CARGO_DENY_VERSION: "0.20.2"
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - run: rustup toolchain install 1.99.1 --profile minimal
-      - run: cargo install cargo-deny --locked --version 0.20.2
+      - name: Cache CI tools
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: cargo-deny-${{ env.CARGO_DENY_VERSION }}
+          cache-targets: false
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - run: cargo install cargo-deny --locked --version "$CARGO_DENY_VERSION"
       - run: ./tools/verify audit
   coverage:
     runs-on: macos-15
+    env:
+      CARGO_LLVM_COV_VERSION: "0.6.21"
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - run: rustup toolchain install 1.99.1 --profile minimal --component llvm-tools-preview
-      - run: cargo install cargo-llvm-cov --locked --version 0.6.21
+      - name: Cache CI tools
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: cargo-llvm-cov-${{ env.CARGO_LLVM_COV_VERSION }}
+          cache-targets: false
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - run: cargo install cargo-llvm-cov --locked --version "$CARGO_LLVM_COV_VERSION"
       - run: ./tools/verify coverage
       # Uploaded unzipped, the single-page report opens in the browser from the run page
       - id: report
         if: ${{ !cancelled() && hashFiles('target/llvm-cov/keyrill-coverage.html') != '' }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        uses: actions/upload-artifact@v7
         with:
           path: target/llvm-cov/keyrill-coverage.html
           archive: false
@@ -186,13 +226,21 @@ jobs:
           } >>"$GITHUB_STEP_SUMMARY"
   core-analysis:
     runs-on: macos-15
+    env:
+      CARGO_FUZZ_VERSION: "0.13.2"
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - run: rustup toolchain install 1.99.1 --profile minimal
       - run: rustup toolchain install nightly-2026-10-26 --profile minimal --component miri,rust-src
-      - run: cargo install cargo-fuzz --locked --version 0.13.2
+      - name: Cache CI tools
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: cargo-fuzz-${{ env.CARGO_FUZZ_VERSION }}
+          cache-targets: false
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - run: cargo install cargo-fuzz --locked --version "$CARGO_FUZZ_VERSION"
       - run: ./tools/verify miri
       - run: ./tools/verify fuzz
       - run: ./tools/verify evaluate
