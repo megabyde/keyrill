@@ -65,6 +65,12 @@ jobs:
           persist-credentials: false
       - name: Toolchain
         run: rustup toolchain install 1.99.1 --profile minimal --component clippy,rustfmt --target i686-pc-windows-msvc
+      - name: Cache Windows x86 Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-2025-i686-pc-windows-msvc
+          cache-bin: false
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - run: cargo fetch --locked
       - name: Verify x86 clients on Windows x64
         run: cargo xtask windows check --arch x86
@@ -77,6 +83,12 @@ jobs:
           persist-credentials: false
       - name: Toolchain
         run: rustup toolchain install 1.99.1 --profile minimal --component clippy,rustfmt
+      - name: Cache Windows ASan Cargo dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-2025-x86_64-pc-windows-msvc-asan
+          cache-bin: false
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       - run: cargo fetch --locked
       - name: Verify x64 with experimental Rust AddressSanitizer and required memory-error canary
         run: cargo xtask windows sanitize
@@ -91,6 +103,11 @@ jobs:
           persist-credentials: false
       - name: Toolchain
         run: rustup toolchain install 1.99.1 --profile minimal --component clippy,rustfmt --target i686-pc-windows-msvc
+      - name: Cache Cargo downloads for clean package builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-targets: false
+          cache-bin: false
       - run: cargo fetch --locked
       - name: Build both production architectures
         run: cargo xtask windows package-build --arch all
