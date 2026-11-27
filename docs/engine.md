@@ -69,8 +69,8 @@ punctuation at the end leaves an English core, and that core gets known-word pro
 doesn't become `шею` and `he,` doesn't become `руб`. A word without letters is ineligible.
 
 A three-unit word with a candidate Zipf of at least 4 gets another 3 log10 units of evidence per
-leading provisional unit, unless context supports the source language. This lets `[eq` become `хуй`
-and `,kz` become `бля` without preceding context. It can also convert an intentional literal
+leading provisional unit, unless context supports the source language. This lets `[jl` become `ход`
+and `,sk` become `был` without preceding context. It can also convert an intentional literal
 fragment; personal-vocabulary and known-word protection still apply before scoring.
 
 The engine abstains on unknown modes, unsupported or mixed-script tokens, mixed case, multi-letter
