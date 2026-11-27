@@ -12,13 +12,22 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    env:
+      MDBOOK_VERSION: "0.5.4"
+      MDBOOK_MERMAID_VERSION: "0.17.1"
     steps:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - run: rustup toolchain install 1.99.1 --profile minimal
-      - run: cargo install mdbook --locked --version 0.5.4
-      - run: cargo install mdbook-mermaid --locked --version 0.17.1
+      - name: Cache CI tools
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: mdbook-${{ env.MDBOOK_VERSION }}-mdbook-mermaid-${{ env.MDBOOK_MERMAID_VERSION }}
+          cache-targets: false
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - run: cargo install mdbook --locked --version "$MDBOOK_VERSION"
+      - run: cargo install mdbook-mermaid --locked --version "$MDBOOK_MERMAID_VERSION"
       - run: ./tools/verify site
       - uses: actions/upload-pages-artifact@v5
         with:

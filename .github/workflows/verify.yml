@@ -174,21 +174,37 @@ jobs:
           if-no-files-found: error
   audit:
     runs-on: macos-15
+    env:
+      CARGO_DENY_VERSION: "0.20.2"
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - run: rustup toolchain install 1.99.1 --profile minimal
-      - run: cargo install cargo-deny --locked --version 0.20.2
+      - name: Cache CI tools
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: cargo-deny-${{ env.CARGO_DENY_VERSION }}
+          cache-targets: false
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - run: cargo install cargo-deny --locked --version "$CARGO_DENY_VERSION"
       - run: ./tools/verify audit
   coverage:
     runs-on: macos-15
+    env:
+      CARGO_LLVM_COV_VERSION: "0.6.21"
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - run: rustup toolchain install 1.99.1 --profile minimal --component llvm-tools-preview
-      - run: cargo install cargo-llvm-cov --locked --version 0.6.21
+      - name: Cache CI tools
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: cargo-llvm-cov-${{ env.CARGO_LLVM_COV_VERSION }}
+          cache-targets: false
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - run: cargo install cargo-llvm-cov --locked --version "$CARGO_LLVM_COV_VERSION"
       - run: ./tools/verify coverage
       # Uploaded unzipped, the single-page report opens in the browser from the run page
       - id: report
@@ -210,13 +226,21 @@ jobs:
           } >>"$GITHUB_STEP_SUMMARY"
   core-analysis:
     runs-on: macos-15
+    env:
+      CARGO_FUZZ_VERSION: "0.13.2"
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - run: rustup toolchain install 1.99.1 --profile minimal
       - run: rustup toolchain install nightly-2026-10-26 --profile minimal --component miri,rust-src
-      - run: cargo install cargo-fuzz --locked --version 0.13.2
+      - name: Cache CI tools
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: cargo-fuzz-${{ env.CARGO_FUZZ_VERSION }}
+          cache-targets: false
+          save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - run: cargo install cargo-fuzz --locked --version "$CARGO_FUZZ_VERSION"
       - run: ./tools/verify miri
       - run: ./tools/verify fuzz
       - run: ./tools/verify evaluate
